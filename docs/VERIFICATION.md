@@ -4,6 +4,26 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
 
 ## Intel Mac virtualization feasibility — September 6
 
+- [Diagnostic installer attempt 34053729590](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34053729590)
+  on source `671aa8afaf24a84a2e9e064ff062b822d99eaaf6` established the specific
+  blocker. Apple's Catalina download completed in about 10 minutes 14 seconds.
+  Both strict recursive verification (with and without the supplemental Apple
+  requirement) rejected the top-level installer with `resource envelope is
+  obsolete (custom omit rules)`. Gatekeeper separately rejected the same bundle
+  for the same reason. Displayed signature metadata identifies Apple's signing
+  chain but does not override those failed integrity/policy checks.
+  The probe stopped before creating installation media or booting a macOS guest;
+  its private files and Oracle mount were cleaned up. No Lab execution or reboot
+  was tested in this attempt, and no policy bypass or re-signing was performed.
+- The current Catalina-on-hosted-Intel installer route is blocked at that
+  verification gate. Repeating the same download has no established benefit.
+  Apple documents [creating bootable media with its command-line tool](https://support.apple.com/en-us/101578),
+  but a separately accepted tool plus validated dependencies/media has not been
+  established here. Its [code-signing note](https://developer.apple.com/library/archive/technotes/tn2206/_index.html)
+  explains rejection of custom resource rules and distinguishes signature
+  metadata from validation. The macOS reboot gate remains open; this result
+  neither invalidates the passed native macOS service checks nor establishes
+  that every possible hosted Mac guest route is impossible.
 - [Catalina installer attempt 34052537550](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34052537550)
   used source `951b6a788104727b86d594072a7e22ac2a1d4d08`. Apple's full-installer
   download completed in about 8 minutes 25 seconds. The subsequent recursive

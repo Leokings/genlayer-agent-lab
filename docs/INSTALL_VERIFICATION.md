@@ -197,3 +197,13 @@ parser mismatch, corrected by requesting the documented `list --long` format.
 The `catalog` mode additionally runs Apple's read-only
 `softwareupdate --list-full-installers` and records only version numbers.
 It does not fetch an installer or update the host operating system.
+
+The `installer` mode downloads Apple's Catalina 10.15.7 installer and attempts
+normal boot-media preparation only after signature and system-policy checks pass.
+Its [diagnostic run 34053729590](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34053729590)
+is blocked: both strict verification and Gatekeeper reject the downloaded app's
+obsolete resource envelope with custom omit rules. No media creation or macOS
+guest boot occurred. Re-running the same inputs is not an established remedy;
+the macOS reboot trial still needs a usable, verified guest installation route
+or access to a Mac that can be restarted. The passing native macOS service
+workflow remains separate evidence. See [VERIFICATION.md](VERIFICATION.md).
