@@ -45,6 +45,16 @@ jobs:
           name: installed-wheel-${{ matrix.os }}
           path: .lab/install-verification-${{ matrix.os }}.json
           if-no-files-found: error
+      - name: Preserve tested Linux release artifacts
+        if: success() && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tested-linux-distributions
+          path: |
+            dist-ci/*.whl
+            dist-ci/*.tar.gz
+          if-no-files-found: error
+          retention-days: 3
 
   custom-contract-worker:
     runs-on: ubuntu-latest

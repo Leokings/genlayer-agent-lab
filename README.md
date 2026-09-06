@@ -131,7 +131,7 @@ npm run verify:dashboard
 
 That script expects a running server, a token at `.lab/demo/admin.token` (override with `LAB_DATA_DIR`), and tests launching, grading, comparison, download and mobile layout. It reads the token directly without printing it.
 
-Native Linux, macOS and Windows CI passed, including fresh installed-wheel checks and TypeScript integration. The separate Docker job passed its live checks and all 18 custom-binding scenarios. Windows user startup was exercised locally, and alpha 5 passed the native Linux systemd user-service lifecycle. Native macOS startup and full-machine reboot/logout trials remain open. See the [verification record](docs/VERIFICATION.md) for exact evidence. No paid model calls are part of the default suite.
+Native Linux, macOS and Windows CI passed, including fresh installed-wheel checks and TypeScript integration. The separate Docker job passed its live checks and all 18 custom-binding scenarios. Windows user startup was exercised locally; alpha 5 passed the native Linux systemd user-service lifecycle, and alpha 6 passed the native macOS LaunchAgent lifecycle. Alpha 6 also recovered automatically after a real Ubuntu guest OS reboot with administrator-configured lingering. Windows/macOS reboot and desktop logout/login trials remain open. See the [verification record](docs/VERIFICATION.md) for exact evidence. No paid model calls are part of the default suite.
 
 To verify all three external clients against an already running service and imported delivery binding:
 

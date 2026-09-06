@@ -2,6 +2,51 @@
 
 Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
+## Alpha 6 native macOS user-service verification — September 6
+
+- [Native macOS CI run 34028354236](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34028354236)
+  passed at source commit `5d1c2cf70bb13c63dd8337acc095ff82f51b441b` on
+  macOS 15.7.9 ARM64, Python 3.12.10, in the runner's actual GUI login session.
+  The fresh installed alpha 6 wheel had SHA-256
+  `75770533917e107c43edbf52e7ff0ce62c6ceefe1fe252e192117eda7b523c88`.
+  Later documentation changes produce a different release artifact hash.
+- Actual LaunchAgent installation, start, stop, restart and uninstall passed.
+  Two authenticated HTTP runs executed the bundled GLSim contract and passed all
+  four grades. The first frozen report, run history and administrator credential
+  survived restart. Uninstall removed the job and plist and closed the port while
+  preserving the database, credential and log. Guarded cleanup removed only the
+  verifier's installation. The installed probe took **122.946 seconds**.
+- The native test found two defects: launchctl's printed argument indentation was
+  removed together with meaningful trailing spaces, and a stop could return before
+  macOS finished unloading the job. Alpha 6 preserves exact arguments and waits
+  for unloading with a fixed deadline. Changed arguments and duplicate definition
+  fields still fail ownership validation; focused regression tests cover both fixes.
+- This uses a free standard public-repository macOS runner. It establishes the
+  real service lifecycle in an existing GUI session, not logout/login, a macOS
+  reboot, automatic Studio startup, or independent human onboarding.
+
+## Alpha 6 real Ubuntu guest OS reboot — September 6
+
+- [Linux guest reboot CI run 34028862719](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34028862719)
+  passed at source commit `57b93b7da17f318f6535511a48b5fb822b153709`.
+  The installed alpha 6 wheel matched the macOS candidate hash above:
+  `75770533917e107c43edbf52e7ff0ce62c6ceefe1fe252e192117eda7b523c88`.
+  The guest used Canonical's Ubuntu 24.04 image dated 20260826; its signature
+  and pinned SHA-256 were verified before boot. QEMU used actual KVM acceleration
+  as the regular CI account with membership in the KVM group.
+- A fresh Lab account installed the wheel, passed the actual GLSim doctor,
+  registered its user service and completed a bundled GLSim HTTP run. The guest
+  administrator explicitly enabled lingering. After an orderly guest OS reboot,
+  its boot identity changed and the Lab became ready automatically with no Lab
+  login session or manual start. The original credential remained accepted,
+  installation identity and frozen report were unchanged, history survived,
+  and a second actual GLSim run passed all four grades.
+- The same guest disk and QEMU process were retained while the outer runner's
+  boot identity stayed unchanged. Owned guest cleanup passed. The complete
+  verifier took **127.964 seconds**. This establishes a real Linux guest kernel
+  reboot with the documented server policy, not a provider-host reboot, abrupt
+  power loss, Windows/macOS reboot, Studio recovery or a human installation trial.
+
 ## Alpha 5 native Linux user-service verification — September 6
 
 - [Native Linux CI run 34025370784](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34025370784)
@@ -203,8 +248,9 @@ The Docker gate was unresolved at that point; the later live checks above supers
 
 ## Not established by these checks
 
-Native Windows/Linux/macOS package CI and Windows/Linux user startup have passed
-as recorded above. Native macOS startup, full-machine reboot/logout and two human
+Native Windows/Linux/macOS package CI and service-manager lifecycle checks have
+passed as recorded above. A real Ubuntu guest reboot passed with explicitly
+configured lingering. Windows/macOS reboot, desktop logout/login and two human
 external developer installation trials remain open. The examples are scripted controls,
 not tests of live LLM reasoning. No real funds, live provider calls,
 public-network finality or modern appeal bond settlement were tested.

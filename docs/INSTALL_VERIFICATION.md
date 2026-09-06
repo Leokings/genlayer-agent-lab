@@ -33,7 +33,7 @@ The pinned universal GenVM archive is about 217 MB. The first `doctor` preparati
 
 A local Linux Docker check can install the same wheel inside a fresh official Python Linux image. Mount only the wheel read-only, pass the verification script over stdin, and provide no host virtual environment, caches, credentials, project source or Docker socket. A temporary filesystem containing the fresh virtual environment needs explicit `exec` permission so its installed console scripts and Python extensions can run; the container root can remain read-only. Retrieve the sanitized report from that owned container and remove only that container afterward. This establishes Linux userspace behavior inside Docker on the current host; it is not evidence of a native Linux or macOS runner.
 
-The JSON report records the wheel SHA-256, Python/platform identity, installed distribution versions, resource hashes, doctor evidence, suite counts and HTTP/MCP results. It distinguishes the fixture scenario suite from actual trusted GLSim execution. Studio consensus, appeals, custom contracts and remote operating-system execution retain their separate verification records.
+The JSON report records the wheel SHA-256, Python/platform identity, installed distribution versions, resource hashes, doctor evidence, suite counts and HTTP/MCP results. It distinguishes the fixture scenario suite from actual trusted GLSim execution. Studio consensus, appeals, custom contracts and remote operating-system execution retain their separate verification records. After successful Ubuntu installation verification, CI also retains the exact wheel and source archive in `tested-linux-distributions` for three days. Release preparation uses these artifacts and checks the wheel hash against the installation report.
 
 ## Linux service verification without a VPS
 
@@ -58,6 +58,18 @@ the service lifecycle on that runner. It does not establish recovery from a
 whole-machine reboot, a macOS GUI login, Studio-volume disaster recovery, or
 independent human onboarding.
 
+## Native macOS service verification
+
+`.github/workflows/macos-service.yml` runs `scripts/verify-macos-service.py` on
+a standard macOS 15 ARM64 runner. It first requires the runner's real GUI login
+session. The script installs the supplied wheel into a fresh persistent virtual
+environment under a uniquely owned home directory child, then exercises the
+actual LaunchAgent through install, start, stop, restart and uninstall.
+Two real bundled GLSim HTTP runs must pass, and saved reports and credentials
+must survive restart. The verifier checks that uninstall removes the loaded job
+and definition while retaining data, then removes only its own installation.
+Its JSON evidence includes no tokens or raw launchctl environment output.
+
 ## Process restart, login and full-machine reboot
 
 These are different checks with different evidence:
@@ -81,3 +93,14 @@ the guest operating system and distinguish that from restarting the provider's
 host. The Lab's user-session startup policy and any separately configured Linux
 lingering policy must be recorded. The optional Docker/Studio stack has its own
 startup and persistent-volume requirements.
+
+`.github/workflows/linux-reboot.yml` exercises that guest approach with a pinned,
+signature- and checksum-verified Ubuntu 24.04 cloud image under KVM. The CI host
+grants its regular runner user access through the KVM group. Inside the guest,
+an administrator enables lingering for the separate Lab account. The verifier
+records a completed bundled GLSim run, reboots only that owned guest, then uses
+a different observer account to verify a new boot identity and automatic HTTP
+readiness before any Lab login or manual service start. It requires unchanged
+credentials, installation identity and frozen report, then a successful new
+GLSim run. The outer runner's boot identity must remain unchanged. Cleanup removes
+the disposable guest disk and keys; compact evidence is retained in CI logs.

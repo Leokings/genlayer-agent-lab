@@ -28,7 +28,7 @@ uv sync --locked --python 3.12
 uv run --locked ruff check src tests scripts
 uv run --locked pytest -q
 uv build
-uv run --locked python scripts/prepare-release.py
+uv run --locked python scripts/prepare-release.py --source-commit VERIFIED_40_CHARACTER_COMMIT
 ```
 
 The final command requires a new destination, audits the wheel/source file lists,
@@ -36,6 +36,14 @@ then assembles the wheel, source archive, initial setup instructions, setup skil
 and `SHA256SUMS` under `dist/release-0.1.0a6`. It never publishes anything. Preserve
 the verified bundle unchanged and record its checksum when sharing it. The
 source archive includes `uv.lock`; the wheel carries the installation kit.
+
+Replace `VERIFIED_40_CHARACTER_COMMIT` with the exact reviewed project commit.
+For publication from CI, download `tested-linux-distributions` and the Ubuntu
+installation report from that commit's successful workflow. Copy its wheel and
+source archive into `dist`, compare the wheel SHA-256 with the report, then run
+only the release-preparation command above. Do not rebuild over the downloaded
+wheel. Wait for the complete OS matrix and custom-contract Docker gate before
+publishing; the Linux artifact upload alone is not the complete release gate.
 
 Run [installed-artifact verification](INSTALL_VERIFICATION.md) against the exact
 wheel being released. For recovery, `scripts/verify-upgrade.py` accepts
