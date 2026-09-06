@@ -1,6 +1,6 @@
 # Build status
 
-This is alpha 4. Status follows executable behavior, not the original release target.
+This is alpha 5. Status follows executable behavior, not the original release target.
 
 | Planned area | Implemented now | Remaining release work |
 |---|---|---|
@@ -10,11 +10,11 @@ This is alpha 4. Status follows executable behavior, not the original release ta
 | Scenario packs | 18 cases across escrow, treasury and generic decisions; declarative YAML import | Domain-specific cases and new protocol semantics |
 | Custom contracts | Verified GLSim Docker worker and Studio GenVM delivery-contract execution; YAML bindings, immutable snapshots, Python/TypeScript/MCP/HTTP/CLI/dashboard selection, cancellation and bounded resources | Multi-file contracts, custom dependency sets and live providers |
 | GenLayer fidelity | GLSim plus an owned local Studio backend using GenVM, bounded SDK calls and separate observed conformance evidence | Live-model evaluation, modern bond accounting and public-network compatibility |
-| Usability | CLI, dashboard, report export, packaged setup kit, user startup management, offline backup/restore, upgrade/rollback procedure | Native Linux/macOS startup trials; recurring schedules are deferred |
+| Usability | CLI, dashboard, report export, packaged setup kit, Windows and native Linux user-service lifecycle, offline backup/restore, upgrade/rollback procedure | Native macOS startup, full-machine reboot and logout trials; recurring schedules are deferred |
 | Recovery | Exclusive-lock SQLite snapshots, integrity/checksum verification, fresh restore destinations, credential rotation, preserved historical reports | Separate Studio-volume disaster recovery; recovery is scoped to Lab SQLite |
 | Publication | Dedicated [public repository](https://github.com/Leokings/genlayer-agent-lab), wheel/source alpha, checksums and passing installed-artifact CI matrix | Complete two external developer installation trials before claiming broader release validation |
 
-The Docker execution gate has passed: the pinned worker image builds, executes its readiness contract and runs the custom delivery contract through real client connections. Alpha 4 completes the implemented install/startup/recovery work from the September 13–16 stages. Native package CI passed on all three operating systems. Remaining validation includes two human external installations and native Linux/macOS startup-manager trials. The native runtime remains restricted to bundled code. See the dated verification record for tested behavior and evidence limits.
+The Docker execution gate has passed: the pinned worker image builds, executes its readiness contract and runs the custom delivery contract through real client connections. The install/startup/recovery work from the September 13–16 stages is implemented. Native package CI passed on all three operating systems. Alpha 5 fixes a Linux startup defect found by the new native systemd user-service check; the corrected lifecycle passed on a free standard Ubuntu CI runner. Remaining validation includes two human external installations, native macOS startup, and full-machine reboot/logout trials. The native runtime remains restricted to bundled code. See the dated verification record for tested behavior and evidence limits.
 
 ## Position against the original schedule
 

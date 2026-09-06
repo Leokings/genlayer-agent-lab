@@ -2,6 +2,37 @@
 
 Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
+## Alpha 5 native Linux user-service verification — September 6
+
+- [Native Linux CI run 34025370784](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34025370784)
+  passed at source commit `9c7bbe9be49bd6b1afb04072078cc9a8841a8c9c` on
+  Ubuntu 24.04 with host Python 3.12.3. A disposable regular user installed the
+  alpha 5 wheel in a fresh persistent virtual environment outside the checkout.
+  This candidate's wheel SHA-256 was
+  `dfa80d4c141b20cbd0b35cff14cbf92f8abd25738bf365fad914dba67a8dea67`;
+  later documentation changes produce a new artifact hash recorded at release.
+- Actual systemd registration, enable, start, stop, restart and uninstall passed.
+  Two authenticated HTTP runs using the scripted safe reference agent executed
+  the real bundled GLSim contract and passed all four grades. The first frozen
+  report was unchanged after restart, both runs remained in history, and the
+  original administrator credential still worked. Uninstall removed the unit
+  and closed the port while preserving the database, credential and log.
+- The data path contained spaces, quotes, `%`, `$`, and a trailing backslash and
+  space. This real test caught alpha 4's invalid quoted `WorkingDirectory`.
+  Alpha 5 starts in the user's home and enters the exact data directory in Python
+  after verifying startup identity. The successful installed probe took
+  **80.776 seconds**; the whole job took **3 minutes 4 seconds**. Its disposable
+  account and services were removed successfully.
+- The new workflow uses a standard public-repository Ubuntu runner, with no VPS,
+  payment card, uploaded service artifacts or paid model provider. The CI host
+  prepares a linger-enabled user manager; the package installer does not grant
+  itself host privileges. This establishes a process lifecycle, not a host reboot,
+  logout, macOS GUI login, Studio startup or independent human onboarding.
+- A separate Windows CI failure exposed floating-point timeout rounding in the
+  Studio conformance helper. Alpha 5 clamps each operation to its configured
+  maximum while retaining the shared deadline. Deterministic coarse-clock and
+  expired-deadline cases cover the correction.
+
 ## Alpha 4 installation, startup and recovery — September 6
 
 - [Cross-platform CI run 34019705696](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34019705696)
@@ -172,9 +203,9 @@ The Docker gate was unresolved at that point; the later live checks above supers
 
 ## Not established by these checks
 
-Native Windows/Linux/macOS package CI and Windows user startup have passed as
-recorded above. Native Linux/macOS startup lifecycles and two human external
-developer installation trials remain open. The examples are scripted controls,
+Native Windows/Linux/macOS package CI and Windows/Linux user startup have passed
+as recorded above. Native macOS startup, full-machine reboot/logout and two human
+external developer installation trials remain open. The examples are scripted controls,
 not tests of live LLM reasoning. No real funds, live provider calls,
 public-network finality or modern appeal bond settlement were tested.
 
