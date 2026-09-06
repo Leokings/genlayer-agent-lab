@@ -2,6 +2,39 @@
 
 Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
+## Alpha 8 Windows guest reboot and login — September 6
+
+- [Windows guest reboot run 34048951171](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34048951171)
+  passed on harness source `0ebebac0cb0cd3d96d395d509607d7514403b7a3` using a
+  Windows 11 Enterprise Evaluation guest, version `10.0.26200`, Python 3.13.7,
+  and a regular non-administrator account with a real interactive login.
+- It installed the published alpha 8 wheel, SHA-256
+  `128d695dfffd1ccf92e6cc436ae0d5aee2a1a2112038d197b67b47e298063b6d`.
+  The wheel came unchanged from [release-source CI 34048597096](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34048597096)
+  at `4e4c36d3c4096ae9069a0fed9b2a58a5cb7e5ffe`: Windows **576 passed/9 skipped**,
+  Ubuntu and macOS **577 passed/8 skipped** each, and the Docker execution gate
+  **5 passed/26 deselected**. All three fresh installed-wheel checks passed.
+- Before reboot, a cold-cache runtime preparation and an actual bundled GLSim
+  escrow run passed. The outside Linux observer retained that baseline before
+  authorizing one orderly Windows guest reboot. The Windows boot time changed
+  from `17:47:02.500 UTC` to `17:51:54.500 UTC` on September 6; the operating-system
+  version and regular-user identity remained the same.
+- After automatic login, the existing managed Scheduled Task started at
+  `17:52:00 UTC`. The observer did not install, start or restart Lab after reboot.
+  Automatic readiness, unchanged installation and credentials, unchanged frozen
+  report and preserved history all passed. Baseline run
+  `573d1996ef4c41dd9accdf836a44fdbb` and new run
+  `833a0acaad1947908fa55c4355516f51` both passed decision, behavior, outcome and
+  completion grades with actual GLSim contract-execution evidence.
+- The outer Linux boot, running QEMU process and persistent guest disk remained
+  unchanged across the guest reboot. Cleanup removed the private guest disk,
+  evaluation image and seed. The trial used a standard public GitHub Linux
+  runner; it did not reboot the development PC or require paid hosting.
+- This closes orderly **Windows guest OS reboot followed by a regular-user
+  automatic login** for the native Lab service. It does not establish Windows
+  startup before login, a separate desktop logout/login cycle, abrupt power
+  loss, macOS reboot, automatic Docker/Studio startup or live-model behavior.
+
 ## Fresh Windows guest runtime download finding — September 6
 
 - The [Windows guest trial on source `22f3457`](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34047014822)
@@ -11,8 +44,8 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
   Python 3.13.7. The trial was inconclusive and did not authorize a reboot.
 - Alpha 8 adds Certifi's public roots to the default SSL context for the pinned
   GenVM download. System roots, hostname/certificate checks and the artifact
-  hash remain required. A new installed-wheel trial is required to close the
-  Windows reboot gate; this code change alone does not close it.
+  hash remain required. The passing alpha 8 trial above verified the corrected
+  download on a fresh Windows guest and completed the reboot/login gate.
 - The failed trial removed its private guest disk, evaluation image and seed.
   Only bounded diagnostic evidence and the failed setup screenshot were retained.
 
@@ -306,7 +339,8 @@ The Docker gate was unresolved at that point; the later live checks above supers
 
 Native Windows/Linux/macOS package CI and service-manager lifecycle checks have
 passed as recorded above. A real Ubuntu guest reboot passed with explicitly
-configured lingering. Windows/macOS reboot, desktop logout/login and two human
+configured lingering. Alpha 8 passed Windows guest reboot followed by a real
+regular-user automatic login. macOS reboot, separate desktop logout/login and two human
 external developer installation trials remain open. The examples are scripted controls,
 not tests of live LLM reasoning. No real funds, live provider calls,
 public-network finality or modern appeal bond settlement were tested.

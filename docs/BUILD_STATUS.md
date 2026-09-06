@@ -1,13 +1,14 @@
 # Build status
 
-This is the alpha 8 candidate. Status follows executable behavior, not the original release target.
+This is alpha 8. Status follows executable behavior, not the original release target.
 
 Alpha 8 fixes the GenVM download's missing certificate issuer on fresh Windows
-installations by adding bundled public certificate roots to the default trust
-store. Certificate verification and pinned artifact checks remain required.
+installations by adding bundled public certificate roots to its downloader's
+default SSL context. System roots, certificate verification and pinned artifact
+checks remain required.
 It retains alpha 7's `studio verify-recovery` command and external developer
-trial checklist. Windows guest reboot verification remains pending until an
-actual successful trial is recorded.
+trial checklist. The published alpha 8 wheel passed an orderly Windows 11 guest
+reboot and real standard-user AutoLogon recovery trial on GitHub Actions.
 
 | Planned area | Implemented now | Remaining release work |
 |---|---|---|
@@ -17,11 +18,13 @@ actual successful trial is recorded.
 | Scenario packs | 18 cases across escrow, treasury and generic decisions; declarative YAML import | Domain-specific cases and new protocol semantics |
 | Custom contracts | Verified GLSim Docker worker and Studio GenVM delivery-contract execution; YAML bindings, immutable snapshots, Python/TypeScript/MCP/HTTP/CLI/dashboard selection, cancellation and bounded resources | Multi-file contracts, custom dependency sets and live providers |
 | GenLayer fidelity | GLSim plus an owned local Studio backend using GenVM, bounded SDK calls and separate observed conformance evidence | Live-model evaluation, modern bond accounting and public-network compatibility |
-| Usability | CLI, dashboard, report export, packaged setup kit, native Windows/Linux/macOS user-service lifecycle, real Ubuntu guest reboot recovery with administrator-configured lingering, offline backup/restore, upgrade/rollback procedure | Windows/macOS reboot and desktop logout/login trials; recurring schedules are deferred |
+| Usability | CLI, dashboard, report export, packaged setup kit, native Windows/Linux/macOS user-service lifecycle, real Ubuntu guest reboot recovery with administrator-configured lingering, orderly Windows 11 guest reboot and standard-user AutoLogon recovery, offline backup/restore, upgrade/rollback procedure | macOS reboot and separate desktop logout/login trials; recurring schedules are deferred |
 | Recovery | Exclusive-lock SQLite snapshots, integrity/checksum verification, fresh restore destinations, credential rotation, preserved historical reports; explicit Studio restart verifier with retained volumes | Studio-volume disaster recovery and interrupted-consensus recovery remain separate, unimplemented capabilities |
 | Publication | Dedicated [public repository](https://github.com/Leokings/genlayer-agent-lab), wheel/source alpha, checksums and passing installed-artifact CI matrix | Complete two external developer installation trials before claiming broader release validation |
 
-The Docker execution gate has passed: the pinned worker image builds, executes its readiness contract and runs the custom delivery contract through real client connections. The install/startup/recovery work from the September 13–16 stages is implemented. Native package CI passed on all three operating systems. Alpha 5 fixed a Linux startup defect; alpha 6 fixes exact macOS argument verification and asynchronous job unloading. The corrected native Linux and macOS service lifecycles passed on free standard CI runners. A separate Ubuntu guest OS reboot passed with administrator-configured lingering and an outside observer; the Lab recovered before its user logged in. Remaining validation includes two human external installations, Windows/macOS reboot and desktop logout/login trials. The native runtime remains restricted to bundled code. See the dated verification record for tested behavior and evidence limits.
+The Docker execution gate has passed: the pinned worker image builds, executes its readiness contract and runs the custom delivery contract through real client connections. The install/startup/recovery work from the September 13–16 stages is implemented. Native package CI passed on all three operating systems. Alpha 5 fixed a Linux startup defect; alpha 6 fixes exact macOS argument verification and asynchronous job unloading. The corrected native Linux and macOS service lifecycles passed on free standard CI runners. A separate Ubuntu guest OS reboot passed with administrator-configured lingering and an outside observer; the Lab recovered before its user logged in. Alpha 8 passed an [orderly Windows 11 guest reboot and real standard-user AutoLogon trial](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34048951171): the owned login task recovered the Lab without a manual start, preserved its data and completed a fresh four-grade GLSim run.
+
+Remaining validation includes two human external installations, macOS reboot, separate desktop logout/login, Windows startup before login, automatic Studio startup and physical power-loss recovery. The native runtime remains restricted to bundled code. See the dated verification record for tested behavior and evidence limits.
 
 ## Position against the original schedule
 

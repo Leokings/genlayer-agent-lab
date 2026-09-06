@@ -152,8 +152,10 @@ reboot or trigger an automatic retry.
 The trial deletes its private guest disk, installation media, unattended passwords
 and logs. This tests orderly **Windows guest OS reboot followed by login**. It does
 not establish recovery before login, physical-machine power loss, macOS behavior,
-or automatic Docker/Studio startup. The actual outcome belongs in
-[VERIFICATION.md](VERIFICATION.md); creating the workflow does not close that gate.
+or automatic Docker/Studio startup. [Run 34048951171](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34048951171)
+passed this gate with the published alpha 8 wheel on September 6. See
+[VERIFICATION.md](VERIFICATION.md) for the exact artifact, boot timestamps,
+automatic recovery checks and remaining limits.
 
 The Windows evaluation image is for bounded evaluation under Microsoft's terms,
 and is downloaded from Microsoft's own distribution rather than republished by
