@@ -50,16 +50,16 @@ jobs:
             RUNNER_OS="$RUNNER_OS" RUNNER_TEMP="$RUNNER_TEMP" \
             /usr/bin/python3 -I scripts/windows-reboot-preflight.py \
             --output "$RUNNER_TEMP/windows-reboot-preflight.json"
-      - name: Download and verify the exact released alpha 7 wheel
+      - name: Download and verify the exact released alpha 8 wheel
         if: inputs.mode == 'trial'
         shell: bash
         run: |
           set -euo pipefail
-          wheel="$RUNNER_TEMP/genlayer_agent_lab-0.1.0a7-py3-none-any.whl"
+          wheel="$RUNNER_TEMP/genlayer_agent_lab-0.1.0a8-py3-none-any.whl"
           curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
-            'https://github.com/Leokings/genlayer-agent-lab/releases/download/v0.1.0a7/genlayer_agent_lab-0.1.0a7-py3-none-any.whl' \
+            'https://github.com/Leokings/genlayer-agent-lab/releases/download/v0.1.0a8/genlayer_agent_lab-0.1.0a8-py3-none-any.whl' \
             --output "$wheel"
-          printf '%s  %s\n' '9a53191df7eda55c2fe8d132127c0327051ec9cdd6a581fa2f420655204a1634' "$wheel" | sha256sum --check --strict
+          printf '%s  %s\n' '128d695dfffd1ccf92e6cc436ae0d5aee2a1a2112038d197b67b47e298063b6d' "$wheel" | sha256sum --check --strict
       - name: Verify guest restart, actual login, and automatic Lab recovery
         if: inputs.mode == 'trial'
         shell: bash
@@ -71,7 +71,7 @@ jobs:
             GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
             RUNNER_OS="$RUNNER_OS" RUNNER_TEMP="$RUNNER_TEMP" \
             /usr/bin/python3 -I scripts/verify-windows-reboot.py \
-            --wheel "$RUNNER_TEMP/genlayer_agent_lab-0.1.0a7-py3-none-any.whl" \
+            --wheel "$RUNNER_TEMP/genlayer_agent_lab-0.1.0a8-py3-none-any.whl" \
             --output "$RUNNER_TEMP/windows-reboot-evidence.json" \
             --first-login-timeout "$SETUP_WAIT_SECONDS"
       - name: Record bounded evidence without uploading guest files

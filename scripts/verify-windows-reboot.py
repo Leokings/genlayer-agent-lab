@@ -42,8 +42,8 @@ ISO_SHA = "a61adeab895ef5a4db436e0a7011c92a2ff17bb0357f58b13bbc4062e535e7b9"
 PYTHON_URL = "https://www.python.org/ftp/python/3.13.7/python-3.13.7-amd64.exe"
 # Digest in python.org's release sigstore bundle; guest also checks Authenticode.
 PYTHON_SHA = "b12e2e82461ac8e51fc43289050bc8eb937a32d84ce4d242e2c88258c37cf2bb"
-WHEEL_SHA = "9a53191df7eda55c2fe8d132127c0327051ec9cdd6a581fa2f420655204a1634"
-VERSION = "0.1.0a7"
+WHEEL_SHA = "128d695dfffd1ccf92e6cc436ae0d5aee2a1a2112038d197b67b47e298063b6d"
+VERSION = "0.1.0a8"
 GIB = 1024**3
 SETUP_SNAPSHOT_INTERVAL = 600
 SETUP_SNAPSHOT_LIMIT = 4

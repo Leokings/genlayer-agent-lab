@@ -113,7 +113,7 @@ the disposable guest disk and keys; compact evidence is retained in CI logs.
 `.github/workflows/windows-reboot.yml` implements a separate, manually dispatched
 Windows guest trial. Its `preflight` mode measures actual free disk, checks the
 firmware and creates an empty KVM VM as the regular hosted Linux user. Its `trial`
-mode downloads the exact published alpha 7 wheel and Microsoft's Windows 11
+mode downloads the exact published alpha 8 wheel and Microsoft's Windows 11
 Enterprise 25H2 evaluation ISO, verifies their pinned SHA-256 digests, and installs
 Windows on an empty private 80 GiB virtual disk. It requires at least 35 GiB of
 actual free space. Firmware has Microsoft Secure Boot keys, and the guest has a
