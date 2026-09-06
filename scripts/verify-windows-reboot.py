@@ -13,6 +13,7 @@ import base64
 import hashlib
 import hmac
 import http.server
+import io
 import json
 import os
 import platform
@@ -44,6 +45,9 @@ PYTHON_SHA = "b12e2e82461ac8e51fc43289050bc8eb937a32d84ce4d242e2c88258c37cf2bb"
 WHEEL_SHA = "9a53191df7eda55c2fe8d132127c0327051ec9cdd6a581fa2f420655204a1634"
 VERSION = "0.1.0a7"
 GIB = 1024**3
+SETUP_SNAPSHOT_INTERVAL = 600
+SETUP_SNAPSHOT_LIMIT = 4
+SETUP_PNG_MAX_BYTES = 96 * 1024
 STAGE = "initialization"
 
 
@@ -252,6 +256,11 @@ def seed_launcher(nonce):
         "$bytes=[Convert]::FromBase64String($expected);"
         "$stream=[IO.File]::Open($setup,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);"
         "try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}};"
+        "try{$c=Get-Content -LiteralPath 'C:\\LabTrial\\guest.json' -Raw | ConvertFrom-Json;"
+        "$body=@{nonce=$c.nonce;stage='guest_seed_setup_complete_armed'}|ConvertTo-Json -Compress;"
+        "Invoke-RestMethod -UseBasicParsing -Uri ($c.mailbox+'/stage') -Method Post "
+        "-ContentType 'application/json' -Headers @{Authorization=('Bearer '+$c.mailbox_token)} "
+        "-Body $body -TimeoutSec 3 | Out-Null}catch{};"
         "exit 0"
     )
 
@@ -448,8 +457,42 @@ def seed(directory, wheel, nonce, mailbox):
              directory / "seed.iso", directory / "seed"], timeout=90)
 
 
-def wait_for(qemu, mailbox, predicate, seconds, phase, output, evidence):
-    deadline = time.monotonic() + seconds
+def emit_setup_snapshot(qmp, directory):
+    """Emit one bounded, full-resolution image from the disposable setup guest.
+
+    This optional diagnostic must not change verification or its failure stage.
+    Credentials and application data are never deliberately displayed by setup.
+    """
+    screen = directory / "setup-screen.ppm"
+    try:
+        from PIL import Image
+
+        print("Windows guest trial: guest_setup_snapshot_started", flush=True)
+        qmp.execute("screendump", {"filename": str(screen)})
+        with Image.open(screen) as snapshot, io.BytesIO() as encoded:
+            snapshot.save(encoded, format="PNG", optimize=True)
+            png = encoded.getvalue()
+        if len(png) > SETUP_PNG_MAX_BYTES:
+            print("Windows guest trial: guest_setup_snapshot_skipped_oversize", flush=True)
+            return
+        print("GLAB_GUEST_SETUP_PNG:" + base64.b64encode(png).decode("ascii"), flush=True)
+        print("Windows guest trial: guest_setup_snapshot_emitted", flush=True)
+    except Exception:
+        # QMP, image decoding, missing Pillow, and private-file failures are only
+        # diagnostic failures. Never include raw exception details in public logs.
+        print("Windows guest trial: guest_setup_snapshot_skipped_error", flush=True)
+    finally:
+        try:
+            screen.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def wait_for(qemu, mailbox, predicate, seconds, phase, output, evidence, *, setup_snapshot=None):
+    started = time.monotonic()
+    deadline = started + seconds
+    next_snapshot = started + SETUP_SNAPSHOT_INTERVAL
+    snapshot_attempts = 0
     last_note = 0
     while time.monotonic() < deadline:
         require(qemu.poll() is None, "qemu_exited_" + str(qemu.returncode))
@@ -466,6 +509,15 @@ def wait_for(qemu, mailbox, predicate, seconds, phase, output, evidence):
         require(not guest_stage.endswith(("_failed", "_mismatch")), guest_stage)
         if predicate(snapshot):
             return snapshot
+        if (phase == "await_first_logon_and_baseline" and setup_snapshot is not None
+                and not snapshot.get("baseline") and snapshot_attempts < SETUP_SNAPSHOT_LIMIT
+                and time.monotonic() >= next_snapshot):
+            snapshot_attempts += 1
+            try:
+                setup_snapshot()
+            except Exception:
+                print("Windows guest trial: guest_setup_snapshot_skipped_error", flush=True)
+            next_snapshot = time.monotonic() + SETUP_SNAPSHOT_INTERVAL
         time.sleep(2)
     raise TrialError(phase + "_timeout")
 
@@ -547,7 +599,8 @@ def trial(wheel, output, runner_temp, first_login_timeout=2700):
             qmp.execute("send-key", {"keys": [{"type": "qcode", "data": "spc"}], "hold-time": 100})
             time.sleep(1)
         before = wait_for(qemu, mailbox, lambda body: bool(body.get("baseline")), first_login_timeout,
-                          "await_first_logon_and_baseline", output, evidence)
+                          "await_first_logon_and_baseline", output, evidence,
+                          setup_snapshot=lambda: emit_setup_snapshot(qmp, directory))
         baseline = before["baseline"]
         validate_baseline(baseline, nonce)
         require(before.get("boot_utc") == baseline["system"]["boot_utc"], "observer_baseline_boot_mismatch")

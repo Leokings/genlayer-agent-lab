@@ -139,7 +139,10 @@ start, restart or doctor in that phase. It requires unchanged credentials and
 history plus a fresh GLSim execution passing all four grades. The same QEMU
 process, guest disk and outer Linux boot identity must survive.
 
-Only compact JSON and, on failure, the guest's last setup/login screen are retained.
+Compact JSON is retained. While awaiting the first baseline, the trial can emit
+at most four setup/login screens to CI logs, ten minutes apart, with a 96 KiB PNG
+limit per screen. It never takes those periodic images during reboot recovery.
+On failure, the guest's last screen is also retained as a one-day artifact.
 The trial deletes its private guest disk, installation media, unattended passwords
 and logs. This tests orderly **Windows guest OS reboot followed by login**. It does
 not establish recovery before login, physical-machine power loss, macOS behavior,

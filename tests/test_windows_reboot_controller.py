@@ -9,8 +9,10 @@ import http.client
 import importlib.util
 import json
 import re
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -313,3 +315,87 @@ def test_reboot_command_is_single_use_and_binds_retained_baseline(mailbox):
         assert status == 200 and json.loads(raw) == {"command": "wait"}
     with pytest.raises(controller.TrialError, match="duplicate_reboot_request"):
         mailbox.request_reboot(proof, HASH)
+
+
+@pytest.mark.parametrize("size", [96 * 1024, 96 * 1024 + 1])
+def test_setup_snapshot_emits_complete_bounded_png_or_fixed_skip(monkeypatch, tmp_path, capsys, size):
+    png = b"\x89PNG\r\n\x1a\n" + b"x" * (size - 8)
+
+    class FakeImage:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def save(self, stream, **options):
+            assert options == {"format": "PNG", "optimize": True}
+            stream.write(png)
+
+    def open_image(path):
+        assert path == tmp_path / "setup-screen.ppm"
+        return FakeImage()
+
+    def screendump(name, arguments):
+        assert name == "screendump"
+        assert Path(arguments["filename"]) == tmp_path / "setup-screen.ppm"
+        Path(arguments["filename"]).write_bytes(b"private frame")
+
+    monkeypatch.setitem(sys.modules, "PIL", SimpleNamespace(Image=SimpleNamespace(open=open_image)))
+    monkeypatch.setattr(controller, "STAGE", "first_login_wait")
+    controller.emit_setup_snapshot(SimpleNamespace(execute=screendump), tmp_path)
+    lines = capsys.readouterr().out.splitlines()
+    encoded = [line.removeprefix("GLAB_GUEST_SETUP_PNG:") for line in lines
+               if line.startswith("GLAB_GUEST_SETUP_PNG:")]
+    if size <= 96 * 1024:
+        assert len(encoded) == 1 and base64.b64decode(encoded[0], validate=True) == png
+    else:
+        assert not encoded
+        assert lines[-1] == "Windows guest trial: guest_setup_snapshot_skipped_oversize"
+    assert controller.STAGE == "first_login_wait"
+    assert not (tmp_path / "setup-screen.ppm").exists()
+
+
+def test_setup_snapshot_failure_is_nonfatal_and_does_not_export_exception(monkeypatch, tmp_path, capsys):
+    monkeypatch.setitem(sys.modules, "PIL", SimpleNamespace(Image=object()))
+
+    def failed_dump(*_args):
+        raise RuntimeError("private diagnostic payload")
+
+    controller.emit_setup_snapshot(SimpleNamespace(execute=failed_dump), tmp_path)
+    output = capsys.readouterr().out
+    assert "guest_setup_snapshot_skipped_error" in output
+    assert "private diagnostic payload" not in output and "GLAB_GUEST_SETUP_PNG:" not in output
+
+
+@pytest.mark.parametrize(("phase", "baseline_at", "raises", "expected"), [
+    ("await_first_logon_and_baseline", 3600, False, [600, 1200, 1800, 2400]),
+    ("await_first_logon_and_baseline", 3600, True, [600, 1200, 1800, 2400]),
+    ("await_first_logon_and_baseline", 600, False, []),
+    ("await_reboot_logon_and_automatic_recovery", 3600, False, []),
+])
+def test_setup_snapshots_are_timed_capped_nonfatal_and_only_before_baseline(
+        monkeypatch, tmp_path, phase, baseline_at, raises, expected):
+    clock = {"now": 0}
+    attempts = []
+
+    def sleep(_seconds):
+        clock["now"] += 600
+
+    def snapshot():
+        body = {"baseline": {"retained": True}} if clock["now"] >= baseline_at else {}
+        return body, "guest_observer_running"
+
+    def diagnostic():
+        attempts.append(clock["now"])
+        if raises:
+            raise RuntimeError("private callback failure")
+
+    monkeypatch.setattr(controller.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(controller.time, "sleep", sleep)
+    mailbox = SimpleNamespace(snapshot=snapshot, error_count=0, last_error=None, received=0)
+    qemu = SimpleNamespace(poll=lambda: None, returncode=None)
+    result = controller.wait_for(qemu, mailbox, lambda body: bool(body.get("baseline")),
+                                 3700, phase, tmp_path / "evidence.json", {}, setup_snapshot=diagnostic)
+    assert result == {"baseline": {"retained": True}}
+    assert attempts == expected
