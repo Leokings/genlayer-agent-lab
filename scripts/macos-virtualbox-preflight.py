@@ -112,7 +112,9 @@ def probe(runner_temp):
                 version = checked(run([str(VBOX), "--version"], env=env), "virtualbox_version_failed").strip()
                 capacity.require(version == VERSION, "unexpected_virtualbox_version")
                 report["virtualbox_version"] = version
-                ostypes = checked(run([str(VBOX), "list", "ostypes"], env=env), "virtualbox_ostypes_failed")
+                report["stage"] = "inspect_default_macos_type"
+                ostypes = checked(run([str(VBOX), "list", "--long", "ostypes"], env=env),
+                                  "virtualbox_ostypes_failed")
                 capacity.require(re.search(r'^ID:\s+MacOS_64\s*$', ostypes, re.MULTILINE),
                                  "default_macos_type_unavailable")
                 report["stage"] = "create_default_macos_configuration"
