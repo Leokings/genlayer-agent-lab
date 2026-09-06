@@ -37,7 +37,14 @@ def require(condition, code):
         raise MediaError(code)
 
 
-def run(args, code, timeout=60):
+def verification_diagnostic(raw):
+    """Bound diagnostics from Apple verifier tools to the downloaded installer."""
+    text = raw[:4096].decode("utf-8", errors="replace")
+    text = text.replace(str(INSTALLER), "$INSTALLER").replace(str(Path.home()), "$HOME")
+    return "".join(char for char in text if char in "\n\t" or char.isprintable())
+
+
+def run(args, code, timeout=60, *, diagnostics=None):
     try:
         result = subprocess.run(args, stdin=subprocess.DEVNULL, capture_output=True,
                                 timeout=timeout, check=False)
@@ -45,8 +52,33 @@ def run(args, code, timeout=60):
         raise MediaError(code + "_timeout") from None
     except OSError:
         raise MediaError(code + "_unavailable") from None
+    if diagnostics is not None:
+        # Only the explicitly selected Apple verification commands use this.
+        # VM/SMC logs and all other subprocess outputs remain private.
+        diagnostics[code] = {"exit_code": result.returncode}
+        if result.returncode:
+            diagnostics[code]["stderr"] = verification_diagnostic(result.stderr)
     require(result.returncode == 0, code)
     return result.stdout
+
+
+def inspect_verification_failure(state):
+    """Read-only comparisons explain a rejected gate; they cannot authorize media creation."""
+    commands = {
+        "strict_integrity": ["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=4"],
+        "signature_metadata": ["/usr/bin/codesign", "--display", "--verbose=4"],
+        "gatekeeper": ["/usr/sbin/spctl", "--assess", "--type", "execute", "--verbose=4"],
+    }
+    evidence = state.setdefault("rejected_verification_diagnostics", {})
+    for name, command in commands.items():
+        try:
+            result = subprocess.run([*command, str(INSTALLER)], stdin=subprocess.DEVNULL,
+                                    capture_output=True, check=False, timeout=120)
+            evidence[name] = {"exit_code": result.returncode,
+                              "stderr": verification_diagnostic(result.stderr),
+                              "stdout": verification_diagnostic(result.stdout)}
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            evidence[name] = {"failure": type(exc).__name__}
 
 
 def read_plist(args, code):
@@ -155,15 +187,16 @@ def prepare(private: Path, report: dict) -> Path:
         require(shutil.disk_usage(private).free >= 40 * GIB, "media_insufficient_conversion_space")
 
         stage("verify_apple_installer_signature")
-        run(["/usr/bin/codesign", "--verify", "--deep", "--strict", "-R", "=anchor apple",
-             str(INSTALLER)], "media_apple_signature_rejected", timeout=300)
-        run(["/usr/sbin/spctl", "--assess", "--type", "execute", str(INSTALLER)],
-            "media_apple_policy_rejected", timeout=180)
+        verification = state.setdefault("verification_checks", {})
+        run(["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=4", "-R", "=anchor apple",
+             str(INSTALLER)], "media_apple_signature_rejected", timeout=300, diagnostics=verification)
+        run(["/usr/sbin/spctl", "--assess", "--type", "execute", "--verbose=4", str(INSTALLER)],
+            "media_apple_policy_rejected", timeout=180, diagnostics=verification)
         tool = INSTALLER / "Contents/Resources/createinstallmedia"
         require(tool.is_file() and not tool.is_symlink(), "media_apple_tool_missing")
         require(tool.resolve().is_relative_to(INSTALLER), "media_apple_tool_outside_installer")
-        run(["/usr/bin/codesign", "--verify", "--strict", "-R", "=anchor apple", str(tool)],
-            "media_apple_tool_signature_rejected", timeout=120)
+        run(["/usr/bin/codesign", "--verify", "--strict", "--verbose=4", "-R", "=anchor apple", str(tool)],
+            "media_apple_tool_signature_rejected", timeout=120, diagnostics=verification)
         state["apple_signature_and_policy_verified"] = True
 
         stage("create_private_installer_disk_image")
@@ -204,6 +237,9 @@ def prepare(private: Path, report: dict) -> Path:
         return iso
     except MediaError as exc:
         state.update(status="fail", failure=str(exc))
+        if str(exc) in {"media_apple_signature_rejected", "media_apple_policy_rejected",
+                        "media_apple_tool_signature_rejected"}:
+            inspect_verification_failure(state)
         raise
     except (OSError, ValueError, TypeError):
         state.update(status="fail", failure="media_preparation_error")

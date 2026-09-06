@@ -4,6 +4,15 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
 
 ## Intel Mac virtualization feasibility — September 6
 
+- [Catalina installer attempt 34052537550](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34052537550)
+  used source `951b6a788104727b86d594072a7e22ac2a1d4d08`. Apple's full-installer
+  download completed in about 8 minutes 25 seconds. The subsequent recursive
+  strict Apple-signature check rejected the installer; the original harness
+  recorded only `media_apple_signature_rejected`, so the specific reason is
+  unresolved. No installer volume was created, no macOS guest boot was attempted,
+  and private-file cleanup succeeded. The next diagnostic run preserves that
+  acceptance gate and adds bounded, redacted verifier output plus separate
+  read-only integrity, signature-metadata and Gatekeeper observations.
 - [Capacity run 34051279546](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34051279546)
   passed on source `5b1a08c60ebfcbb8f3c89724d62d882839876d05`, using a standard
   `macos-15-intel` runner: macOS 15.7.9, four CPUs, 14 GiB RAM and 108.55 GiB

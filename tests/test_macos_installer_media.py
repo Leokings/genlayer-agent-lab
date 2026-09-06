@@ -135,7 +135,7 @@ def test_failed_attach_and_detach_leave_conservative_report_and_owned_image(tmp_
             return os.stat_result(values)
         return result
 
-    def fake_run(args, code, timeout=60):
+    def fake_run(args, code, timeout=60, *, diagnostics=None):
         calls.append(args)
         if args[0] == "/usr/sbin/softwareupdate":
             tool = installer / "Contents/Resources/createinstallmedia"
@@ -173,3 +173,28 @@ def test_failed_attach_and_detach_leave_conservative_report_and_owned_image(tmp_
     assert image.read_bytes() == b"owned synthetic image"
     assert calls[-1] == ["/usr/bin/hdiutil", "detach", "/dev/disk88"]
     assert all(args[0] != "/usr/bin/sudo" for args in calls)
+
+
+def test_failed_signature_check_stays_fatal_and_records_bounded_redacted_reason(monkeypatch):
+    stderr = (str(media.INSTALLER) + ": a sealed resource is missing or invalid\n"
+              + str(Path.home()) + "/temporary\x1b\x00\n" + "x" * 5000).encode()
+    monkeypatch.setattr(media.subprocess, "run", lambda *args, **kwargs:
+                        SimpleNamespace(returncode=1, stdout=b"", stderr=stderr))
+    diagnostics = {}
+    with pytest.raises(media.MediaError, match="media_apple_signature_rejected"):
+        media.run(["/usr/bin/codesign", "--verify", str(media.INSTALLER)],
+                  "media_apple_signature_rejected", diagnostics=diagnostics)
+    result = diagnostics["media_apple_signature_rejected"]
+    assert result["exit_code"] == 1
+    assert "$INSTALLER: a sealed resource is missing or invalid" in result["stderr"]
+    assert "$HOME/temporary" in result["stderr"]
+    assert str(media.INSTALLER) not in result["stderr"] and str(Path.home()) not in result["stderr"]
+    assert len(result["stderr"]) <= 4096 and "\x1b" not in result["stderr"] and "\x00" not in result["stderr"]
+
+
+def test_non_verification_failure_keeps_subprocess_output_private(monkeypatch):
+    monkeypatch.setattr(media.subprocess, "run", lambda *args, **kwargs:
+                        SimpleNamespace(returncode=1, stdout=b"private", stderr=b"private"))
+    with pytest.raises(media.MediaError) as failure:
+        media.run(["/usr/bin/hdiutil", "create"], "media_disk_image_create_failed")
+    assert str(failure.value) == "media_disk_image_create_failed"
