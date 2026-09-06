@@ -165,7 +165,9 @@ def run_studio_conformance(endpoint: str, snapshot: dict, context: dict, sim_con
 
         with StudioClient(endpoint, timeout=timeout, cancel_event=cancel_event) as client:
             def call(method, *args, **kwargs):
-                remaining = deadline - time.monotonic()
+                # Coarse clocks may return the same sample twice, while float
+                # addition/subtraction can round just above the original budget.
+                remaining = min(timeout, deadline - time.monotonic())
                 if remaining <= 0:
                     raise _ConformanceError("deadline_exceeded")
                 client.timeout = remaining

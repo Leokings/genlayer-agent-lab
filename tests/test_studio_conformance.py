@@ -126,6 +126,28 @@ def test_observed_deploy_write_finality_exports_no_receipts_or_credentials(confi
     assert all(0 < seconds <= 180 for _, seconds in client.calls)
 
 
+def test_coarse_clock_cannot_round_forwarded_timeout_above_budget(configured, monkeypatch):
+    snapshot, client = configured
+    # Windows Python 3.12 uses a coarse monotonic clock. An unchanged sample
+    # exposes this arithmetic edge: (100.013 + 180) - 100.013 > 180.
+    monkeypatch.setattr(workflow.time, "monotonic", lambda: 100.013)
+    result = workflow.run_studio_conformance(ENDPOINT, snapshot, CONTEXT)
+    assert result["verification"] == "pass"
+    assert client.calls and all(seconds == 180 for _, seconds in client.calls)
+
+
+def test_deadline_expiration_between_operations_still_stops_submission(configured, monkeypatch):
+    snapshot, client = configured
+    ticks = iter([100.013, 100.013, 281.013, 281.013])
+    monkeypatch.setattr(workflow.time, "monotonic", lambda: next(ticks))
+    result = workflow.run_studio_conformance(ENDPOINT, snapshot, CONTEXT)
+    assert result["verification"] == "inconclusive"
+    assert result["error_code"] == "deadline_exceeded"
+    assert result["transactions"] == {}
+    assert [name for name, _ in client.calls] == ["doctor"]
+    assert client.closed
+
+
 def test_completed_new_appeal_round_is_required_even_if_request_claims_complete(configured):
     snapshot, client = configured
     client.complete_appeal = False

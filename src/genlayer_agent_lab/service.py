@@ -245,7 +245,10 @@ def _definition(state) -> bytes:
         return (f"# {marker}\n[Unit]\nDescription={marker}\n"
                 "StartLimitIntervalSec=60\nStartLimitBurst=3\n\n[Service]\nType=simple\n"
                 "ExecStart=" + " ".join(_systemd_quote(arg) for arg in args) + "\n"
-                "WorkingDirectory=" + _systemd_quote(state["data_dir"], environment=False) + "\n"
+                # Unlike ExecStart, WorkingDirectory does not unquote or C-unescape
+                # its value. A final slash preserves trailing spaces/backslashes
+                # through the INI parser; only systemd % specifiers need escaping.
+                "WorkingDirectory=" + state["data_dir"].replace("%", "%%") + "/\n"
                 "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=20\n"
                 "UMask=0077\nNoNewPrivileges=true\n\n[Install]\nWantedBy=default.target\n").encode()
     if kind == "darwin":

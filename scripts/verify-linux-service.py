@@ -71,7 +71,9 @@ def probe(root):
     from genlayer_agent_lab.client import LabClient
 
     result = {"verification": "fail", "service_cleanup": False}
-    data = root / "state"
+    # Real systemd must parse this directory correctly, including its trailing
+    # backslash and space. ExecStart and WorkingDirectory use different grammars.
+    data = root / 'state with spaces % $ " and trailing\\ '
     console = Path(sys.prefix) / "bin/gl-agent-lab"
     checked(Path(genlayer_agent_lab.__file__).resolve().is_relative_to(Path(sys.prefix).resolve()),
             "Imported package is outside the fresh environment")
