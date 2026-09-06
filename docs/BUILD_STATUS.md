@@ -1,6 +1,6 @@
 # Build status
 
-This is alpha 5. Status follows executable behavior, not the original release target.
+This is alpha 6. Status follows executable behavior, not the original release target.
 
 | Planned area | Implemented now | Remaining release work |
 |---|---|---|

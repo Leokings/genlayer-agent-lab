@@ -1,0 +1,63 @@
+name: Linux guest OS reboot verification
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/linux-reboot.yml'
+      - 'scripts/verify-linux-reboot.py'
+      - 'src/genlayer_agent_lab/**'
+      - 'tests/test_service.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  pull_request:
+    paths:
+      - '.github/workflows/linux-reboot.yml'
+      - 'scripts/verify-linux-reboot.py'
+      - 'src/genlayer_agent_lab/**'
+      - 'tests/test_service.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+
+permissions:
+  contents: read
+
+jobs:
+  installed-wheel-guest-reboot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.10.9'
+          enable-cache: false
+      - name: Build the wheel to be tested
+        run: uv build --out-dir dist-linux-reboot
+      - name: Prepare QEMU and access to the runner's KVM device
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils acl
+          sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Verify real guest reboot and automatic Lab recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          wheels=(dist-linux-reboot/genlayer_agent_lab-*-py3-none-any.whl)
+          test "${#wheels[@]}" -eq 1
+          python3 -I scripts/verify-linux-reboot.py --wheel "${wheels[0]}" \
+            --output "$RUNNER_TEMP/linux-reboot-evidence.json"
+      - name: Record bounded evidence without uploaded artifacts
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/linux-reboot-evidence.json"; then
+            printf 'Real Ubuntu guest OS reboot with administrator-configured linger. The outer GitHub runner stays running. No provider-host, macOS, power-loss or Studio coverage.\n\n```json\n' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/linux-reboot-evidence.json" >> "$GITHUB_STEP_SUMMARY"
+            printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+          fi

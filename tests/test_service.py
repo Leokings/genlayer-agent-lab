@@ -187,6 +187,34 @@ def test_launchagent_preserves_path_whitespace_and_rejects_changed_arguments(sta
     assert not service._launchd_matches(raw + f"\tprogram = {state['launcher']}\n", state)
 
 
+def test_launchagent_stop_waits_until_loaded_job_disappears(state, monkeypatch):
+    state = {**state, "platform": "darwin"}
+    monkeypatch.setattr(service, "_load", lambda _: state)
+    monkeypatch.setattr(service, "_inspect", lambda _: {"exists": True, "running": True})
+    actions = []
+    monkeypatch.setattr(service, "_manager_action", lambda _, action, observed: actions.append(action))
+    snapshots = iter([{"running": True, "enabled": True},
+                      {"running": False, "enabled": True},
+                      {"running": False, "enabled": False}])
+    monkeypatch.setattr(service, "status", lambda _: next(snapshots))
+    monkeypatch.setattr(service.time, "sleep", lambda _: None)
+    result = service.stop(state["data_dir"])
+    assert result["stopped"] is True and result["enabled"] is False
+    assert actions == ["stop"]
+
+
+def test_launchagent_stop_reports_incomplete_at_deadline(state, monkeypatch):
+    state = {**state, "platform": "darwin"}
+    monkeypatch.setattr(service, "_load", lambda _: state)
+    monkeypatch.setattr(service, "_inspect", lambda _: {"exists": True, "running": True})
+    monkeypatch.setattr(service, "_manager_action", lambda *args: None)
+    monkeypatch.setattr(service, "status", lambda _: {"running": False, "enabled": True})
+    times = iter([0, 15])
+    monkeypatch.setattr(service.time, "monotonic", lambda: next(times))
+    monkeypatch.setattr(service.time, "sleep", lambda _: pytest.fail("Wait exceeded deadline"))
+    assert service.stop(state["data_dir"])["stopped"] is False
+
+
 def test_uninstall_preserves_database_token_and_logs_even_if_interpreter_was_removed(state, monkeypatch):
     root = service._root(state["data_dir"])
     root.mkdir(parents=True)

@@ -559,9 +559,16 @@ def stop(data_dir) -> dict:
         observed = _inspect(state)
         if observed.get("running") or (state["platform"] == "darwin" and observed.get("exists")):
             _manager_action(state, "stop", observed)
-    result = status(data_dir)
-    result["stopped"] = not result["running"]
-    return result
+    # launchctl bootout can return before the job disappears. A loaded job with
+    # no current PID is still not a completed macOS stop; wait for its unload.
+    deadline = time.monotonic() + 15
+    while True:
+        result = status(data_dir)
+        result["stopped"] = (not result["running"]
+                             and (state["platform"] != "darwin" or not result.get("enabled", False)))
+        if result["stopped"] or time.monotonic() >= deadline:
+            return result
+        time.sleep(0.1)
 
 
 def uninstall(data_dir) -> dict:
