@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           test -c /dev/kvm
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf swtpm xorriso
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf swtpm xorriso python3-pil
           sudo usermod -aG kvm "$(id -un)"
       - name: Inspect actual capacity and create an empty KVM VM
         shell: bash
@@ -77,3 +77,11 @@ jobs:
               printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
             fi
           done
+      - name: Retain only a failed guest setup screen for diagnosis
+        if: failure() && inputs.mode == 'trial'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-guest-setup-screen
+          path: ${{ runner.temp }}/windows-guest-screen.png
+          if-no-files-found: ignore
+          retention-days: 1
