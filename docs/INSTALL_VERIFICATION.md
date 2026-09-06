@@ -25,6 +25,8 @@ Child processes receive an explicit environment allowlist. Host model/wallet/clo
 
 Initial installation needs internet access to download declared Python dependencies and the pinned GenVM bundle. This exercises a clean cache; it does not call a paid model provider or a public chain. The fixture suite and trusted GLSim doctor do not require Docker or Studio.
 
+The pinned universal GenVM archive is about 217 MB. The first `doctor` preparation therefore has a 900-second budget, with a separate 960-second subprocess guard in this verifier. The complete installed-package probe is bounded to 1,800 seconds. Ordinary decision execution retains its shorter timeout. A failed or timed-out doctor fails the installation check; the verifier never substitutes a fixture result for runtime readiness.
+
 ## CI and local evidence
 
 `.github/workflows/ci.yml` defines Ubuntu, macOS and Windows jobs that build the artifact, perform this clean installation check, and upload its sanitized JSON report. The separate Ubuntu custom-contract Docker gate is retained. A workflow definition is an authored gate; a green GitHub Actions run and its artifact are the evidence that the corresponding runner actually passed it.

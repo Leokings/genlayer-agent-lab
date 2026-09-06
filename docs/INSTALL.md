@@ -5,12 +5,18 @@ Docker is optional for bundled GLSim tests and required for custom contracts or
 local Studio. Node.js 24 is needed only for the TypeScript example. No model key,
 hosted account or paid provider is required for the bundled fixture-backed tests.
 
-This developer alpha has no published package URL. Use the supplied checkout,
-source archive or wheel. Do not install a similarly named package from a registry.
+Use the [official repository](https://github.com/Leokings/genlayer-agent-lab) or
+its [release artifacts](https://github.com/Leokings/genlayer-agent-lab/releases).
+This alpha is not published on PyPI. Do not install a similarly named package
+from a registry. A supplied source archive or wheel also works.
 
 ## From the source checkout or extracted source archive
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and run:
+
+If you do not already have the source, clone
+`https://github.com/Leokings/genlayer-agent-lab.git` and enter that directory.
+Use a published release tag when you need a fixed version.
 
 ```sh
 uv sync --locked --python 3.12
@@ -97,7 +103,10 @@ the test environment and grades its observed behavior; it does not intercept
 unmodified wallet or production tool calls.
 
 The default `doctor` verifies the downloaded runtime and runs a bundled
-contract. `--backend fixture` deliberately skips contract execution. Never
+contract. Its first preparation can take several minutes to download and verify
+about 217 MB. The setup deadline defaults to 900 seconds; use
+`doctor --timeout 1800` for a slower connection. Ordinary evaluation deadlines
+remain unchanged. `--backend fixture` deliberately skips contract execution. Never
 substitute fixture success for a failed GLSim, Docker or Studio requirement.
 
 For a release installation trial, record the OS, Python/toolkit versions,

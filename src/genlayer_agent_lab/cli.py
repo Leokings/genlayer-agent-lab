@@ -55,7 +55,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     init = command("init", "Initialize local state without replacing configuration or credentials")
     init.add_argument("--show-token", action="store_true", help="Explicitly print the admin secret")
-    command("doctor", "Inspect the runtime and local prerequisites")
+    doctor = command("doctor", "Inspect the runtime and local prerequisites")
+    doctor.add_argument("--timeout", type=float, default=900,
+                        help="First-time preparation deadline in seconds (default 900, maximum 1800)")
     serve = command("serve", "Run the persistent local service in the foreground")
     serve.add_argument("--host", default="127.0.0.1", help="Loopback bind address only")
     serve.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -426,7 +428,11 @@ def main(argv: list[str] | None = None, *, engine_factory: Any = None) -> int:
             return 0
         if args.command == "doctor":
             from .runtime import doctor
-            runtime = doctor()
+            if not math.isfinite(args.timeout) or not 0 < args.timeout <= 1800:
+                raise ValueError("Doctor timeout must be positive and at most 1800 seconds.")
+            print("Preparing and checking the pinned GenLayer runtime. First installation downloads "
+                  "about 217 MB; this can take several minutes.", file=sys.stderr, flush=True)
+            runtime = doctor(timeout=args.timeout)
             _json({"version": __version__, "python": platform.python_version(),
                    "platform": platform.platform(), "data_dir": str(args.data_dir),
                    "token_configured": (args.data_dir / "admin.token").is_file(),

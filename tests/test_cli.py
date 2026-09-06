@@ -71,7 +71,7 @@ def test_unknown_scenario_and_invalid_timeout_return_infrastructure_code(tmp_pat
 
 def test_doctor_returns_nonzero_for_broken_runtime(tmp_path, monkeypatch, capsys):
     from genlayer_agent_lab import runtime
-    monkeypatch.setattr(runtime, "doctor", lambda: {"ready": False, "status": "error"})
+    monkeypatch.setattr(runtime, "doctor", lambda **kwargs: {"ready": False, "status": "error"})
     assert main(["doctor", "--data-dir", str(tmp_path)]) == 2
     assert json.loads(capsys.readouterr().out)["runtime"]["ready"] is False
 

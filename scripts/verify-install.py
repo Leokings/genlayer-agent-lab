@@ -129,7 +129,7 @@ def verify(wheel: Path, *, backend="fixture", require_kit=False) -> dict:
             command = [str(python), "-I", "-B", str(probe), "--_probe", "--backend", backend]
             if require_kit:
                 command.append("--require-kit")
-            raw = run(command, cwd=work, env=env, stage="exercise installed package", timeout=900)
+            raw = run(command, cwd=work, env=env, stage="exercise installed package", timeout=1800)
             details = json.loads(raw)
             if details.get("verification") != "pass":
                 raise VerificationError("Installed package probe did not pass")
@@ -242,7 +242,7 @@ def probe(*, backend: str, require_kit: bool) -> dict:
     initialized = cli("init")
     if initialized.get("initialized") is not True or "admin_token" in initialized:
         raise VerificationError("CLI initialization failed or exposed its admin credential")
-    doctor = cli("doctor", timeout=360)
+    doctor = cli("doctor", timeout=960)
     runtime = doctor.get("runtime", {})
     if runtime.get("ready") is not True or runtime.get("provenance", {}).get("execution_success") is not True:
         raise VerificationError("Installed trusted GLSim doctor did not execute successfully")

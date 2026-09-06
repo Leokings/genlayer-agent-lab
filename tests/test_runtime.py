@@ -106,3 +106,27 @@ def test_doctor_reports_runtime_failure(monkeypatch):
     result = runtime.doctor()
     assert result["ready"] is False
     assert "missing runtime" in result["error"]
+
+
+def test_preparation_budget_does_not_increase_normal_evaluation_deadline(monkeypatch):
+    calls = []
+
+    def executed(request, *, timeout):
+        calls.append(timeout)
+        return {"verdict": "approve", "provenance": {"execution_success": True}}
+
+    monkeypatch.setattr(runtime, "_execute_request", executed)
+    assert runtime.doctor()["ready"]
+    assert runtime.doctor(timeout=1200)["preparation_timeout_seconds"] == 1200
+    runtime.evaluate("valid", "approve")
+    assert calls == [900, 1200, 60]
+
+
+@pytest.mark.parametrize("timeout", [float("nan"), float("inf"), 0, -1, 1801])
+def test_doctor_rejects_invalid_deadline_before_preparing(monkeypatch, timeout):
+    def unexpected(*args, **kwargs):
+        pytest.fail("An invalid deadline must not start the worker")
+
+    monkeypatch.setattr(runtime, "evaluate", unexpected)
+    with pytest.raises(ValueError, match="Doctor timeout"):
+        runtime.doctor(timeout=timeout)

@@ -7,6 +7,7 @@ simplified local simulator, not a public network or a hostile-code sandbox.
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -96,8 +97,10 @@ def evaluate(evidence: str, fixture_verdict: str, *, timeout: float = 60) -> dic
     )
 
 
-def doctor() -> dict:
+def doctor(*, timeout: float = 900) -> dict:
     """Prepare pinned artifacts and execute a real contract readiness probe."""
+    if not math.isfinite(timeout) or not 0 < timeout <= 1800:
+        raise ValueError("Doctor timeout must be positive and at most 1800 seconds")
     info = {
         "backend": "glsim",
         "python": sys.version.split()[0],
@@ -107,9 +110,10 @@ def doctor() -> dict:
         "runner_hash": RUNNER_HASH,
         "bundle_sha256": BUNDLE_SHA256,
         "mode": "fixture-only; bundled trusted contract; simplified consensus",
+        "preparation_timeout_seconds": timeout,
     }
     try:
-        result = evaluate("Runtime readiness probe: valid evidence.", "approve", timeout=300)
+        result = evaluate("Runtime readiness probe: valid evidence.", "approve", timeout=timeout)
         if result["verdict"] != "approve":
             raise RuntimeError("Runtime readiness probe returned the wrong verdict")
         return {**info, "ready": True, "status": "ready", "provenance": result["provenance"]}

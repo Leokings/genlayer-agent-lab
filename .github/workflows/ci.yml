@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   test:
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -18,12 +18,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.13.0'
       - uses: astral-sh/setup-uv@v6
         with:
           version: '0.10.9'
           enable-cache: true
       - run: uv sync --locked --python 3.12
       - run: uv run ruff check src tests scripts
+      - name: Prepare and verify the pinned runtime before execution tests
+        run: uv run --locked gl-agent-lab doctor
       - run: uv run pytest -q
       - name: Build distributable artifacts
         run: uv build --out-dir dist-ci

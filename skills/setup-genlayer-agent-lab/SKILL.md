@@ -5,7 +5,7 @@ description: Install and configure GenLayer Agent Lab from supplied source or a 
 
 # Set up GenLayer Agent Lab
 
-Use the developer's supplied checkout or release artifact. This project has no assumed public package URL: do not invent one or fetch a similarly named package. For a release bundle, read its standalone `INSTALL.md` to install the wheel and export the kit. Then read `docs/INSTALL.md` and `examples/README.md` from the source or exported kit. Report the actual version and source revision when available.
+Use the developer's supplied checkout or release artifact, or the official source at `https://github.com/Leokings/genlayer-agent-lab`. The alpha is not published on PyPI: do not fetch a similarly named registry package. For a release bundle, read its standalone `INSTALL.md` to install the wheel and export the kit. Then read `docs/INSTALL.md` and `examples/README.md` from the source or exported kit. Report the actual version and source revision when available.
 
 ## Install and check
 

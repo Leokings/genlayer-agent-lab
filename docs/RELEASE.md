@@ -45,9 +45,11 @@ cases and does not touch Studio or the normal installation.
 
 ## Publication and external gates
 
-1. Select the project's own GitHub repository and desired visibility. This
-   checkout currently sits beneath an unrelated parent repository; never push
-   that parent's files as the Lab project.
+1. Use the project's own public repository,
+   [Leokings/genlayer-agent-lab](https://github.com/Leokings/genlayer-agent-lab).
+   The development checkout sits beneath an unrelated parent repository; never
+   push that parent's files as the Lab project. Publication uses an isolated
+   source checkout containing only the project's files.
 2. Run the supplied CI workflow on Ubuntu, macOS and Windows. Inspect each
    installed-wheel artifact and the custom-contract Docker job. A workflow file
    alone does not close these gates. Confirm Actions usage fits the chosen
