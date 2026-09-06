@@ -9,6 +9,7 @@ credentials, installation logs and media are private and are never uploaded.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import hmac
 import http.server
@@ -214,18 +215,44 @@ def unattend(nonce, user_password, admin_password):
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
-def seed_launcher(nonce):
+def setup_complete_cmd(nonce):
+    """Fixed, owned later-setup entry point; bootstrap returns before user logon."""
     require(re.fullmatch(r"[0-9a-f]{32}", nonce), "invalid_nonce")
     return (
+        "@echo off\r\n"
+        f"rem GenLayer owned guest setup {nonce}\r\n"
+        '"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" '
+        '-NoProfile -NonInteractive -ExecutionPolicy Bypass '
+        '-File "C:\\LabTrial\\bootstrap.ps1"\r\n'
+        "exit /b %ERRORLEVEL%\r\n"
+    ).encode("ascii")
+
+
+def seed_launcher(nonce):
+    """Specialize copies the seed and arms SetupComplete without bootstrapping."""
+    require(re.fullmatch(r"[0-9a-f]{32}", nonce), "invalid_nonce")
+    expected = base64.b64encode(setup_complete_cmd(nonce)).decode("ascii")
+    return (
         "$ErrorActionPreference='Stop';"
+        "if([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -cne 'S-1-5-18')"
+        "{throw 'SYSTEM_required'};"
         "$s=[string](Get-CimInstance Win32_ComputerSystemProduct).IdentifyingNumber;"
         f"if($s.Trim() -cne 'GLAB-{nonce}'){{throw 'guest_identity_required'}};"
         "$disks=@(Get-CimInstance Win32_LogicalDisk | Where-Object {$_.VolumeName -eq 'GLABSEED'});"
         "if($disks.Count -ne 1){throw 'seed_required'};"
+        "$setup='C:\\Windows\\Setup\\Scripts\\SetupComplete.cmd';"
+        f"$expected='{expected}';"
+        "if(Test-Path -LiteralPath $setup){"
+        "if([Convert]::ToBase64String([IO.File]::ReadAllBytes($setup)) -cne $expected)"
+        "{throw 'unexpected_existing_setup_complete'}};"
         "New-Item -ItemType Directory -Path 'C:\\LabTrial' -ErrorAction Stop | Out-Null;"
         "Copy-Item -Path ($disks[0].DeviceID+'\\payload\\*') -Destination 'C:\\LabTrial' -Recurse;"
-        "& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass "
-        "-File C:\\LabTrial\\bootstrap.ps1;exit $LASTEXITCODE"
+        "New-Item -ItemType Directory -Path 'C:\\Windows\\Setup\\Scripts' -Force | Out-Null;"
+        "if(-not(Test-Path -LiteralPath $setup)){"
+        "$bytes=[Convert]::FromBase64String($expected);"
+        "$stream=[IO.File]::Open($setup,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);"
+        "try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}};"
+        "exit 0"
     )
 
 

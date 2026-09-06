@@ -121,8 +121,11 @@ TPM 2.0 device, two virtual CPUs and 8 GiB of RAM.
 
 The test uses Microsoft's documented unattended installation, local-account and
 AutoLogon settings. AutoLogon is configured only inside the disposable VM; the
-Lab installer does not change a developer's login policy. A SYSTEM setup observer
-installs Python and the published wheel. A separate non-administrator `LabUser`
+Lab installer does not change a developer's login policy. The guarded specialize
+step copies the private seed and arms Windows' documented `SetupComplete.cmd` hook.
+That later SYSTEM hook installs Python and the published wheel, starts the
+independent observer, and returns without waiting for user login or requesting a
+reboot. A separate non-administrator `LabUser`
 prepares GLSim, installs the Lab's own user service and completes the first real
 HTTP run. Existing setup code is read-only to that user; it can create and manage
 its own test data and evidence.
@@ -146,5 +149,6 @@ or automatic Docker/Studio startup. The actual outcome belongs in
 The Windows evaluation image is for bounded evaluation under Microsoft's terms,
 and is downloaded from Microsoft's own distribution rather than republished by
 this project. Sources: [evaluation media](https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise),
+[setup scripts](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/add-a-custom-script-to-windows-setup?view=windows-11),
 [AutoLogon](https://learn.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-shell-setup-autologon),
 [local accounts](https://learn.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-shell-setup-useraccounts-localaccounts-localaccount).

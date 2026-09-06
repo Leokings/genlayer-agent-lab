@@ -1,4 +1,4 @@
-# Runs as SYSTEM during specialize in an explicitly marked disposable QEMU guest.
+# Runs as SYSTEM from SetupComplete in an explicitly marked disposable QEMU guest.
 # No action is permitted on the developer's PC. No reboot occurs during setup.
 $ErrorActionPreference = 'Stop'
 $root = 'C:\LabTrial'
@@ -14,17 +14,20 @@ function Send-Stage([string]$stage) {
     } catch { }
 }
 try {
-    $operation = 'guest_specialize_configuration'
-    Send-Stage 'guest_specialize_started'
+    $operation = 'guest_setup_complete_configuration'
+    Send-Stage 'guest_setup_complete_started'
     # Setup/network update reboots are excluded from this bounded startup trial.
     New-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -Force | Out-Null
     New-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -Name NoAutoUpdate -PropertyType DWord -Value 1 -Force | Out-Null
     $installer = "$root\python-installer.exe"
     $operation = 'guest_python_verification'
+    Send-Stage 'guest_python_hash_verification_started'
     if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant() -cne $config.python_sha256) { throw 'python_hash_mismatch' }
+    Send-Stage 'guest_python_signature_verification_started'
     $signature = Get-AuthenticodeSignature -LiteralPath $installer
     if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Python Software Foundation') { throw 'python_signature_mismatch' }
     $operation = 'guest_python_installation'
+    Send-Stage 'guest_python_installation_started'
     $process = Start-Process -FilePath $installer -ArgumentList @('/quiet', 'InstallAllUsers=1', 'TargetDir=C:\LabTrial\Python', 'Include_launcher=0', 'Include_test=0', 'Include_doc=0', 'AssociateFiles=0', 'Shortcuts=0', 'PrependPath=0') -WindowStyle Hidden -Wait -PassThru
     if ($process.ExitCode -notin @(0,3010)) { throw 'python_install_failed' }
     Send-Stage 'guest_python_installed'
@@ -32,23 +35,31 @@ try {
     # Windows PowerShell5.1 can turn harmless native stderr into a terminating
     # NativeCommandError under ErrorActionPreference=Stop. Judge native processes
     # by their exit status, with separate private stdout/stderr streams.
+    Send-Stage 'guest_venv_creation_started'
     $process = Start-Process -FilePath "$root\Python\python.exe" -ArgumentList @('-I','-m','venv',"$root\venv") -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput "$root\venv.stdout.log" -RedirectStandardError "$root\venv.stderr.log"
     if ($process.ExitCode -ne 0) { throw 'venv_failed' }
     $wheel = Join-Path $root $config.wheel_name
     $operation = 'guest_wheel_verification'
+    Send-Stage 'guest_wheel_hash_verification_started'
     if ((Get-FileHash -LiteralPath $wheel -Algorithm SHA256).Hash.ToLowerInvariant() -cne $config.wheel_sha256) { throw 'wheel_hash_mismatch' }
     $operation = 'guest_wheel_installation'
+    Send-Stage 'guest_wheel_installation_started'
     $process = Start-Process -FilePath "$root\venv\Scripts\python.exe" -ArgumentList @('-I','-m','pip','--isolated','--disable-pip-version-check','install','--no-cache-dir','--index-url','https://pypi.org/simple',$wheel) -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput "$root\pip.stdout.log" -RedirectStandardError "$root\pip.stderr.log"
     if ($process.ExitCode -ne 0) { throw 'wheel_install_failed' }
     Send-Stage 'guest_wheel_installed'
     # Accounts are created by the oobeSystem LocalAccounts settings. This SYSTEM
     # observer registers the user probe once that standard account exists.
+    Send-Stage 'guest_mailbox_action_creation_started'
     $action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File C:\LabTrial\mailbox.ps1'
+    Send-Stage 'guest_mailbox_principal_creation_started'
     $principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
+    Send-Stage 'guest_mailbox_settings_creation_started'
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::FromHours(2)) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     $operation = 'guest_mailbox_registration'
+    Send-Stage 'guest_mailbox_registration_started'
     Register-ScheduledTask -TaskName ('GLAB-Observer-' + $config.nonce) -Action $action -Principal $principal -Settings $settings -Trigger (New-ScheduledTaskTrigger -AtStartup) | Out-Null
     $operation = 'guest_mailbox_start'
+    Send-Stage 'guest_mailbox_start_started'
     Start-ScheduledTask -TaskName ('GLAB-Observer-' + $config.nonce)
     Send-Stage 'guest_waiting_for_real_user_logon'
 } catch {

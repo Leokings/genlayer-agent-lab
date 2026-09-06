@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import http.client
 import importlib.util
 import json
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -138,6 +140,50 @@ def test_unattend_escapes_passwords_and_targets_only_private_uefi_disk():
     assert "GLAB-" + NONCE in launcher and "guest_identity_required" in launcher
     assert "GLABSEED" in launcher
     assert "shutdown" not in launcher.lower() and "restart-computer" not in launcher.lower()
+
+
+def test_setup_complete_is_fixed_crlf_and_specialize_only_arms_it(monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Generating guest setup must never execute commands")
+
+    monkeypatch.setattr(controller, "command", forbidden)
+    monkeypatch.setattr(controller.subprocess, "run", forbidden)
+    expected = (
+        "@echo off\r\n"
+        f"rem GenLayer owned guest setup {NONCE}\r\n"
+        '"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" '
+        '-NoProfile -NonInteractive -ExecutionPolicy Bypass '
+        '-File "C:\\LabTrial\\bootstrap.ps1"\r\n'
+        "exit /b %ERRORLEVEL%\r\n"
+    ).encode("ascii")
+    assert controller.setup_complete_cmd(NONCE) == expected
+    assert b"\n" not in expected.replace(b"\r\n", b"")
+    launcher = controller.seed_launcher(NONCE)
+    encoded = re.search(r"\$expected='([A-Za-z0-9+/=]+)'", launcher).group(1)
+    assert base64.b64decode(encoded, validate=True) == expected
+    # All guards precede every directory/file mutation. Existing foreign setup
+    # code is refused; exclusive creation cannot overwrite a racing new file.
+    for guard in ("SYSTEM_required", "guest_identity_required", "seed_required",
+                  "unexpected_existing_setup_complete"):
+        assert launcher.index(guard) < launcher.index("New-Item") < launcher.index("Copy-Item")
+    assert "[IO.File]::ReadAllBytes($setup)) -cne $expected" in launcher
+    assert "[IO.FileMode]::CreateNew" in launcher
+    assert "SetupComplete.cmd" in launcher
+    assert "powershell.exe" not in launcher and "bootstrap.ps1" not in launcher
+    assert "Start-Process" not in launcher and "Wait-Process" not in launcher
+    assert "shutdown" not in launcher.lower() and "restart-computer" not in launcher.lower()
+    assert launcher.endswith("exit 0")
+    tree = ET.fromstring(controller.unattend(NONCE, "Lab!test9", "Admin!test9"))
+    path = tree.findtext(".//u:RunSynchronousCommand/u:Path", namespaces=NS)
+    assert len(path) <= 259 and "seed-launch.ps1" in path
+    assert tree.findtext(".//u:RunSynchronousCommand/u:WillReboot", namespaces=NS) == "Never"
+
+
+@pytest.mark.parametrize("nonce", ["", "a" * 31, "A" * 32, "a" * 32 + "';exit 1;"])
+def test_later_setup_generation_refuses_invalid_nonce(nonce):
+    for generate in (controller.setup_complete_cmd, controller.seed_launcher):
+        with pytest.raises(controller.TrialError, match="invalid_nonce"):
+            generate(nonce)
 
 
 @pytest.mark.parametrize("missing", ["run_id", "report_sha256"])
