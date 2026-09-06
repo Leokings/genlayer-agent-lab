@@ -2,10 +2,12 @@
 
 import copy
 import hashlib
+import io
 import json
 import sys
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -273,6 +275,55 @@ def test_output_limit_terminates_real_client_process():
 def test_timeout_terminates_real_client_process():
     with pytest.raises(RuntimeError, match="timed out"):
         container._bounded_process([sys.executable, "-c", "import time; time.sleep(10)"], timeout=.1)
+
+
+@pytest.fixture
+def posix_cleanup(monkeypatch):
+    """Exercise POSIX signal decisions on every OS without signaling a real PID."""
+    process = SimpleNamespace(pid=123456, returncode=None, stdin=io.BytesIO(),
+                              stdout=io.BytesIO(), stderr=io.BytesIO())
+    process.poll = lambda: process.returncode
+    process.wait = lambda **kwargs: process.returncode
+    process.kill = lambda: setattr(process, "returncode", -9)
+
+    def popen(args, **kwargs):
+        assert kwargs["start_new_session"] is True
+        return process
+
+    monkeypatch.setattr(container.subprocess, "Popen", popen)
+    monkeypatch.setattr(container, "signal", SimpleNamespace(SIGKILL=9))
+    return process
+
+
+@pytest.mark.parametrize("already_absent", [False, True])
+def test_completed_group_cleanup_never_resignals_reaped_group(posix_cleanup, monkeypatch, already_absent):
+    calls = []
+
+    def killpg(pid, sig):
+        calls.append((pid, sig))
+        if len(calls) > 1:
+            raise PermissionError("A second signal would target a retired process group")
+        posix_cleanup.returncode = -9
+        if already_absent:
+            raise ProcessLookupError("Owned group has already exited")
+
+    monkeypatch.setattr(container, "os", SimpleNamespace(name="posix", killpg=killpg))
+    with pytest.raises(RuntimeError, match="timed out"):
+        container._bounded_process(["owned-command"], timeout=0)
+    assert calls == [(posix_cleanup.pid, 9)]
+
+
+def test_initial_group_permission_denial_remains_a_cleanup_failure(posix_cleanup, monkeypatch):
+    calls = []
+
+    def killpg(pid, sig):
+        calls.append((pid, sig))
+        raise PermissionError("Cannot terminate the live owned process group")
+
+    monkeypatch.setattr(container, "os", SimpleNamespace(name="posix", killpg=killpg))
+    with pytest.raises(PermissionError, match="live owned process group"):
+        container._bounded_process(["owned-command"], timeout=0)
+    assert calls and posix_cleanup.returncode is None
 
 
 def test_timeout_kills_owned_grandchild_without_pipe_deadlock(tmp_path):

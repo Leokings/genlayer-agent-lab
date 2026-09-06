@@ -105,16 +105,22 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
         process.wait(timeout=3)
         raise
 
+    group_terminated = False
+
     def terminate_group():
-        nonlocal close_job
+        nonlocal close_job, group_terminated
         if close_job is not None:
             close_job()
             close_job = None
-        elif os.name != "nt":
+        elif os.name != "nt" and not group_terminated:
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+            # A successful SIGKILL (or an absent group) needs no second signal
+            # after reaping the leader. The old group may contain only zombies,
+            # or its numeric ID may be reused. Permission errors remain errors.
+            group_terminated = True
         if process.poll() is None:
             process.kill()
     output = [bytearray(), bytearray()]

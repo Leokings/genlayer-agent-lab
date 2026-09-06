@@ -29,6 +29,11 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
   budget. The call now clamps to that exact cap. A deterministic coarse-clock
   regression reproduces the condition; all **26 recovery tests** passed after
   the correction. This did not invalidate the observed container/state checks.
+- A separate macOS package test exposed a second signal sent to an already
+  terminated process group during timeout cleanup. Cleanup now records a
+  successful termination (or absent group), avoiding a second signal after the
+  leader is reaped. Initial permission denials remain errors. Focused tests
+  cover both paths and actual timed-out descendants retaining output pipes.
 - An installed alpha 4 to alpha 7 upgrade/rollback rehearsal preserved both
   frozen fixture reports, accepted a new run, restored the old-version-readable
   backup, rotated the restored administrator credential and revoked both old
