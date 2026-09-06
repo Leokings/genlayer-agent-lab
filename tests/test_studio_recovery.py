@@ -253,3 +253,13 @@ def test_elapsed_budget_is_clamped_before_each_docker_call(rig, monkeypatch):
     result = recovery.run_studio_recovery(directory, timeout=1)
     assert result["verification"] == "inconclusive"
     assert result["error_code"] == "deadline_exceeded" and not ctx.calls
+
+
+def test_coarse_clock_cannot_round_baseline_budget_above_its_cap(rig, monkeypatch):
+    directory, ctx = rig
+    # Seen on a Windows runner: subtracting this start from the deadline yields
+    # 510.00000000000006. The baseline helper must still receive at most 510.
+    monkeypatch.setattr(recovery.time, "monotonic", lambda: 0.07)
+    result = recovery.run_studio_recovery(directory)
+    assert result["verification"] == "pass"
+    assert ctx.calls == ["down", "up"]

@@ -24,6 +24,11 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
   CLI/Studio/recovery selection passed **97 tests**. Installation-verifier tests
   passed **6 tests**, including replacement of the source wheel during setup;
   the verifier now hashes and installs the same private artifact copy.
+- Windows CI exposed floating-point rounding that could pass
+  `510.00000000000006` seconds to a helper with a 510-second reserved-work
+  budget. The call now clamps to that exact cap. A deterministic coarse-clock
+  regression reproduces the condition; all **26 recovery tests** passed after
+  the correction. This did not invalidate the observed container/state checks.
 - An installed alpha 4 to alpha 7 upgrade/rollback rehearsal preserved both
   frozen fixture reports, accepted a new run, restored the old-version-readable
   backup, rotated the restored administrator credential and revoked both old

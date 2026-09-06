@@ -214,7 +214,8 @@ def run_studio_recovery(data_dir, timeout=600, progress=None):
                     stage("baseline_execution")
                     baseline = run_studio_conformance(rpc_endpoint, snapshot, context,
                         sim_config=fixtures("approve"), expected_verdict="approve",
-                        timeout=_remaining(work_deadline), stack_pins={**before, "endpoint": rpc_endpoint})
+                        timeout=_remaining(work_deadline, timeout - reserve),
+                        stack_pins={**before, "endpoint": rpc_endpoint})
                     for name in ("deployment", "execution"):
                         if name in baseline.get("transactions", {}):
                             evidence["transactions"][name] = _hex(baseline["transactions"][name], 64)
