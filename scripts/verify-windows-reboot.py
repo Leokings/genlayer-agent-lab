@@ -425,20 +425,19 @@ def wait_for(qemu, mailbox, predicate, seconds, phase, output, evidence):
             last_note = time.monotonic()
         result = snapshot.get("result") or snapshot.get("probe") or {}
         require(result.get("verification") != "inconclusive", "guest_" + str(result.get("error_code", "failed")))
-        require(guest_stage not in {"python_hash_mismatch", "python_signature_mismatch", "python_install_failed",
-                                   "venv_failed", "wheel_hash_mismatch", "wheel_install_failed",
-                                   "guest_bootstrap_failed"}, guest_stage)
+        require(not guest_stage.endswith(("_failed", "_mismatch")), guest_stage)
         if predicate(snapshot):
             return snapshot
         time.sleep(2)
     raise TrialError(phase + "_timeout")
 
 
-def trial(wheel, output, runner_temp):
+def trial(wheel, output, runner_temp, first_login_timeout=2700):
     evidence = {"verification": "inconclusive", "scope": "Windows 11 guest OS reboot and user login",
                 "outer_runner_rebooted": False, "personal_computer_accessed": False,
                 "studio_included": False, "before_login_startup": False,
-                "wheel_sha256": WHEEL_SHA, "windows_iso_sha256": ISO_SHA, "package_version": VERSION}
+                "wheel_sha256": WHEEL_SHA, "windows_iso_sha256": ISO_SHA, "package_version": VERSION,
+                "first_login_timeout_seconds": first_login_timeout}
     nonce = uuid.uuid4().hex
     directory = Path(tempfile.mkdtemp(prefix="glab-win-", dir=runner_temp)).resolve()
     qemu = swtpm = mailbox = qmp = None
@@ -509,7 +508,7 @@ def trial(wheel, output, runner_temp):
         for _ in range(30):
             qmp.execute("send-key", {"keys": [{"type": "qcode", "data": "spc"}], "hold-time": 100})
             time.sleep(1)
-        before = wait_for(qemu, mailbox, lambda body: bool(body.get("baseline")), 2700,
+        before = wait_for(qemu, mailbox, lambda body: bool(body.get("baseline")), first_login_timeout,
                           "await_first_logon_and_baseline", output, evidence)
         baseline = before["baseline"]
         validate_baseline(baseline, nonce)
@@ -586,12 +585,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wheel", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--first-login-timeout", type=int, default=2700,
+                        help="300..2700 seconds; short diagnostics do not establish reboot coverage")
     args = parser.parse_args()
     # First action: refuse the user's Windows computer and any ordinary machine.
     root = hosted_temp()
+    require(300 <= args.first_login_timeout <= 2700, "invalid_first_login_timeout")
     output = args.output.resolve()
     require(output.parent == root, "evidence_must_be_in_runner_temp")
-    return trial(args.wheel.resolve(strict=True), output, root)
+    return trial(args.wheel.resolve(strict=True), output, root, args.first_login_timeout)
 
 
 if __name__ == "__main__":

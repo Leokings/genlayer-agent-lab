@@ -109,3 +109,42 @@ readiness before any Lab login or manual service start. It requires unchanged
 credentials, installation identity and frozen report, then a successful new
 GLSim run. The outer runner's boot identity must remain unchanged. Cleanup removes
 the disposable guest disk and keys; compact evidence is retained in CI logs.
+
+`.github/workflows/windows-reboot.yml` implements a separate, manually dispatched
+Windows guest trial. Its `preflight` mode measures actual free disk, checks the
+firmware and creates an empty KVM VM as the regular hosted Linux user. Its `trial`
+mode downloads the exact published alpha 7 wheel and Microsoft's Windows 11
+Enterprise 25H2 evaluation ISO, verifies their pinned SHA-256 digests, and installs
+Windows on an empty private 80 GiB virtual disk. It requires at least 35 GiB of
+actual free space. Firmware has Microsoft Secure Boot keys, and the guest has a
+TPM 2.0 device, two virtual CPUs and 8 GiB of RAM.
+
+The test uses Microsoft's documented unattended installation, local-account and
+AutoLogon settings. AutoLogon is configured only inside the disposable VM; the
+Lab installer does not change a developer's login policy. A SYSTEM setup observer
+installs Python and the published wheel. A separate non-administrator `LabUser`
+prepares GLSim, installs the Lab's own user service and completes the first real
+HTTP run. Existing setup code is read-only to that user; it can create and manage
+its own test data and evidence.
+
+Before requesting a reboot, the Linux observer retains the guest's boot time,
+service identity, credential/report digests and completed-run evidence. The guest
+accepts one reboot command only when its VM serial, random trial marker and
+baseline-file digest match. After the next real Windows boot and user login, the
+probe only observes automatic service readiness; it never calls service install,
+start, restart or doctor in that phase. It requires unchanged credentials and
+history plus a fresh GLSim execution passing all four grades. The same QEMU
+process, guest disk and outer Linux boot identity must survive.
+
+Only compact JSON and, on failure, the guest's last setup/login screen are retained.
+The trial deletes its private guest disk, installation media, unattended passwords
+and logs. This tests orderly **Windows guest OS reboot followed by login**. It does
+not establish recovery before login, physical-machine power loss, macOS behavior,
+or automatic Docker/Studio startup. The actual outcome belongs in
+[VERIFICATION.md](VERIFICATION.md); creating the workflow does not close that gate.
+
+The Windows evaluation image is for bounded evaluation under Microsoft's terms,
+and is downloaded from Microsoft's own distribution rather than republished by
+this project. Sources: [evaluation media](https://www.microsoft.com/en-us/evalcenter/download-windows-11-enterprise),
+[AutoLogon](https://learn.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-shell-setup-autologon),
+[local accounts](https://learn.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-shell-setup-useraccounts-localaccounts-localaccount).

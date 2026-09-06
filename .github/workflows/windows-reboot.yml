@@ -11,6 +11,11 @@ on:
         options:
           - preflight
           - trial
+      setup_wait_seconds:
+        description: First-login deadline (300..2700 seconds); 300 captures early setup diagnostics
+        type: string
+        required: true
+        default: '2700'
 
 permissions:
   contents: read
@@ -58,6 +63,8 @@ jobs:
       - name: Verify guest restart, actual login, and automatic Lab recovery
         if: inputs.mode == 'trial'
         shell: bash
+        env:
+          SETUP_WAIT_SECONDS: ${{ inputs.setup_wait_seconds }}
         run: |
           set -euo pipefail
           sudo -n -u "$(id -un)" env \
@@ -65,7 +72,8 @@ jobs:
             RUNNER_OS="$RUNNER_OS" RUNNER_TEMP="$RUNNER_TEMP" \
             /usr/bin/python3 -I scripts/verify-windows-reboot.py \
             --wheel "$RUNNER_TEMP/genlayer_agent_lab-0.1.0a7-py3-none-any.whl" \
-            --output "$RUNNER_TEMP/windows-reboot-evidence.json"
+            --output "$RUNNER_TEMP/windows-reboot-evidence.json" \
+            --first-login-timeout "$SETUP_WAIT_SECONDS"
       - name: Record bounded evidence without uploading guest files
         if: always()
         shell: bash
