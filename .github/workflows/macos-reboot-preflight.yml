@@ -31,10 +31,9 @@ jobs:
           PREFLIGHT_MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
-          args=()
+          args=(--output "$RUNNER_TEMP/macos-reboot-preflight.json")
           if test "$PREFLIGHT_MODE" = catalog; then args+=(--list-installers); fi
-          /usr/bin/python3 -I scripts/macos-reboot-preflight.py \
-            --output "$RUNNER_TEMP/macos-reboot-preflight.json" "${args[@]}"
+          /usr/bin/python3 -I scripts/macos-reboot-preflight.py "${args[@]}"
       - name: Check normal VirtualBox macOS device initialization
         if: inputs.mode == 'virtualbox' || inputs.mode == 'installer'
         shell: bash
@@ -42,10 +41,9 @@ jobs:
           PREFLIGHT_MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
-          args=()
+          args=(--output "$RUNNER_TEMP/macos-virtualbox-preflight.json")
           if test "$PREFLIGHT_MODE" = installer; then args+=(--boot-installer); fi
-          /usr/bin/python3 -I scripts/macos-virtualbox-preflight.py \
-            --output "$RUNNER_TEMP/macos-virtualbox-preflight.json" "${args[@]}"
+          /usr/bin/python3 -I scripts/macos-virtualbox-preflight.py "${args[@]}"
       - name: Preserve disposable installer screen for review
         if: always() && inputs.mode == 'installer'
         uses: actions/upload-artifact@v4
