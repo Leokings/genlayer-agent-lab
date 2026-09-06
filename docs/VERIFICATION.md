@@ -2,6 +2,20 @@
 
 Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
+## Fresh Windows guest runtime download finding — September 6
+
+- The [Windows guest trial on source `22f3457`](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34047014822)
+  installed the published alpha 7 wheel, completed Windows setup and reached a
+  regular-user interactive session. Its first runtime preparation failed with
+  `CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate` under
+  Python 3.13.7. The trial was inconclusive and did not authorize a reboot.
+- Alpha 8 adds Certifi's public roots to the default SSL context for the pinned
+  GenVM download. System roots, hostname/certificate checks and the artifact
+  hash remain required. A new installed-wheel trial is required to close the
+  Windows reboot gate; this code change alone does not close it.
+- The failed trial removed its private guest disk, evaluation image and seed.
+  Only bounded diagnostic evidence and the failed setup screenshot were retained.
+
 ## Alpha 7 controlled Studio restart and onboarding kit — September 6
 
 - The installed alpha 7 wheel passed `studio verify-recovery` against the existing

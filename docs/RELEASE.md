@@ -1,19 +1,20 @@
-# Alpha 6 release checklist
+# Alpha 8 release checklist
 
 This is a developer alpha with controlled model responses. It is suitable for
 reproducible agent integration experiments within the documented interfaces.
 It does not certify an agent's general safety or performance with live models.
 
-## What changed after alpha 5
+## What changed after alpha 7
 
-- Corrected macOS ownership checks to preserve the exact spaces in LaunchAgent
-  arguments while removing only launchctl's display indentation. Modified
-  arguments and duplicate fields remain rejected.
-- Wait for macOS job unloading to finish before reporting a successful stop;
-  launchctl can return before its job disappears. The wait has a fixed deadline.
-- Added an actual macOS LaunchAgent lifecycle gate in the runner's existing GUI
-  session, plus a separate Ubuntu guest operating-system reboot gate with an
-  outside observer. Consult the dated evidence before treating a gate as passed.
+- A fresh Windows 11 guest exposed a missing issuer certificate while downloading
+  the pinned GenVM bundle. The downloader now adds Certifi's public roots to
+  Python's default certificate context, retaining existing system roots,
+  hostname verification and certificate validation. Bundle size and SHA-256
+  checks are unchanged.
+- Added a guarded Windows guest reboot/login trial on a standard Linux GitHub
+  runner. The observer never starts Lab after reboot; a pass requires automatic
+  startup, preserved reports and a new actual GLSim run. Consult the dated
+  evidence before treating this gate as passed.
 
 Consult [BUILD_STATUS.md](BUILD_STATUS.md) and [VERIFICATION.md](VERIFICATION.md)
 for the actual evidence and remaining gates. Source tests, container checks,
@@ -33,7 +34,7 @@ uv run --locked python scripts/prepare-release.py --source-commit VERIFIED_40_CH
 
 The final command requires a new destination, audits the wheel/source file lists,
 then assembles the wheel, source archive, initial setup instructions, setup skill
-and `SHA256SUMS` under `dist/release-0.1.0a6`. It never publishes anything. Preserve
+and `SHA256SUMS` under `dist/release-0.1.0a8`. It never publishes anything. Preserve
 the verified bundle unchanged and record its checksum when sharing it. The
 source archive includes `uv.lock`; the wheel carries the installation kit.
 
@@ -75,4 +76,4 @@ cases and does not touch Studio or the normal installation.
 The optional Studio checks retain their separate evidence for actual GenVM
 deployment, approved/denied execution and appeals. The SQLite backup does not
 restore Studio's persistent PostgreSQL volumes. Live inference, modern appeal
-bonds and public-chain finality remain outside alpha 6.
+bonds and public-chain finality remain outside alpha 8.

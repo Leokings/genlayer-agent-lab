@@ -1,10 +1,13 @@
 # Build status
 
-This is the alpha 7 candidate. Status follows executable behavior, not the original release target.
+This is the alpha 8 candidate. Status follows executable behavior, not the original release target.
 
-Alpha 7 adds an explicit `studio verify-recovery` command for an orderly restart
-with retained volumes, plus a packaged external developer trial checklist.
-Candidate verification is recorded separately from the prior alpha 6 CI gates.
+Alpha 8 fixes the GenVM download's missing certificate issuer on fresh Windows
+installations by adding bundled public certificate roots to the default trust
+store. Certificate verification and pinned artifact checks remain required.
+It retains alpha 7's `studio verify-recovery` command and external developer
+trial checklist. Windows guest reboot verification remains pending until an
+actual successful trial is recorded.
 
 | Planned area | Implemented now | Remaining release work |
 |---|---|---|

@@ -6,11 +6,14 @@ import hashlib
 import json
 import os
 import shutil
+import ssl
 import sys
 import time
 import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
+
+import certifi
 
 from .pins import BUNDLE_SHA256, BUNDLE_SIZE, BUNDLE_URL, GENVM_VERSION
 
@@ -72,7 +75,11 @@ def prepare_sdk(contract_path: Path) -> None:
                     request = urllib.request.Request(
                         BUNDLE_URL, headers={"User-Agent": "genlayer-agent-lab/0.1"}
                     )
-                    with urllib.request.urlopen(request, timeout=60) as response:
+                    # Retain system/enterprise CAs and add public roots for fresh
+                    # Windows stores. Certificate and hostname checks stay enabled.
+                    context = ssl.create_default_context()
+                    context.load_verify_locations(cafile=certifi.where())
+                    with urllib.request.urlopen(request, timeout=60, context=context) as response:
                         with temporary.open("wb") as output:
                             shutil.copyfileobj(response, output, length=1024 * 1024)
                 if temporary.stat().st_size != BUNDLE_SIZE or _sha256(temporary) != BUNDLE_SHA256:

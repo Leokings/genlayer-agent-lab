@@ -612,9 +612,10 @@ wheels = [
 
 [[package]]
 name = "genlayer-agent-lab"
-version = "0.1.0a7"
+version = "0.1.0a8"
 source = { editable = "." }
 dependencies = [
+    { name = "certifi" },
     { name = "fastapi" },
     { name = "genlayer-py" },
     { name = "genlayer-test", extra = ["sim"] },
@@ -634,6 +635,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = "==2026.7.22" },
     { name = "fastapi", specifier = "==0.141.1" },
     { name = "genlayer-py", specifier = "==0.16.3" },
     { name = "genlayer-test", extras = ["sim"], specifier = "==0.29.2" },
