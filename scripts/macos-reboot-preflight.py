@@ -12,6 +12,7 @@ import json
 import os
 import platform
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -145,6 +146,8 @@ def inspect(runner_temp):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--list-installers", action="store_true",
+                        help="Also query Apple's available full-installer versions; download nothing")
     args = parser.parse_args(argv)
     runner_temp = hosted_intel_temp()  # Before files, compilation or Hypervisor operations.
     output = (args.output or runner_temp / "macos-reboot-preflight.json").resolve()
@@ -152,6 +155,23 @@ def main(argv=None):
             "Evidence output must stay within RUNNER_TEMP")
     require(output.parent.is_dir() and not output.exists(), "Evidence destination must be new")
     report = inspect(runner_temp)
+    if args.list_installers and report["status"] == "pass":
+        try:
+            catalog = run(["/usr/sbin/softwareupdate", "--list-full-installers"], timeout=180)
+            require(catalog.returncode == 0, "Apple installer catalog query failed")
+            require(len(catalog.stdout) <= 65536, "Apple installer catalog exceeded output limit")
+            versions = sorted(set(re.findall(r"\bVersion:\s*(\d+(?:\.\d+){1,3})\s*,", catalog.stdout)))
+            report["apple_installer_catalog"] = {
+                "status": "pass", "versions": versions,
+                "catalina_available": any(version.startswith("10.15") for version in versions),
+                "download_requested": False,
+            }
+        except (PreflightError, OSError, subprocess.TimeoutExpired) as exc:
+            report["apple_installer_catalog"] = {
+                "status": "fail", "failure": str(exc) if isinstance(exc, PreflightError) else type(exc).__name__,
+                "download_requested": False,
+            }
+            report["status"] = "fail"
     output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
     return 0 if report["status"] == "pass" else 1
