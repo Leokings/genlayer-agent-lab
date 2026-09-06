@@ -2,6 +2,33 @@
 
 Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
+## Intel Mac virtualization feasibility — September 6
+
+- [Capacity run 34051279546](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34051279546)
+  passed on source `5b1a08c60ebfcbb8f3c89724d62d882839876d05`, using a standard
+  `macos-15-intel` runner: macOS 15.7.9, four CPUs, 14 GiB RAM and 108.55 GiB
+  free workspace disk. Apple's Hypervisor API created and destroyed an empty VM.
+- [Default Mac VM run 34051933894](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34051933894)
+  passed on source `43979817e68a5cdda87c009779cdc7b0a4233335`. The probe verified
+  Oracle's pinned 7.2.16 Intel package checksum, installer signature and system
+  policy acceptance, then started an unmodified default macOS-type diskless EFI
+  VM with two CPUs, 2 GiB RAM and networking disabled. VirtualBox returned success
+  and reported the VM running; its host SMC query did not fail. No Apple hardware
+  check overrides or Extension Pack were used.
+- The probe powered off and unregistered its VM, detached its installer image
+  and removed its private files. Only bounded JSON was exported; raw VirtualBox
+  logs remained private. The preceding attempt, run 34051787324, stopped because
+  the probe expected the verbose guest-type listing while requesting compact
+  output. The successful run uses Oracle's documented `list --long` option.
+- This confirms actual capacity, Hypervisor access and default Mac VM device
+  initialization on the free hosted Intel runner. It does **not** establish a
+  macOS guest OS boot, installation, login or reboot recovery. The runner exposes
+  `Macmini6,2`; the guest installer and its compatibility remain separate gates.
+- [Apple catalog run 34052076071](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34052076071)
+  passed on source `81c0b3e9d97d7f7defd31f1a017caeed8fe0202a` and listed Catalina
+  10.15.7 among the available full installers. That query downloaded no installer
+  and made no host OS change. Availability is not proof that installation succeeds.
+
 ## Alpha 8 Windows guest reboot and login — September 6
 
 - [Windows guest reboot run 34048951171](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34048951171)

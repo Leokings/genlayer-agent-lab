@@ -163,3 +163,37 @@ this project. Sources: [evaluation media](https://www.microsoft.com/en-us/evalce
 [setup scripts](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/add-a-custom-script-to-windows-setup?view=windows-11),
 [AutoLogon](https://learn.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-shell-setup-autologon),
 [local accounts](https://learn.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-shell-setup-useraccounts-localaccounts-localaccount).
+
+## Intel Mac guest feasibility
+
+`.github/workflows/macos-reboot-preflight.yml` is a manual investigation on the
+standard `macos-15-intel` GitHub runner. Its default `capacity` mode measures the
+actual workspace storage and memory, then creates and destroys an empty VM using
+Apple's Hypervisor framework and its documented entitlement. It requires an Intel
+macOS hosted runner before any probe operation and removes its private files.
+
+[Run 34051279546](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34051279546)
+passed on September 6: macOS 15.7.9, four CPUs, 14 GiB RAM, 108.55 GiB free disk,
+and successful empty-VM creation/destruction. This establishes capacity and access
+to the virtualization API; it does not establish macOS guest installation or
+reboot recovery.
+
+The optional `virtualbox` mode additionally installs the pinned Oracle base
+package after verifying its SHA-256, installer signer and system policy check.
+It attempts to start a diskless default macOS-type EFI VM in a private registry,
+with networking disabled. It does not install an Extension Pack, change Apple
+hardware checks, install macOS, or reboot the runner. VM logs remain private;
+only bounded status fields and error identifiers are recorded. Failed cleanup
+leaves mounted or active files for disposable-runner teardown.
+
+[Run 34051933894](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34051933894)
+passed the diskless check on source `43979817e68a5cdda87c009779cdc7b0a4233335`:
+VirtualBox 7.2.16 initialized the default Mac devices, its host SMC query did not
+fail, and the VM remained running until the probe powered it off. VM removal,
+installer-image detach and private-file cleanup succeeded. No macOS guest OS
+was installed or booted. The earlier attempt stopped at a guest-type output
+parser mismatch, corrected by requesting the documented `list --long` format.
+
+The `catalog` mode additionally runs Apple's read-only
+`softwareupdate --list-full-installers` and records only version numbers.
+It does not fetch an installer or update the host operating system.
