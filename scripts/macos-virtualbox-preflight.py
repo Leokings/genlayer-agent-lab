@@ -57,14 +57,15 @@ def private_workspace(runner_temp, report):
     finally:
         # A failed detach or running VM must be left for runner disposal, never
         # recursively removed through an attached filesystem or active machine.
-        safe = (not os.path.ismount(private / "mount")
+        safe = (not any(os.path.ismount(child) for child in private.iterdir())
+                and not report.get("installer_media", {}).get("media_mounted", False)
                 and not report.get("owned_vm_registered", False))
         if safe:
             shutil.rmtree(private)
         report["private_vm_files_removed"] = not private.exists()
 
 
-def probe(runner_temp):
+def probe(runner_temp, *, boot_installer=False):
     report = {
         "schema_version": 1, "status": "running",
         "scope": "Default VirtualBox macOS device initialization and diskless EFI only",
@@ -73,6 +74,10 @@ def probe(runner_temp):
         "hardware_check_overrides": False, "host_reboot_requested": False,
         "raw_logs_exported": False, "private_vm_files_removed": False,
     }
+    if boot_installer:
+        report["scope"] = "Normal Apple Catalina installer boot attempt; screenshot requires review"
+        report["installer_boot_confirmed"] = None
+        report["guest_os_booted"] = False
     try:
         capacity.require(not VBOX.parent.parent.exists(), "existing_virtualbox_installation")
         with private_workspace(runner_temp, report) as private:
@@ -117,6 +122,17 @@ def probe(runner_temp):
                                   "virtualbox_ostypes_failed")
                 capacity.require(re.search(r'^ID:\s+MacOS_64\s*$', ostypes, re.MULTILINE),
                                  "default_macos_type_unavailable")
+                media = None
+                if boot_installer:
+                    report["stage"] = "prepare_official_apple_installer"
+                    spec = importlib.util.spec_from_file_location(
+                        "macos_media", Path(__file__).with_name("macos-installer-media.py"))
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    try:
+                        media = module.prepare(private, report)
+                    except module.MediaError as exc:
+                        raise capacity.PreflightError(str(exc)) from None
                 report["stage"] = "create_default_macos_configuration"
                 checked(run([str(VBOX), "createvm", "--name", name, "--uuid", vm_id,
                              "--platform-architecture", "x86", "--ostype", "MacOS_64", "--default",
@@ -128,6 +144,34 @@ def probe(runner_temp):
                 checked(run([str(VBOX), "modifyvm", vm_id, "--memory", "2048", "--cpus", "2",
                              "--firmware", "efi", "--nic1", "none", "--vrde", "off"], env=env),
                         "vm_resource_configuration_failed")
+                if media is not None:
+                    report["stage"] = "attach_owned_guest_disk_and_apple_installer"
+                    checked(run([str(VBOX), "modifyvm", vm_id, "--memory", "6144", "--nic1", "nat",
+                                 "--boot1", "dvd", "--boot2", "disk", "--boot3", "none", "--boot4", "none"],
+                                env=env), "installer_vm_configuration_failed")
+                    disk = private / "macos-guest.vdi"
+                    checked(run([str(VBOX), "createmedium", "disk", "--filename", str(disk),
+                                 "--size", "65536", "--format", "VDI", "--variant", "Standard"], env=env),
+                            "owned_guest_disk_creation_failed")
+                    info = checked(run([str(VBOX), "showvminfo", vm_id, "--machinereadable"], env=env),
+                                   "guest_controller_inspection_failed")
+                    sata = re.findall(r'^storagecontrollertype(\d+)="IntelAhci"$', info,
+                                      re.MULTILINE | re.IGNORECASE)
+                    capacity.require(len(sata) <= 1, "unexpected_default_storage_controllers")
+                    controller = "GLabTestSATA"
+                    add = ["--add", "sata", "--controller", "IntelAhci"]
+                    if sata:
+                        existing = re.search(r'^storagecontrollername' + sata[0] + r'="([^"\n]{1,80})"$',
+                                             info, re.MULTILINE)
+                        capacity.require(existing is not None, "default_storage_name_missing")
+                        controller, add = existing.group(1), []
+                    checked(run([str(VBOX), "storagectl", vm_id, "--name", controller, *add,
+                                 "--portcount", "2", "--bootable", "on"], env=env),
+                            "guest_storage_controller_failed")
+                    for port, kind, path in (("0", "hdd", disk), ("1", "dvddrive", media)):
+                        checked(run([str(VBOX), "storageattach", vm_id, "--storagectl", controller,
+                                     "--port", port, "--device", "0", "--type", kind, "--medium", str(path)],
+                                    env=env), "guest_media_attachment_failed")
                 report["stage"] = "initialize_macos_devices_and_efi"
                 start = run([str(VBOX), "startvm", vm_id, "--type", "headless"], env=env, timeout=90)
                 report["start_exit_code"] = start.returncode
@@ -147,6 +191,16 @@ def probe(runner_temp):
                 report["diskless_vm_state"] = machine_state(info)
                 capacity.require(report["diskless_vm_state"] == "running", "diskless_vm_not_running")
                 report["default_macos_devices_initialized"] = True
+                if boot_installer:
+                    report["stage"] = "observe_normal_apple_installer_boot"
+                    report["installer_boot_attempted"] = True
+                    time.sleep(180)
+                    screenshot = runner_temp / "macos-installer-boot.png"
+                    capacity.require(not screenshot.exists(), "existing_guest_screenshot")
+                    checked(run([str(VBOX), "controlvm", vm_id, "screenshotpng", str(screenshot)], env=env),
+                            "guest_screenshot_failed")
+                    capacity.require(screenshot.stat().st_size <= 2 * 1024 * 1024, "guest_screenshot_too_large")
+                    report["guest_screenshot_recorded"] = True
                 report["status"] = "pass"
             finally:
                 try:
@@ -177,13 +231,15 @@ def probe(runner_temp):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--boot-installer", action="store_true",
+                        help="Fetch official Catalina media and attempt a normal disposable guest boot")
     args = parser.parse_args(argv)
     runner_temp = capacity.hosted_intel_temp()
     output = (args.output or runner_temp / "macos-virtualbox-preflight.json").resolve()
     capacity.require(output.is_relative_to(runner_temp) and output != runner_temp,
                      "Evidence output must stay within RUNNER_TEMP")
     capacity.require(output.parent.is_dir() and not output.exists(), "Evidence destination must be new")
-    result = probe(runner_temp)
+    result = probe(runner_temp, boot_installer=args.boot_installer)
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))
     return 0 if result["status"] == "pass" else 1

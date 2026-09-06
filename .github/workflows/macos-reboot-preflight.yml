@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Capacity, default diskless macOS VirtualBox VM, or Apple installer catalog
+        description: Capacity, diskless VM, Apple catalog, or normal Catalina installer boot attempt
         type: choice
         required: true
         default: capacity
@@ -12,6 +12,7 @@ on:
           - capacity
           - virtualbox
           - catalog
+          - installer
 
 permissions:
   contents: read
@@ -19,7 +20,7 @@ permissions:
 jobs:
   intel-mac-preflight:
     runs-on: macos-15-intel
-    timeout-minutes: 20
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,12 +36,24 @@ jobs:
           /usr/bin/python3 -I scripts/macos-reboot-preflight.py \
             --output "$RUNNER_TEMP/macos-reboot-preflight.json" "${args[@]}"
       - name: Check normal VirtualBox macOS device initialization
-        if: inputs.mode == 'virtualbox'
+        if: inputs.mode == 'virtualbox' || inputs.mode == 'installer'
         shell: bash
+        env:
+          PREFLIGHT_MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
+          args=()
+          if test "$PREFLIGHT_MODE" = installer; then args+=(--boot-installer); fi
           /usr/bin/python3 -I scripts/macos-virtualbox-preflight.py \
-            --output "$RUNNER_TEMP/macos-virtualbox-preflight.json"
+            --output "$RUNNER_TEMP/macos-virtualbox-preflight.json" "${args[@]}"
+      - name: Preserve disposable installer screen for review
+        if: always() && inputs.mode == 'installer'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer-screen
+          path: ${{ runner.temp }}/macos-installer-boot.png
+          retention-days: 1
+          if-no-files-found: ignore
       - name: Record bounded feasibility evidence
         if: always()
         shell: bash
