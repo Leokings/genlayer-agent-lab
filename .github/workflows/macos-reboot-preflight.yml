@@ -2,6 +2,15 @@ name: Intel macOS guest reboot feasibility
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Capacity only, or also initialize a diskless default macOS VirtualBox VM
+        type: choice
+        required: true
+        default: capacity
+        options:
+          - capacity
+          - virtualbox
 
 permissions:
   contents: read
@@ -9,7 +18,7 @@ permissions:
 jobs:
   intel-mac-preflight:
     runs-on: macos-15-intel
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,12 +29,21 @@ jobs:
           set -euo pipefail
           /usr/bin/python3 -I scripts/macos-reboot-preflight.py \
             --output "$RUNNER_TEMP/macos-reboot-preflight.json"
+      - name: Check normal VirtualBox macOS device initialization
+        if: inputs.mode == 'virtualbox'
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I scripts/macos-virtualbox-preflight.py \
+            --output "$RUNNER_TEMP/macos-virtualbox-preflight.json"
       - name: Record bounded feasibility evidence
         if: always()
         shell: bash
         run: |
-          if test -f "$RUNNER_TEMP/macos-reboot-preflight.json"; then
-            printf 'Intel capacity and empty VM probe only; no macOS guest boot or reboot claim.\n\n```json\n' >> "$GITHUB_STEP_SUMMARY"
-            cat "$RUNNER_TEMP/macos-reboot-preflight.json" >> "$GITHUB_STEP_SUMMARY"
-            printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
-          fi
+          for evidence in macos-reboot-preflight macos-virtualbox-preflight; do
+            if test -f "$RUNNER_TEMP/$evidence.json"; then
+              printf '%s; no macOS guest OS boot or reboot claim.\n\n```json\n' "$evidence" >> "$GITHUB_STEP_SUMMARY"
+              cat "$RUNNER_TEMP/$evidence.json" >> "$GITHUB_STEP_SUMMARY"
+              printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
