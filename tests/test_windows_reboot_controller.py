@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import copy
 import hashlib
 import http.client
@@ -102,6 +101,12 @@ def test_unattend_escapes_passwords_and_targets_only_private_uefi_disk():
     user_password, admin_password = "Lab!<&\"'9", "Admin!<&\"'9"
     tree = ET.fromstring(controller.unattend(NONCE, user_password, admin_password))
     pe = tree.find("u:settings[@pass='windowsPE']", NS)
+    setup_command = tree.findtext(".//u:RunSynchronousCommand/u:Path", namespaces=NS)
+    assert len(setup_command) <= 259
+    assert "seed-launch.ps1" in setup_command
+    launcher = controller.seed_launcher(NONCE)
+    assert "GLAB-" + NONCE in launcher
+    assert launcher.index("guest_identity_required") < launcher.index("New-Item")
     disk = pe.find(".//u:DiskConfiguration/u:Disk", NS)
     assert disk.findtext("u:DiskID", namespaces=NS) == "0"
     assert disk.findtext("u:WillWipeDisk", namespaces=NS) == "true"
@@ -130,8 +135,6 @@ def test_unattend_escapes_passwords_and_targets_only_private_uefi_disk():
     autologon = oobe.find(".//u:AutoLogon", NS)
     assert autologon.findtext("u:Username", namespaces=NS) == "LabUser"
     assert autologon.findtext("u:Password/u:Value", namespaces=NS) == user_password
-    command = tree.findtext("u:settings[@pass='specialize']//u:RunSynchronousCommand/u:Path", namespaces=NS)
-    launcher = base64.b64decode(command.rsplit(" ", 1)[-1]).decode("utf-16-le")
     assert "GLAB-" + NONCE in launcher and "guest_identity_required" in launcher
     assert "GLABSEED" in launcher
     assert "shutdown" not in launcher.lower() and "restart-computer" not in launcher.lower()

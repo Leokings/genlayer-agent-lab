@@ -9,7 +9,6 @@ credentials, installation logs and media are private and are never uploaded.
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import hmac
 import http.server
@@ -176,19 +175,15 @@ def unattend(nonce, user_password, admin_password):
                **{"{" + wcm + "}action": "add"})
     add(sync, "Order", 1)
     add(sync, "Description", "Prepare the marked disposable test guest")
-    launcher = (
-        "$ErrorActionPreference='Stop';"
-        "$s=[string](Get-CimInstance Win32_ComputerSystemProduct).IdentifyingNumber;"
-        f"if($s.Trim() -cne 'GLAB-{nonce}'){{throw 'guest_identity_required'}};"
-        "$disks=@(Get-CimInstance Win32_LogicalDisk | Where-Object {$_.VolumeName -eq 'GLABSEED'});"
-        "if($disks.Count -ne 1){throw 'seed_required'};"
-        "New-Item -ItemType Directory -Path 'C:\\LabTrial' -ErrorAction Stop | Out-Null;"
-        "Copy-Item -Path ($disks[0].DeviceID+'\\payload\\*') -Destination 'C:\\LabTrial' -Recurse;"
-        "& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass "
-        "-File C:\\LabTrial\\bootstrap.ps1;exit $LASTEXITCODE"
+    # This setting has a documented 259-character maximum. Keep the full
+    # serial-guarded launcher on the private seed, not in -EncodedCommand.
+    path = (
+        'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command '
+        '"& ((Get-CimInstance Win32_LogicalDisk|Where-Object VolumeName -eq GLABSEED)'
+        '.DeviceID+\'\\seed-launch.ps1\')"'
     )
-    encoded = base64.b64encode(launcher.encode("utf-16-le")).decode()
-    add(sync, "Path", "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " + encoded)
+    require(len(path) <= 259, "windows_setup_command_too_long")
+    add(sync, "Path", path)
     add(sync, "WillReboot", "Never")
     oobe = add(root, "settings", **{"pass": "oobeSystem"})
     shell = component(oobe, "Microsoft-Windows-Shell-Setup")
@@ -217,6 +212,21 @@ def unattend(nonce, user_password, admin_password):
         add(options, key, "true")
     add(options, "ProtectYourPC", 3)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def seed_launcher(nonce):
+    require(re.fullmatch(r"[0-9a-f]{32}", nonce), "invalid_nonce")
+    return (
+        "$ErrorActionPreference='Stop';"
+        "$s=[string](Get-CimInstance Win32_ComputerSystemProduct).IdentifyingNumber;"
+        f"if($s.Trim() -cne 'GLAB-{nonce}'){{throw 'guest_identity_required'}};"
+        "$disks=@(Get-CimInstance Win32_LogicalDisk | Where-Object {$_.VolumeName -eq 'GLABSEED'});"
+        "if($disks.Count -ne 1){throw 'seed_required'};"
+        "New-Item -ItemType Directory -Path 'C:\\LabTrial' -ErrorAction Stop | Out-Null;"
+        "Copy-Item -Path ($disks[0].DeviceID+'\\payload\\*') -Destination 'C:\\LabTrial' -Recurse;"
+        "& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass "
+        "-File C:\\LabTrial\\bootstrap.ps1;exit $LASTEXITCODE"
+    )
 
 
 class Mailbox:
@@ -394,6 +404,7 @@ def seed(directory, wheel, nonce, mailbox):
               "version": VERSION, "user": "LabUser", "wheel_name": wheel.name,
               "python_sha256": PYTHON_SHA, "mailbox": mailbox.url, "mailbox_token": mailbox.token}
     (payload / "guest.json").write_bytes(canonical(config))
+    (directory / "seed" / "seed-launch.ps1").write_text(seed_launcher(nonce), encoding="utf-8")
     shutil.copyfile(wheel, payload / wheel.name)
     scripts = Path(__file__).resolve().parent
     for source, target in (("windows_reboot_guest.py", "windows_reboot_guest.py"),
