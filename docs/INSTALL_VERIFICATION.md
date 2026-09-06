@@ -57,3 +57,27 @@ not grant itself privileges or enable lingering. A passing test establishes
 the service lifecycle on that runner. It does not establish recovery from a
 whole-machine reboot, a macOS GUI login, Studio-volume disaster recovery, or
 independent human onboarding.
+
+## Process restart, login and full-machine reboot
+
+These are different checks with different evidence:
+
+| Check | What changes | Required observation |
+| --- | --- | --- |
+| Service restart | Only the Lab process stops and starts; the operating system stays running | The startup manager can control the Lab, its saved report is unchanged, and a new test succeeds |
+| Logout and login | The user's desktop session ends and a new one begins | The Lab starts from the real login trigger without a manual start command |
+| Full operating-system reboot | The operating system and all processes restart on the same persistent disk | A new boot identity, automatic Lab readiness under the configured startup policy, preserved history, and successful new execution |
+
+The macOS service workflow checks a real LaunchAgent in the runner's existing
+GUI session. A bootstrap/bootout cycle does not log the user out or back in.
+Similarly, manually starting a Scheduled Task or systemd unit does not establish
+automatic recovery after reboot.
+
+A reboot test needs an observer outside the machine being restarted. Running a
+second ordinary GitHub job supplies a different virtual machine and therefore
+cannot establish reboot persistence. A persistent guest virtual machine can be
+rebooted while its outer test runner stays alive; evidence must explicitly name
+the guest operating system and distinguish that from restarting the provider's
+host. The Lab's user-session startup policy and any separately configured Linux
+lingering policy must be recorded. The optional Docker/Studio stack has its own
+startup and persistent-volume requirements.

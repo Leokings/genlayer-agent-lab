@@ -1,0 +1,75 @@
+name: Native macOS user-service verification
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/macos-service.yml'
+      - 'scripts/verify-macos-service.py'
+      - 'src/genlayer_agent_lab/**'
+      - 'tests/test_service.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  pull_request:
+    paths:
+      - '.github/workflows/macos-service.yml'
+      - 'scripts/verify-macos-service.py'
+      - 'src/genlayer_agent_lab/**'
+      - 'tests/test_service.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+
+permissions:
+  contents: read
+
+jobs:
+  installed-launchagent:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.10.9'
+          enable-cache: false
+      - name: Build the wheel to be tested
+        run: uv build --out-dir dist-macos-service
+      - name: Verify the real current-user GUI session
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -ne 0
+          # The domain output can contain environment data; do not print it.
+          if ! launchctl print "gui/$(id -u)" >/dev/null 2>&1; then
+            echo 'The runner has no available current-user GUI launchd domain.' >&2
+            exit 1
+          fi
+          echo 'Actual current-user GUI launchd domain is available.'
+      - name: Install and test the actual wheel through launchd
+        shell: bash
+        run: |
+          set -euo pipefail
+          wheels=(dist-macos-service/genlayer_agent_lab-*-py3-none-any.whl)
+          test "${#wheels[@]}" -eq 1
+          lab_python=$(command -v python)
+          # Keep the real HOME/login identity required by gui/<uid>. Credentials,
+          # source-import settings and Lab connection variables are not inherited.
+          env -i HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" \
+            PATH="/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$TMPDIR" \
+            PYTHONUTF8=1 PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 \
+            "$lab_python" -I scripts/verify-macos-service.py \
+            --wheel "${wheels[0]}" --output macos-service-evidence.json
+      - name: Record bounded evidence without uploaded service artifacts
+        if: always()
+        shell: bash
+        run: |
+          if test -f macos-service-evidence.json; then
+            printf 'Native LaunchAgent lifecycle in the existing GUI session; no logout, login or VM reboot claim.\n\n```json\n' >> "$GITHUB_STEP_SUMMARY"
+            cat macos-service-evidence.json >> "$GITHUB_STEP_SUMMARY"
+            printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
