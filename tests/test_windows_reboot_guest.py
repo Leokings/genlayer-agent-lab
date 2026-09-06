@@ -301,6 +301,68 @@ def test_failed_cold_preparation_does_not_install_service(tmp_path):
     assert runtime.installs == 0 and runtime.admin.creates == 0
 
 
+@pytest.mark.parametrize(("ready", "execution_success"), [
+    (False, True), (True, False), (True, None), (1, True), (True, 1),
+])
+def test_failed_doctor_preserves_bounded_diagnostic_without_arming(
+        tmp_path, monkeypatch, ready, execution_success):
+    from genlayer_agent_lab import runtime as native_runtime
+
+    calls = []
+    doctor_result = {
+        "python": "3.13.7", "status": "error", "ready": ready,
+        "error": "GenLayer runtime: URLError: certificate verification failed",
+        "provenance": {"execution_success": execution_success, "private": "provider-secret"},
+        "python_executable": "C:/private/python.exe", "env": {"TOKEN": "env-secret"},
+    }
+
+    def doctor(*, timeout):
+        calls.append(timeout)
+        return doctor_result
+
+    monkeypatch.setattr(native_runtime, "doctor", doctor)
+    runtime = FakeRuntime(tmp_path)
+    runtime.prepare = guest.Runtime.prepare.__get__(runtime)
+    result = guest.observe(tmp_path, NONCE, runtime)
+    assert result["verification"] == "inconclusive", result
+    assert result["error_code"] == "glsim_preparation_failed"
+    assert result["stage"] == "baseline_runtime_preparation"
+    diagnostic = result["preparation_diagnostic"]
+    assert set(diagnostic) == {"python", "status", "ready", "error"}
+    assert diagnostic["python"] == "3.13.7" and diagnostic["status"] == "error"
+    assert diagnostic["error"] == doctor_result["error"]
+    assert diagnostic["ready"] is (ready if type(ready) is bool else None)
+    assert not (tmp_path / "baseline.json").exists()
+    assert not (tmp_path / "data").exists()
+    assert runtime.installs == 0 and runtime.admin.creates == 0
+    assert calls == [900]
+    serialized = json.dumps(result)
+    for private in ("provider-secret", "env-secret", "C:/private", "python_executable", "provenance"):
+        assert private not in serialized
+    doctor_result.update(ready=True, provenance={"execution_success": True})
+    assert guest.observe(tmp_path, NONCE, runtime) == result
+    assert calls == [900] and runtime.installs == 0
+
+
+def test_preparation_diagnostic_redacts_credentials_paths_and_bounds_fields():
+    diagnostic = guest.preparation_diagnostic({
+        "python": "3.13.7\nprivate", "status": {"private": "value"}, "ready": "true",
+        "error": (
+            'HTTP Error 403; Authorization: Bearer header-secret\r\n'
+            '"Authorization": "Basic basic-secret"; Bearer standalone-secret; '
+            "cache 'C:\\Users\\Private User\\cache' and '/private/user/cache'; " + "x" * 1000
+        ),
+        "config": {"token": "config-secret"},
+    })
+    assert diagnostic["python"] == "unknown" and diagnostic["status"] == "unknown"
+    assert diagnostic["ready"] is None and len(diagnostic["error"]) == 800
+    assert diagnostic["error"].startswith("HTTP Error 403;")
+    assert "<redacted>" in diagnostic["error"] and "<path>" in diagnostic["error"]
+    for private in ("header-secret", "basic-secret", "standalone-secret", "Private User",
+                    "/private/user/cache", "config-secret", "\r", "\n"):
+        assert private not in diagnostic["error"]
+
+
 def test_initial_service_gets_bounded_readiness_wait(tmp_path):
     runtime = FakeRuntime(tmp_path)
     original = runtime.install

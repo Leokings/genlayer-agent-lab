@@ -118,6 +118,9 @@ Enterprise 25H2 evaluation ISO, verifies their pinned SHA-256 digests, and insta
 Windows on an empty private 80 GiB virtual disk. It requires at least 35 GiB of
 actual free space. Firmware has Microsoft Secure Boot keys, and the guest has a
 TPM 2.0 device, two virtual CPUs and 8 GiB of RAM.
+The controller recognizes the CD boot prompt before sending one keypress, then
+stops keyboard input. This prevents boot input from activating Windows Setup's
+Cancel button after installation has started.
 
 The test uses Microsoft's documented unattended installation, local-account and
 AutoLogon settings. AutoLogon is configured only inside the disposable VM; the
@@ -143,6 +146,9 @@ Compact JSON is retained. While awaiting the first baseline, the trial can emit
 at most four setup/login screens to CI logs, ten minutes apart, with a 96 KiB PNG
 limit per screen. It never takes those periodic images during reboot recovery.
 On failure, the guest's last screen is also retained as a one-day artifact.
+Runtime preparation failures include bounded Python/status/error fields with
+credential and path redaction; they remain terminal failures and cannot arm a
+reboot or trigger an automatic retry.
 The trial deletes its private guest disk, installation media, unattended passwords
 and logs. This tests orderly **Windows guest OS reboot followed by login**. It does
 not establish recovery before login, physical-machine power loss, macOS behavior,

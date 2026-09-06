@@ -154,6 +154,28 @@ def public_system(identity):
                 "user_sid_sha256": value_hash(identity["sid"])}
 
 
+def preparation_diagnostic(result):
+    """Retain bounded setup facts, never the full doctor receipt or credentials."""
+    error = result.get("error", "")
+    error = error if isinstance(error, str) else ""
+    error = re.sub(r"[\x00-\x1f\x7f]", " ", error)
+    error = re.sub(
+        r'''(?i)\b(?:proxy-)?authorization["']?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;}]+(?:\s+[^\s,;}]+)?)''',
+        "Authorization: <redacted>", error)
+    error = re.sub(r'''(?i)\bbearer\s+[^\s"',;}]+''', "Bearer <redacted>", error)
+    # Paths may occur in filesystem exceptions; the path itself is not evidence.
+    error = re.sub(r'''(?i)[a-z]:[\\/][^"']*''', "<path>", error)
+    error = re.sub(r'''(?<![\w:/])(?:\\\\|/)[^\s"'<>]+''', "<path>", error)
+    python = result.get("python")
+    status = result.get("status")
+    return {
+        "python": python if isinstance(python, str) and re.fullmatch(r"[0-9A-Za-z.+-]{1,32}", python) else "unknown",
+        "status": status if isinstance(status, str) and re.fullmatch(r"[a-z_]{1,32}", status) else "unknown",
+        "ready": result.get("ready") if type(result.get("ready")) is bool else None,
+        "error": error[:800],
+    }
+
+
 class Runtime:
     def guard(self, root, nonce):
         checked(os.name == "nt", "windows_only")
@@ -166,9 +188,13 @@ class Runtime:
     def prepare(self):
         from genlayer_agent_lab.runtime import doctor
         result = doctor(timeout=900)
-        checked(result.get("ready") is True
-                and result.get("provenance", {}).get("execution_success") is True,
-                "glsim_preparation_failed")
+        try:
+            checked(result.get("ready") is True
+                    and result.get("provenance", {}).get("execution_success") is True,
+                    "glsim_preparation_failed")
+        except TrialError as exc:
+            exc.preparation_diagnostic = preparation_diagnostic(result)
+            raise
 
     def install(self, data):
         from genlayer_agent_lab import service
@@ -345,6 +371,10 @@ def observe(root, nonce, runtime=None):
         result["stage"] = "completed"
     except Exception as exc:
         result["error_code"] = str(exc) if isinstance(exc, TrialError) else "guest_verification_error"
+        if (result.get("stage") == "baseline_runtime_preparation"
+                and result["error_code"] == "glsim_preparation_failed"
+                and isinstance(getattr(exc, "preparation_diagnostic", None), dict)):
+            result["preparation_diagnostic"] = exc.preparation_diagnostic
         if result["error_code"] == "prior_attempt_incomplete":
             # An existing observer may still be running. Never overwrite its
             # evidence or re-submit work; a crashed claim remains terminal.

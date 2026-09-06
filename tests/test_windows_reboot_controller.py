@@ -368,6 +368,26 @@ def test_setup_snapshot_failure_is_nonfatal_and_does_not_export_exception(monkey
     assert "private diagnostic payload" not in output and "GLAB_GUEST_SETUP_PNG:" not in output
 
 
+def test_failed_preparation_retains_only_bounded_diagnostic_and_never_arms(tmp_path):
+    result = {"verification": "inconclusive", "stage": "baseline_runtime_preparation",
+              "error_code": "glsim_preparation_failed", "private_config": "excluded",
+              "preparation_diagnostic": {"python": "3.13.7", "status": "error", "ready": False,
+                                         "error": "Authorization: Bearer PRIVATE\nTLS failure " + "x" * 1000,
+                                         "environment": "excluded"}}
+    mailbox = SimpleNamespace(snapshot=lambda: ({"result": result}, "guest_observer_running"),
+                              error_count=0, last_error=None, received=1)
+    qemu = SimpleNamespace(poll=lambda: None, returncode=None)
+    evidence = {}
+    with pytest.raises(controller.TrialError, match="guest_glsim_preparation_failed"):
+        controller.wait_for(qemu, mailbox, lambda _body: True, 10,
+                            "await_first_logon_and_baseline", tmp_path / "evidence.json", evidence)
+    diagnostic = evidence["guest_failure"]["preparation_diagnostic"]
+    assert len(diagnostic["error"]) == 800 and "TLS failure" in diagnostic["error"]
+    assert not diagnostic["ready"]
+    assert set(diagnostic) == {"python", "status", "ready", "error"}
+    assert "PRIVATE" not in json.dumps(evidence) and "excluded" not in json.dumps(evidence)
+
+
 @pytest.mark.parametrize(("phase", "baseline_at", "raises", "expected"), [
     ("await_first_logon_and_baseline", 3600, False, [600, 1200, 1800, 2400]),
     ("await_first_logon_and_baseline", 3600, True, [600, 1200, 1800, 2400]),
@@ -399,3 +419,121 @@ def test_setup_snapshots_are_timed_capped_nonfatal_and_only_before_baseline(
                                  3700, phase, tmp_path / "evidence.json", {}, setup_snapshot=diagnostic)
     assert result == {"baseline": {"retained": True}}
     assert attempts == expected
+
+
+@pytest.mark.parametrize(("text", "matches"), [
+    ("Press any key to boot from CD or DVD.....", True),
+    ("PRESS  ANY KEY\nTO BOOT FROM CD/DVD . . .", True),
+    ("Press any key to boot from DVD", True),
+    ("Are you sure you want to quit?", False),
+    ("Windows Setup 10% Cancel", False),
+    ("Press any key to continue", False),
+    ("Press any key to boot from hard disk", False),
+    ("Press any key to boot from", False),
+])
+def test_optical_boot_prompt_requires_explicit_recognized_words(text, matches):
+    assert controller.boot_prompt_matches(text) is matches
+
+
+def boot_clock(monkeypatch):
+    value = {"now": 0}
+    monkeypatch.setattr(controller.time, "monotonic", lambda: value["now"])
+
+    def sleep(seconds):
+        value["now"] += seconds
+
+    monkeypatch.setattr(controller.time, "sleep", sleep)
+    return value
+
+
+def test_boot_confirmation_waits_for_positive_ocr_and_sends_only_one_key(monkeypatch, tmp_path, capsys):
+    clock = boot_clock(monkeypatch)
+    commands, observations = [], []
+
+    def observe(_qmp, _directory, deadline):
+        assert deadline == 90 and commands == []
+        observations.append(clock["now"])
+        if len(observations) == 1:
+            raise RuntimeError("private OCR frame failure")
+        return len(observations) == 3
+
+    monkeypatch.setattr(controller, "read_boot_prompt", observe)
+    qmp = SimpleNamespace(execute=lambda command, arguments: commands.append((command, arguments)))
+    controller.confirm_optical_boot(SimpleNamespace(poll=lambda: None), qmp, tmp_path)
+    assert observations == [0, 1, 2]
+    assert commands == [("send-key", {"keys": [{"type": "qcode", "data": "spc"}], "hold-time": 100})]
+    assert "private OCR frame failure" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("late_positive", [False, True])
+def test_boot_confirmation_timeout_never_sends_input(monkeypatch, tmp_path, late_positive):
+    clock = boot_clock(monkeypatch)
+
+    def observe(*_args):
+        if late_positive:
+            clock["now"] = 91
+        return late_positive
+
+    monkeypatch.setattr(controller, "read_boot_prompt", observe)
+    qmp = SimpleNamespace(execute=lambda *_args: pytest.fail("No input without timely visible prompt"))
+    with pytest.raises(controller.TrialError, match="visible_optical_boot_prompt_timeout"):
+        controller.confirm_optical_boot(SimpleNamespace(poll=lambda: None), qmp, tmp_path)
+    assert clock["now"] >= 90
+
+
+def test_boot_confirmation_refuses_exited_guest_and_never_retries_ambiguous_input(monkeypatch, tmp_path):
+    boot_clock(monkeypatch)
+    monkeypatch.setattr(controller, "read_boot_prompt", lambda *_args: pytest.fail("Exited guest inspected"))
+    with pytest.raises(controller.TrialError, match="qemu_exited_before_boot_prompt"):
+        controller.confirm_optical_boot(SimpleNamespace(poll=lambda: 1), None, tmp_path)
+    calls = []
+    monkeypatch.setattr(controller, "read_boot_prompt", lambda *_args: True)
+
+    def ambiguous_send(*args):
+        calls.append(args)
+        raise controller.TrialError("qmp_command_failed")
+
+    with pytest.raises(controller.TrialError, match="qmp_command_failed"):
+        controller.confirm_optical_boot(SimpleNamespace(poll=lambda: None),
+                                        SimpleNamespace(execute=ambiguous_send), tmp_path)
+    assert len(calls) == 1 and calls[0][0] == "send-key"
+
+
+@pytest.mark.parametrize("oversize", [False, True])
+def test_boot_ocr_subprocess_and_private_output_are_bounded(monkeypatch, tmp_path, oversize):
+    boot_clock(monkeypatch)
+
+    class Frame:
+        width, height = 1024, 768
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def resize(self, dimensions):
+            assert dimensions == (2048, 1536)
+            return self
+
+        def save(self, path, **options):
+            assert options == {"format": "PNG"}
+            path.write_bytes(b"private OCR image")
+
+    monkeypatch.setitem(sys.modules, "PIL", SimpleNamespace(Image=SimpleNamespace(open=lambda _path: Frame())))
+
+    def fake_run(arguments, **options):
+        assert arguments == ["tesseract", str(tmp_path / "boot-prompt.png"), "stdout", "-l", "eng", "--psm", "6"]
+        assert 0 < options["timeout"] <= 5 and not options["check"]
+        assert options["stdin"] == options["stderr"] == controller.subprocess.DEVNULL
+        options["stdout"].write(b"x" * 65537 if oversize else b"Press any key to boot from CD or DVD")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(controller.subprocess, "run", fake_run)
+    qmp = SimpleNamespace(execute=lambda _command, args: Path(args["filename"]).write_bytes(b"private PPM"))
+    if oversize:
+        with pytest.raises(controller.TrialError, match="boot_prompt_ocr_oversized"):
+            controller.read_boot_prompt(qmp, tmp_path, 90)
+    else:
+        assert controller.read_boot_prompt(qmp, tmp_path, 90)
+    assert list(tmp_path.iterdir()) == []

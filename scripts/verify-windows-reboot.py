@@ -48,6 +48,7 @@ GIB = 1024**3
 SETUP_SNAPSHOT_INTERVAL = 600
 SETUP_SNAPSHOT_LIMIT = 4
 SETUP_PNG_MAX_BYTES = 96 * 1024
+BOOT_PROMPT_TIMEOUT = 90
 STAGE = "initialization"
 
 
@@ -457,6 +458,75 @@ def seed(directory, wheel, nonce, mailbox):
              directory / "seed.iso", directory / "seed"], timeout=90)
 
 
+def boot_prompt_matches(text):
+    """Require the explicit optical-media prompt; never infer it from timing."""
+    normalized = " ".join(re.findall(r"[a-z0-9]+", text.lower()))
+    return bool(re.search(r"\bpress any key to boot from (?:cd or dvd|cd dvd|cd|dvd)\b", normalized))
+
+
+def read_boot_prompt(qmp, directory, deadline):
+    """Read a private guest frame with bounded OCR; no OCR text leaves the job."""
+    from PIL import Image
+
+    screen = directory / "boot-prompt.ppm"
+    image = directory / "boot-prompt.png"
+    ocr_output = directory / "boot-prompt-ocr.txt"
+    try:
+        qmp.execute("screendump", {"filename": str(screen)})
+        with Image.open(screen) as frame:
+            # Firmware text is small. Upscale only this private OCR input, not
+            # the setup images retained as visual diagnostic evidence.
+            with frame.resize((frame.width * 2, frame.height * 2)) as enlarged:
+                enlarged.save(image, format="PNG")
+        remaining = deadline - time.monotonic()
+        require(remaining > 0, "boot_prompt_ocr_deadline")
+        with ocr_output.open("wb") as output:
+            result = subprocess.run(
+                ["tesseract", str(image), "stdout", "-l", "eng", "--psm", "6"],
+                stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.DEVNULL,
+                timeout=min(5, remaining), check=False)
+        require(result.returncode == 0, "boot_prompt_ocr_failed")
+        # Read no more than the bound, even if the external OCR process writes
+        # unexpected output. Its raw output is never printed or retained.
+        with ocr_output.open("rb") as output:
+            text = output.read(65537)
+        require(len(text) <= 65536, "boot_prompt_ocr_oversized")
+        return boot_prompt_matches(text.decode("utf-8", errors="replace"))
+    finally:
+        for path in (screen, image, ocr_output):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def confirm_optical_boot(qemu, qmp, directory):
+    """Send one space only after seeing the actual CD/DVD boot prompt."""
+    deadline = time.monotonic() + BOOT_PROMPT_TIMEOUT
+    stage("await_visible_optical_boot_prompt")
+    while time.monotonic() < deadline:
+        require(qemu.poll() is None, "qemu_exited_before_boot_prompt")
+        visible = False
+        try:
+            visible = read_boot_prompt(qmp, directory, deadline)
+        except Exception:
+            # Incomplete frames or OCR failures allow another observation, never
+            # an inferred keypress. No third-party text is copied to the log.
+            stage("guest_boot_prompt_frame_unavailable")
+        require(qemu.poll() is None, "qemu_exited_before_boot_prompt")
+        remaining = deadline - time.monotonic()
+        if visible and remaining > 0:
+            stage("guest_optical_boot_prompt_recognized")
+            # Deliberately outside the observation retry block: a failed QMP
+            # response could still mean the key arrived. Never retry this input.
+            qmp.execute("send-key", {"keys": [{"type": "qcode", "data": "spc"}], "hold-time": 100})
+            stage("guest_optical_boot_confirmed_once")
+            return
+        if remaining > 0:
+            time.sleep(min(1, remaining))
+    raise TrialError("visible_optical_boot_prompt_timeout")
+
+
 def emit_setup_snapshot(qmp, directory):
     """Emit one bounded, full-resolution image from the disposable setup guest.
 
@@ -505,6 +575,23 @@ def wait_for(qemu, mailbox, predicate, seconds, phase, output, evidence, *, setu
             output.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
             last_note = time.monotonic()
         result = snapshot.get("result") or snapshot.get("probe") or {}
+        if result.get("verification") == "inconclusive":
+            failure = {key: str(result.get(key, ""))[:100]
+                       for key in ("verification", "stage", "error_code")}
+            diagnostic = result.get("preparation_diagnostic")
+            if isinstance(diagnostic, dict):
+                detail = diagnostic.get("error", "")
+                detail = detail[:2048] if isinstance(detail, str) else ""
+                detail = re.sub(r"[\x00-\x1f\x7f]", " ", detail)
+                detail = re.sub(r"(?i)\bauthorization\s*[:=]\s*(?:bearer\s+)?\S+",
+                                "Authorization: <redacted>", detail)
+                detail = re.sub(r"(?i)\bbearer\s+\S+", "Bearer <redacted>", detail)
+                failure["preparation_diagnostic"] = {
+                    "python": str(diagnostic.get("python", ""))[:32],
+                    "status": str(diagnostic.get("status", ""))[:32],
+                    "ready": diagnostic.get("ready") is True, "error": detail[:800],
+                }
+            evidence["guest_failure"] = failure
         require(result.get("verification") != "inconclusive", "guest_" + str(result.get("error_code", "failed")))
         require(not guest_stage.endswith(("_failed", "_mismatch")), guest_stage)
         if predicate(snapshot):
@@ -539,7 +626,7 @@ def trial(wheel, output, runner_temp, first_login_timeout=2700):
         evidence["initial_free_disk_gib"] = round(free / GIB, 2)
         require(free >= 35 * GIB, "insufficient_actual_disk_need_35_GiB")
         require(os.cpu_count() >= 2, "two_cpu_required")
-        for program in ("qemu-system-x86_64", "qemu-img", "swtpm", "xorriso", "curl"):
+        for program in ("qemu-system-x86_64", "qemu-img", "swtpm", "xorriso", "curl", "tesseract"):
             require(shutil.which(program) is not None, "missing_" + program)
         outer_before = outer_boot()
         # Firmware with Microsoft keys enrolled, TPM 2.0, UEFI and SMM. No Windows
@@ -593,11 +680,9 @@ def trial(wheel, output, runner_temp, first_login_timeout=2700):
             time.sleep(.1)
         require((directory / "qmp.sock").exists(), "qmp_socket_timeout")
         qmp = QMP(directory / "qmp.sock")
-        # The official ISO asks for a key to boot. This sends only space to this
-        # guest during first boot; it never operates a desktop or host keyboard.
-        for _ in range(30):
-            qmp.execute("send-key", {"keys": [{"type": "qcode", "data": "spc"}], "hold-time": 100})
-            time.sleep(1)
+        # A blind input loop can continue into Setup and activate Cancel. Observe
+        # the actual optical boot prompt, confirm it once, then stop all input.
+        confirm_optical_boot(qemu, qmp, directory)
         before = wait_for(qemu, mailbox, lambda body: bool(body.get("baseline")), first_login_timeout,
                           "await_first_logon_and_baseline", output, evidence,
                           setup_snapshot=lambda: emit_setup_snapshot(qmp, directory))
