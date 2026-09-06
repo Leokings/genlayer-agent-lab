@@ -1,0 +1,31 @@
+name: Intel macOS guest reboot feasibility
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  intel-mac-preflight:
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Measure capacity and create an empty Hypervisor VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I scripts/macos-reboot-preflight.py \
+            --output "$RUNNER_TEMP/macos-reboot-preflight.json"
+      - name: Record bounded feasibility evidence
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/macos-reboot-preflight.json"; then
+            printf 'Intel capacity and empty VM probe only; no macOS guest boot or reboot claim.\n\n```json\n' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/macos-reboot-preflight.json" >> "$GITHUB_STEP_SUMMARY"
+            printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
