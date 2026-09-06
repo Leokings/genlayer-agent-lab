@@ -221,3 +221,19 @@ downloaded tool, create or mount media, or attempt a guest boot. An audit that
 finishes has `status: observed`; a green audit job means observations were
 collected, even if some verifiers rejected the files. It is not a boot gate pass
 or execution approval. Existing `installer` mode acceptance checks remain intact.
+
+For a separate package-based media trial, choose `mode: installer`,
+`installer_release: monterey`, and `installer_source: apple-package`. This
+downloads the pinned official Apple InstallAssistant.pkg into a new private
+runner directory. Exact size and catalog digest checks supplement mandatory
+full `pkgutil` signature validation, the pinned Apple signer, and normal
+`spctl --type install` acceptance. Only then may Apple's package installer
+populate `/Applications/Install macOS Monterey.app`; it does not install the
+Mac operating system or restart the host. The original `createinstallmedia`
+must separately pass strict Apple signature verification and match its
+observed system-library dependencies. Image checksum validation is additional
+consistency evidence. Media creation keeps the existing private-volume
+ownership checks. Any failed package, tool, dependency, image or ownership gate
+stops the trial. The existing `softwareupdate` source remains the default and
+retains its original app-level checks. This distinction follows
+[Apple's guidance on testing different distribution types](https://developer.apple.com/forums/thread/130560).

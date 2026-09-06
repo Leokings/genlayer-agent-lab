@@ -398,3 +398,65 @@ def test_boot_path_keeps_all_original_acceptance_gates_before_disk_creation(
     assert state["media_mounted"] is False
     assert "apple_signature_and_policy_verified" not in state
     assert list(fixture.private.iterdir()) == []
+
+
+@pytest.mark.parametrize(("failure", "expected"), [
+    ("package", "package_policy_rejected"),
+    ("tool", "media_apple_tool_signature_rejected"),
+    ("libraries", "media_tool_unexpected_libraries"),
+    ("payload", "media_payload_checksum_failed"),
+    (None, "media_disk_image_create_failed"),
+])
+def test_package_route_requires_package_tool_dependencies_and_payload_before_media(
+        downloaded_installer, monkeypatch, failure, expected):
+    fixture = downloaded_installer
+    calls = []
+    monkeypatch.setattr(media, "select_installer", lambda release: (fixture.installer, "12.7.6"))
+
+    def populate(private, installer, state, release):
+        assert private == fixture.private and installer == fixture.installer and release == "monterey"
+        calls.append("package")
+        if failure == "package":
+            raise media.MediaError("package_policy_rejected")
+        fixture.download(["/usr/sbin/softwareupdate", "--fetch-full-installer",
+                          "--full-installer-version", "10.15.7"])
+
+    def fake_subprocess(args, **kwargs):
+        calls.append(args)
+        if args[0] == "/usr/bin/codesign":
+            if args[1] == "--display" or args[-1] == str(fixture.installer):
+                return SimpleNamespace(returncode=1, stdout=b"", stderr=b"diagnostic only")
+            assert args == ["/usr/bin/codesign", "--verify", "--strict", "--verbose=4",
+                            "-R", "=anchor apple", str(fixture.tool)]
+            return SimpleNamespace(returncode=int(failure == "tool"), stdout=b"", stderr=b"rejected")
+        if args[0] == "/usr/sbin/spctl":
+            # The tool-rejection handler may inspect the app; it cannot create media.
+            assert failure == "tool" and args[-1] == str(fixture.installer)
+            return SimpleNamespace(returncode=3, stdout=b"", stderr=b"diagnostic only")
+        if args[0] == "/usr/bin/otool":
+            libraries = ["/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+                         "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+                         "/usr/lib/libobjc.A.dylib", "/usr/lib/libSystem.B.dylib"]
+            if failure == "libraries":
+                libraries.append("@executable_path/unsigned.dylib")
+            output = str(fixture.tool) + ":\n" + "".join(
+                "\t" + path + " (compatibility version 1.0.0, current version 1.0.0)\n" for path in libraries)
+            return SimpleNamespace(returncode=0, stdout=output.encode(), stderr=b"")
+        if args[:2] == ["/usr/bin/hdiutil", "verify"]:
+            assert args[-1] == str(fixture.payload)
+            return SimpleNamespace(returncode=int(failure == "payload"), stdout=b"", stderr=b"checksum invalid")
+        if args[:2] == ["/usr/bin/hdiutil", "create"]:
+            assert failure is None  # Reaching this point requires every earlier gate.
+            return SimpleNamespace(returncode=1, stdout=b"", stderr=b"synthetic stop before creation")
+        pytest.fail("Unexpected media operation")
+
+    monkeypatch.setattr(media, "populate_verified_installer", populate)
+    monkeypatch.setattr(media.subprocess, "run", fake_subprocess)
+    report = {}
+    with pytest.raises(media.MediaError, match=expected):
+        media.prepare(fixture.private, report, release="monterey", installer_source="apple-package")
+    state = report["installer_media"]
+    assert state["status"] == "fail" and state["failure"] == expected
+    assert calls[0] == "package" and state["media_mounted"] is False
+    assert not (fixture.private / "apple-installer.dmg").exists()
+    assert "apple_signature_and_policy_verified" not in state or failure is None

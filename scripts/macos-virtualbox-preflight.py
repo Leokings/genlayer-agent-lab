@@ -66,7 +66,7 @@ def private_workspace(runner_temp, report):
         report["private_vm_files_removed"] = not private.exists()
 
 
-def probe(runner_temp, *, boot_installer=False, installer_release="catalina"):
+def probe(runner_temp, *, boot_installer=False, installer_release="catalina", installer_source="softwareupdate"):
     report = {
         "schema_version": 1, "status": "running",
         "scope": "Default VirtualBox macOS device initialization and diskless EFI only",
@@ -78,6 +78,7 @@ def probe(runner_temp, *, boot_installer=False, installer_release="catalina"):
     if boot_installer:
         report["scope"] = "Normal Apple installer boot attempt; screenshot requires review"
         report["requested_installer_release"] = installer_release
+        report["requested_installer_source"] = installer_source
         report["installer_boot_confirmed"] = None
         report["guest_os_booted"] = False
     try:
@@ -132,7 +133,8 @@ def probe(runner_temp, *, boot_installer=False, installer_release="catalina"):
                     module = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(module)
                     try:
-                        media = module.prepare(private, report, release=installer_release)
+                        media = module.prepare(private, report, release=installer_release,
+                                               installer_source=installer_source)
                     except module.MediaError as exc:
                         raise capacity.PreflightError(str(exc)) from None
                 report["stage"] = "create_default_macos_configuration"
@@ -236,13 +238,18 @@ def main(argv=None):
     parser.add_argument("--boot-installer", action="store_true",
                         help="Fetch official Apple media and attempt a normal disposable guest boot")
     parser.add_argument("--installer-release", choices=("catalina", "monterey"), default="catalina")
+    parser.add_argument("--installer-source", choices=("softwareupdate", "apple-package"), default="softwareupdate")
     args = parser.parse_args(argv)
+    capacity.require(args.installer_source != "apple-package"
+                     or (args.boot_installer and args.installer_release == "monterey"),
+                     "Apple package route requires a Monterey installer boot trial")
     runner_temp = capacity.hosted_intel_temp()
     output = (args.output or runner_temp / "macos-virtualbox-preflight.json").resolve()
     capacity.require(output.is_relative_to(runner_temp) and output != runner_temp,
                      "Evidence output must stay within RUNNER_TEMP")
     capacity.require(output.parent.is_dir() and not output.exists(), "Evidence destination must be new")
-    result = probe(runner_temp, boot_installer=args.boot_installer, installer_release=args.installer_release)
+    result = probe(runner_temp, boot_installer=args.boot_installer, installer_release=args.installer_release,
+                   installer_source=args.installer_source)
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))
     return 0 if result["status"] == "pass" else 1

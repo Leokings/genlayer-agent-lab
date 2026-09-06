@@ -22,6 +22,14 @@ on:
         options:
           - catalina
           - monterey
+      installer_source:
+        description: Package verification route requires installer mode and Monterey
+        type: choice
+        required: true
+        default: softwareupdate
+        options:
+          - softwareupdate
+          - apple-package
 
 permissions:
   contents: read
@@ -49,8 +57,10 @@ jobs:
         shell: bash
         env:
           INSTALLER_RELEASE: ${{ inputs.installer_release }}
+          INSTALLER_SOURCE: ${{ inputs.installer_source }}
         run: |
           set -euo pipefail
+          test "$INSTALLER_SOURCE" = softwareupdate
           /usr/bin/python3 -I scripts/macos-installer-media.py --audit-only \
             --installer-release "$INSTALLER_RELEASE" --output "$RUNNER_TEMP/macos-installer-audit.json"
       - name: Check normal VirtualBox macOS device initialization
@@ -59,11 +69,12 @@ jobs:
         env:
           PREFLIGHT_MODE: ${{ inputs.mode }}
           INSTALLER_RELEASE: ${{ inputs.installer_release }}
+          INSTALLER_SOURCE: ${{ inputs.installer_source }}
         run: |
           set -euo pipefail
           args=(--output "$RUNNER_TEMP/macos-virtualbox-preflight.json")
           if test "$PREFLIGHT_MODE" = installer; then
-            args+=(--boot-installer --installer-release "$INSTALLER_RELEASE")
+            args+=(--boot-installer --installer-release "$INSTALLER_RELEASE" --installer-source "$INSTALLER_SOURCE")
           fi
           /usr/bin/python3 -I scripts/macos-virtualbox-preflight.py "${args[@]}"
       - name: Preserve disposable installer screen for review

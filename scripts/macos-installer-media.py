@@ -1,6 +1,6 @@
 """Prepare allowlisted unmodified Apple installation media on an Intel hosted runner.
 
-Only Apple's full-installer download and createinstallmedia are used. The latter
+Only Apple's full-installer distribution and createinstallmedia are used. The latter
 may erase only a volume proven to belong to this helper's new private disk image.
 The downloaded /Applications installer is left for disposable-runner cleanup.
 """
@@ -199,9 +199,25 @@ def select_installer(release):
     raise MediaError("media_unknown_release")
 
 
-def prepare(private: Path, report: dict, *, release="catalina", audit_only=False):
+def populate_verified_installer(private, installer, state, release):
+    spec = importlib.util.spec_from_file_location(
+        "macos_apple_package", Path(__file__).with_name("macos-installer-package.py"))
+    package = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(package)
+    try:
+        package.download_and_install(private, installer, state, release=release)
+    except package.PackageError as exc:
+        raise MediaError(str(exc)) from None
+
+
+def prepare(private: Path, report: dict, *, release="catalina", audit_only=False,
+            installer_source="softwareupdate"):
     installer, version = select_installer(release)
+    require(installer_source in {"softwareupdate", "apple-package"}, "media_unknown_installer_source")
+    require(installer_source != "apple-package" or (release == "monterey" and not audit_only),
+            "media_package_route_requires_monterey_boot")
     state = {"status": "running", "requested_release": release, "requested_version": version,
+             "installer_source": installer_source,
              "media_mounted": False, "media_detached": False,
              "host_install_requested": False, "host_reboot_requested": False,
              "hardware_check_overrides": False, "raw_logs_exported": False}
@@ -237,9 +253,13 @@ def prepare(private: Path, report: dict, *, release="catalina", audit_only=False
         for path in (image, iso, master, mount):
             require(not path.exists() and not path.is_symlink(), "media_private_destination_exists")
 
-        stage("download_official_" + release + "_installer")
-        run(["/usr/sbin/softwareupdate", "--fetch-full-installer", "--full-installer-version", version],
-            "media_apple_download_failed", timeout=1500)
+        if installer_source == "apple-package":
+            populate_verified_installer(private, installer, state, release)
+            state["verification_boundary"] = "Apple-signed full installer package and original media tool"
+        else:
+            stage("download_official_" + release + "_installer")
+            run(["/usr/sbin/softwareupdate", "--fetch-full-installer", "--full-installer-version", version],
+                "media_apple_download_failed", timeout=1500)
         require(installer.is_dir() and not installer.is_symlink(), "media_apple_installer_missing")
         state["official_installer_downloaded"] = True
         if audit_only:
@@ -251,19 +271,45 @@ def prepare(private: Path, report: dict, *, release="catalina", audit_only=False
             return None
         require(shutil.disk_usage(private).free >= 40 * GIB, "media_insufficient_conversion_space")
 
-        stage("verify_apple_installer_signature")
+        stage("verify_apple_media_tool_signature" if installer_source == "apple-package"
+              else "verify_apple_installer_signature")
         verification = state.setdefault("verification_checks", {})
-        run(["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=4", "-R", "=anchor apple",
-             str(installer)], "media_apple_signature_rejected", timeout=300, diagnostics=verification,
-            diagnostic_installer=installer)
-        run(["/usr/sbin/spctl", "--assess", "--type", "execute", "--verbose=4", str(installer)],
-            "media_apple_policy_rejected", timeout=180, diagnostics=verification, diagnostic_installer=installer)
+        if installer_source == "softwareupdate":
+            # Preserve the earlier app-distribution experiment. The package route
+            # instead requires normal package policy acceptance before unpacking.
+            run(["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=4", "-R", "=anchor apple",
+                 str(installer)], "media_apple_signature_rejected", timeout=300, diagnostics=verification,
+                diagnostic_installer=installer)
+            run(["/usr/sbin/spctl", "--assess", "--type", "execute", "--verbose=4", str(installer)],
+                "media_apple_policy_rejected", timeout=180, diagnostics=verification, diagnostic_installer=installer)
         tool = installer / "Contents/Resources/createinstallmedia"
         require(tool.is_file() and not tool.is_symlink(), "media_apple_tool_missing")
         require(tool.resolve().is_relative_to(installer), "media_apple_tool_outside_installer")
         run(["/usr/bin/codesign", "--verify", "--strict", "--verbose=4", "-R", "=anchor apple", str(tool)],
             "media_apple_tool_signature_rejected", timeout=120, diagnostics=verification,
             diagnostic_installer=installer)
+        if installer_source == "apple-package":
+            # Apple DTS distinguishes app policy assessment from other code.
+            # The accepted enclosing package authenticates the installed payload;
+            # the original CLI must additionally pass its own Apple signature.
+            linked = run(["/usr/bin/otool", "-L", str(tool)], "media_tool_libraries_unavailable")
+            require(len(linked) <= 8192, "media_tool_libraries_oversize")
+            lines = linked.decode("utf-8").splitlines()
+            require(lines and lines[0] == str(tool) + ":", "media_tool_libraries_header_mismatch")
+            expected_libraries = {
+                "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+                "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+                "/usr/lib/libobjc.A.dylib", "/usr/lib/libSystem.B.dylib",
+            }
+            libraries = {line.strip().split(" (compatibility version ", 1)[0] for line in lines[1:]}
+            require(libraries == expected_libraries, "media_tool_unexpected_libraries")
+            state["media_tool_system_libraries_verified"] = True
+            payload = installer / "Contents/SharedSupport/SharedSupport.dmg"
+            require(payload.is_file() and not payload.is_symlink() and payload.resolve().is_relative_to(installer),
+                    "media_installed_payload_invalid")
+            # This is an additional consistency check, not the provenance gate.
+            run(["/usr/bin/hdiutil", "verify", str(payload)], "media_payload_checksum_failed", timeout=300)
+            state["installed_payload_checksum_verified"] = True
         state["apple_signature_and_policy_verified"] = True
 
         stage("create_private_installer_disk_image")

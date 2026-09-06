@@ -4,6 +4,36 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
 
 ## Intel Mac virtualization feasibility — September 6
 
+- [Component audit 34057330222](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34057330222)
+  completed on source `21200de110a0f56e7fd034a37a1371b22761da28`. The official
+  Monterey download took about 3 minutes 12 seconds. Its `createinstallmedia`
+  executable **passed** strict Apple-anchor signature verification and linked
+  only Foundation, CoreFoundation, libobjc and libSystem in system locations.
+  The app-oriented `spctl execute` assessment returned `the code is valid but
+  does not seem to be an app`. The enclosing installer app retained its custom
+  resource-rule rejection. SharedSupport.dmg is unsigned; its image checksum
+  passed. These are observations, not successful media creation or a Mac boot.
+- Apple's [DTS testing guidance](https://developer.apple.com/forums/thread/130560)
+  distinguishes app, installer-package and other-code assessment. Applying an
+  app assessment to this CLI was the wrong target type. The new explicit
+  `installer_source: apple-package` route verifies the enclosing Apple package
+  with normal package policy assessment before using the original signed CLI.
+  The older softwareupdate/app-assessment experiment remains unchanged.
+- The package route pins Apple's current Monterey 12.7.6 / 21H1320 product
+  `062-40406` from its [software-update catalog](https://swscan.apple.com/content/catalogs/others/index-15-14-13-12-10.16-10.15-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog)
+  and [distribution metadata](https://swdist.apple.com/content/downloads/24/16/062-40406-A_LQ4WW26M04/j7bl9ygay5prezturwh72ai10fvseh2uhw/062-40406.English.dist).
+  The catalog size is 12,409,187,001 bytes and SHA-1 digest is
+  `a654cd91b86528bbf0e1b006e9a7e62967f73de8`. A bounded 65,536-byte HTTP range
+  inspection found a Software Update / Apple Software Update Certification
+  Authority / Apple Root CA signing chain. This metadata is not full package
+  verification: the trial must verify the full package signature and policy
+  acceptance, then the unchanged media tool, before creating owned media.
+  A further 1,075-byte range inspection of Apple's scripts and PackageInfo
+  confirmed that same-volume installation hard-links the package as
+  SharedSupport.dmg and changes its owner to root. The helper therefore permits
+  this expected link/owner change only after a successful verified installation,
+  while checking the same inode and content metadata before unlinking its private
+  download entry. It preserves the installed payload link.
 - [Monterey installer attempt 34055803168](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34055803168)
   on source `d973b0121461d6bd08ccbb48bb1eab94ffbeedde` downloaded Apple's
   Monterey 12.7.6 installer in about 3 minutes 34 seconds. The top-level app
