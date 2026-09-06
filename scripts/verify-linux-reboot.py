@@ -407,6 +407,13 @@ def verify(wheel):
                       error=str(exc) if isinstance(exc, VerificationError) else type(exc).__name__)
         if process is not None and process.poll() is not None:
             result["qemu_exit_code"] = process.returncode
+            import grp
+
+            result["kvm_access_after_failure"] = {
+                "read_write": os.access("/dev/kvm", os.R_OK | os.W_OK),
+                "device_mode": oct(Path("/dev/kvm").stat().st_mode & 0o777),
+                "current_kvm_group": grp.getgrnam("kvm").gr_gid in os.getgroups(),
+            }
             # The QEMU host diagnostic stream is separate from guest console
             # output. Emit only fixed categories, never arbitrary log content.
             log_path = root / "qemu-startup-private.log"
@@ -418,6 +425,9 @@ def verify(wheel):
                     ("could not load", "firmware_load"),
                     ("read-only", "readonly_device"),
                     ("kvm", "kvm_initialization"),
+                    ("could not access kvm kernel module", "kvm_device_open"),
+                    ("kvm_create_vm", "kvm_create_vm"),
+                    ("kvm_create_irqchip", "kvm_irqchip"),
                     ("could not open", "device_file_open"),
                     ("permission denied", "permission_denied"),
                     ("host forwarding", "ssh_port_forward"),
