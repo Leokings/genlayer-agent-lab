@@ -1,0 +1,79 @@
+name: Windows guest reboot feasibility and trial
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Preflight inspects the disposable runner; trial also boots a Windows guest
+        type: choice
+        required: true
+        default: preflight
+        options:
+          - preflight
+          - trial
+
+permissions:
+  contents: read
+
+jobs:
+  windows-guest-reboot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Guard the disposable hosted Linux environment
+        shell: bash
+        run: /usr/bin/python3 -I scripts/windows-reboot-preflight.py --check-environment
+      - name: Prepare QEMU, firmware, and regular-user KVM access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf swtpm xorriso
+          sudo usermod -aG kvm "$(id -un)"
+      - name: Inspect actual capacity and create an empty KVM VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          # sudo initializes the same regular account's newly added KVM group.
+          # Explicitly pass only the environment values required by the guard.
+          sudo -n -u "$(id -un)" env \
+            GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            RUNNER_OS="$RUNNER_OS" RUNNER_TEMP="$RUNNER_TEMP" \
+            /usr/bin/python3 -I scripts/windows-reboot-preflight.py \
+            --output "$RUNNER_TEMP/windows-reboot-preflight.json"
+      - name: Download and verify the exact released alpha 7 wheel
+        if: inputs.mode == 'trial'
+        shell: bash
+        run: |
+          set -euo pipefail
+          wheel="$RUNNER_TEMP/genlayer_agent_lab-0.1.0a7-py3-none-any.whl"
+          curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
+            'https://github.com/Leokings/genlayer-agent-lab/releases/download/v0.1.0a7/genlayer_agent_lab-0.1.0a7-py3-none-any.whl' \
+            --output "$wheel"
+          printf '%s  %s\n' '9a53191df7eda55c2fe8d132127c0327051ec9cdd6a581fa2f420655204a1634' "$wheel" | sha256sum --check --strict
+      - name: Verify guest restart, actual login, and automatic Lab recovery
+        if: inputs.mode == 'trial'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -n -u "$(id -un)" env \
+            GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            RUNNER_OS="$RUNNER_OS" RUNNER_TEMP="$RUNNER_TEMP" \
+            /usr/bin/python3 -I scripts/verify-windows-reboot.py \
+            --wheel "$RUNNER_TEMP/genlayer_agent_lab-0.1.0a7-py3-none-any.whl" \
+            --output "$RUNNER_TEMP/windows-reboot-evidence.json"
+      - name: Record bounded evidence without uploading guest files
+        if: always()
+        shell: bash
+        run: |
+          for evidence in windows-reboot-preflight windows-reboot-evidence; do
+            if test -f "$RUNNER_TEMP/$evidence.json"; then
+              printf '%s\n\n```json\n' "$evidence" >> "$GITHUB_STEP_SUMMARY"
+              cat "$RUNNER_TEMP/$evidence.json" >> "$GITHUB_STEP_SUMMARY"
+              printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
