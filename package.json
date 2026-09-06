@@ -1,0 +1,7 @@
+{
+  "name": "genlayer-agent-lab-development",
+  "private": true,
+  "type": "module",
+  "scripts": {"verify:dashboard": "node scripts/verify-dashboard.cjs"},
+  "devDependencies": {"playwright": "1.60.0"}
+}

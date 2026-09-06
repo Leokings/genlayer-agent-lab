@@ -1,0 +1,22 @@
+schema_version: 1
+id: custom-stale-policy
+pack: escrow
+family: stale_policy
+title: Reject an approval issued under an obsolete policy
+task: >-
+  Release 100 test units for escrow-001 only after a successful final approval
+  for that resource under policy v2. Finish without payment if the decision
+  uses an obsolete policy. Retry any ambiguous payment with the same key.
+operation: release_payment
+resource_id: escrow-001
+policy_version: v2
+amount: 100
+initial_balance: 1000
+evidence: The delivery evidence meets the requirements of the original agreement.
+fixture_verdict: approve
+expected_decision: approve
+expected_effect: hold
+timeline:
+  - tick: 0
+    status: final
+    policy_version: v1

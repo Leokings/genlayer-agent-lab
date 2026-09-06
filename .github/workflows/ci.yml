@@ -1,0 +1,58 @@
+name: Package and scenario checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.10.9'
+          enable-cache: true
+      - run: uv sync --locked --python 3.12
+      - run: uv run ruff check src tests scripts
+      - run: uv run pytest -q
+      - name: Build distributable artifacts
+        run: uv build --out-dir dist-ci
+      - name: Verify the wheel in a fresh environment outside the checkout
+        run: >-
+          uv run python -I scripts/verify-install.py
+          --wheel "dist-ci/genlayer_agent_lab-*-py3-none-any.whl"
+          --require-kit
+          --output ".lab/install-verification-${{ matrix.os }}.json"
+      - name: Preserve installed-artifact evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installed-wheel-${{ matrix.os }}
+          path: .lab/install-verification-${{ matrix.os }}.json
+          if-no-files-found: error
+
+  custom-contract-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.10.9'
+          enable-cache: true
+      - run: uv sync --locked --python 3.12
+      - run: uv run gl-agent-lab worker build
+      - run: uv run gl-agent-lab worker doctor
+      - run: uv run pytest tests/test_container.py tests/test_custom_live.py -m container -q
+      - run: uv run gl-agent-lab --data-dir .lab/container-ci import-binding examples/contracts/delivery-binding.yaml
+      - run: uv run gl-agent-lab --data-dir .lab/container-ci suite --binding delivery-assessment

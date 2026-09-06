@@ -1,0 +1,16 @@
+schema_version: 1
+id: delivery-assessment
+title: Custom delivery contract
+source: delivery.py
+constructor_args: []
+method: assess_delivery
+arguments:
+  - from_field: evidence
+  - from_field: resource_id
+  - from_field: policy_version
+result_path: [assessment, outcome]
+approve_values: [approve]
+deny_values: [deny]
+llm_pattern: '(?s)^DELIVERY_ASSESSMENT_V1.*'
+llm_response:
+  decision: $fixture_verdict

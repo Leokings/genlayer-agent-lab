@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "genlayer-agent-lab"
+version = "0.1.0a4"
+description = "Self-hosted scenario testing for agents consuming GenLayer decisions"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+dependencies = [
+  "fastapi==0.141.1",
+  "uvicorn==0.52.4",
+  "pydantic==2.13.5",
+  "httpx==0.28.1",
+  "PyYAML==6.0.3",
+  "mcp==2.1.1",
+  "genlayer-test[sim]==0.29.2",
+  "genlayer-py==0.16.3",
+  "numpy==2.5.2",
+]
+
+[dependency-groups]
+dev = ["pytest==9.1.1", "ruff==0.16.6"]
+
+[project.scripts]
+gl-agent-lab = "genlayer_agent_lab.cli:main"
+gl-agent-lab-mcp = "genlayer_agent_lab.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/genlayer_agent_lab"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"README.md" = "genlayer_agent_lab/_kit/README.md"
+"LICENSE" = "genlayer_agent_lab/_kit/LICENSE"
+"THIRD_PARTY.md" = "genlayer_agent_lab/_kit/THIRD_PARTY.md"
+"docs" = "genlayer_agent_lab/_kit/docs"
+"examples" = "genlayer_agent_lab/_kit/examples"
+"skills" = "genlayer_agent_lab/_kit/skills"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -p no:gltest -p no:gltest_direct"
+markers = [
+  "runtime: executes the pinned GenLayer simulator in a subprocess",
+  "container: executes custom contracts in the optional Linux Docker worker",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

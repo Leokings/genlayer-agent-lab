@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>GenLayer Agent Lab</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="GenLayer Agent Lab home"><span class="brand-mark">↗</span><span>Agent Lab<small>GENLAYER</small></span></a>
+    <div class="nav-label">WORKSPACE</div>
+    <div class="nav-item active"><span>▤</span> Test runs</div>
+    <div class="sidebar-note"><span class="dot"></span> Your infrastructure<p>Private scenarios, local evidence.<br>No production transactions.</p></div>
+    <div class="sidebar-foot">DEVELOPER PREVIEW <span>0.1</span></div>
+  </aside>
+  <main>
+    <header><div><span class="eyebrow">TEST BEFORE YOU DELEGATE</span><h1>Agent testing workspace</h1><p>See how your agent handles decisions, uncertainty and consequences.</p></div><button id="disconnect" class="secondary" hidden>Disconnect</button></header>
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <section id="auth" class="panel auth-panel">
+      <div class="panel-icon">⌁</div><h2>Connect to your local lab</h2>
+      <p>Enter the administrator token created by <code>gl-agent-lab init</code>. It stays in this tab’s session storage.</p>
+      <form id="auth-form"><label for="token">Administrator token</label><div class="input-row"><input id="token" type="password" required autocomplete="off" placeholder="Paste your local token"><button>Connect workspace <span>→</span></button></div></form>
+      <small>Use a run-scoped token in your tested agent. Keep this administrator token out of its tool configuration.</small>
+    </section>
+    <div id="workspace" hidden>
+      <section class="stats" aria-label="Run summary">
+        <div><span>Total runs</span><strong id="stat-total">0</strong><small>Recorded in this installation</small></div>
+        <div><span>Completed</span><strong id="stat-completed">0</strong><small>Evidence ready to review</small></div>
+        <div><span>Needs attention</span><strong id="stat-failed">0</strong><small>Failed or inconclusive</small></div>
+        <div><span>Active / queued</span><strong id="stat-active">0</strong><small>One active environment at a time</small></div>
+      </section>
+      <section class="panel launch-panel">
+        <div class="section-heading"><div><h2>Start a test</h2><p>Choose a scenario, an agent and the contract it will use.</p></div><span id="runtime-label" class="pill neutral">GLSim · bundled contract</span></div>
+        <form id="launch-form" class="launch-grid">
+          <div><label for="scenario">Scenario</label><select id="scenario" required></select></div>
+          <div><label for="agent">Agent connection</label><select id="agent"><option value="safe">Safe reference · scripted</option><option value="unsafe">Unsafe reference · scripted</option><option value="refuse">Refusing reference · scripted</option><option value="external">My agent · HTTP or MCP</option></select></div>
+          <div><label for="binding">Contract under test</label><select id="binding"><option value="">Bundled approval contract</option></select></div>
+          <div><label for="backend">Contract runtime</label><select id="backend"><option value="auto">GLSim · fast local tests</option><option value="studio">Studio · GenVM execution</option></select></div>
+          <button id="launch-button">Run scenario <span>↗</span></button>
+        </form>
+        <p id="scenario-description" class="helper"></p>
+        <p id="binding-description" class="helper">Use the bundled contract, or import your own contract binding locally and build its isolated worker.</p>
+        <div id="connection" class="connection" hidden><strong>Your external run is ready to connect</strong><p>Give your agent this run ID and token. These credentials can only operate this test. Copy the token now; it will not appear in run history.</p><label for="run-credential">Run ID and token</label><textarea id="run-credential" rows="3" readonly></textarea><button id="copy-credential" type="button" class="secondary">Copy configuration</button></div>
+      </section>
+      <section class="panel history-panel">
+        <div class="section-heading"><div><h2>Run history <span id="history-count" class="count">0</span></h2><p>Select a run to inspect its decisions and effects.</p></div><div class="history-actions"><label class="sr-only" for="filter">Filter runs</label><select id="filter"><option value="all">All statuses</option><option value="completed">Completed</option><option value="active">Active / queued</option><option value="attention">Needs attention</option></select><button id="refresh" class="secondary">Refresh</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Scenario / run</th><th>Agent</th><th>Status</th><th>Result</th><th>Created</th><th></th></tr></thead><tbody id="runs"></tbody></table></div>
+        <div id="empty" class="empty"><span>◎</span><h3>Your first run starts here</h3><p>Run the safe reference agent to establish a baseline, then try an unsafe agent to inspect a failure.</p></div>
+      </section>
+      <section id="detail" class="panel" hidden>
+        <div class="section-heading"><div><span class="eyebrow">RUN EVIDENCE</span><h2 id="detail-title">Run</h2><p id="detail-meta"></p></div><button id="cancel" class="danger secondary">Cancel run</button></div>
+        <div id="grades" class="grades"></div>
+        <div id="findings"></div>
+        <div class="detail-toolbar"><div class="download-group"><button data-format="json" class="secondary">JSON ↓</button><button data-format="html" class="secondary">HTML ↓</button><button data-format="junit" class="secondary">JUnit ↓</button></div><div class="compare-control"><label for="compare">Compare with</label><select id="compare"><option value="">Choose another run</option></select></div></div>
+        <div id="comparison" hidden></div>
+        <h3>Event timeline</h3><p class="helper">Recorded tool calls and state changes. Scripted lifecycle events are distinct from observed contract execution.</p><ol id="timeline" class="timeline"></ol>
+        <details class="manifest"><summary>Runtime provenance and configuration</summary><pre id="manifest"></pre></details>
+      </section>
+      <footer>GenLayer Agent Lab · Local reports describe observed tests. They are not a certification of production safety.</footer>
+    </div>
+  </main>
+</body>
+</html>
