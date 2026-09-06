@@ -204,10 +204,20 @@ Apple installer catalog. It attempts normal boot-media preparation only after
 signature and system-policy checks pass. Guest DMI, SMC and hardware-validation
 settings stay at their defaults; installer compatibility is determined by an
 actual boot attempt, not inferred solely from a physical-Mac model table.
-Its [diagnostic run 34053729590](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34053729590)
-with Catalina is blocked: both strict verification and Gatekeeper reject the downloaded app's
+Its [Catalina diagnostic run 34053729590](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34053729590)
+and [Monterey run 34055803168](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34055803168)
+are blocked: both strict verification and Gatekeeper reject the downloaded app's
 obsolete resource envelope with custom omit rules. No media creation or macOS
 guest boot occurred. Re-running the same inputs is not an established remedy;
 the macOS reboot trial still needs a usable, verified guest installation route
 or access to a Mac that can be restarted. The passing native macOS service
 workflow remains separate evidence. See [VERIFICATION.md](VERIFICATION.md).
+
+The separate `installer-audit` mode downloads the selected official installer,
+then records bounded read-only signature and policy checks for its app and
+`createinstallmedia` tool, the tool's linked libraries, and signature/checksum
+observations for `SharedSupport.dmg`. It does not install VirtualBox, run the
+downloaded tool, create or mount media, or attempt a guest boot. An audit that
+finishes has `status: observed`; a green audit job means observations were
+collected, even if some verifiers rejected the files. It is not a boot gate pass
+or execution approval. Existing `installer` mode acceptance checks remain intact.

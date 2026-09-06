@@ -4,6 +4,31 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
 
 ## Intel Mac virtualization feasibility — September 6
 
+- [Monterey installer attempt 34055803168](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34055803168)
+  on source `d973b0121461d6bd08ccbb48bb1eab94ffbeedde` downloaded Apple's
+  Monterey 12.7.6 installer in about 3 minutes 34 seconds. The top-level app
+  failed both strict signature verification and the separate Gatekeeper
+  assessment with the same `resource envelope is obsolete (custom omit rules)`
+  error as Catalina. Display-only metadata reported an Apple signing chain,
+  a stapled notarization ticket, and a resource envelope with two rules and
+  zero sealed files. This does not establish validation. No media was created,
+  no Mac guest was booted, and private-file/Oracle-mount cleanup succeeded.
+- This repeated result does not support the earlier suspicion that only
+  Catalina's age explains the failure. The developer of the installer-inspection
+  tools Apparency and Suspicious Package [documents this specific Apple installer
+  packaging exception](https://www.mothersruin.com/software/Apparency/faq.html):
+  SharedSupport.dmg is added separately and excluded from the app resource seal.
+  This is a primary account of that developer's analysis, not an Apple guarantee
+  of the downloaded artifact. Together with Apple's documented direct use of
+  `createinstallmedia`, it motivates examining the actual CLI tool and payload
+  separately. It does not justify removing the existing boot acceptance gate.
+- A new `installer-audit` mode downloads an allowlisted installer and records
+  read-only app, tool and image observations. It never invokes the downloaded
+  tool, creates or mounts an image, installs VirtualBox, or boots a guest.
+  `status: observed` means the audit completed; individual verifier results may
+  still be failures, and `installer_execution_authorized` remains false.
+  `hdiutil verify` checks image consistency, not Apple signer authentication.
+  A working media-preparation and Mac reboot route remains unverified.
 - [Diagnostic installer attempt 34053729590](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34053729590)
   on source `671aa8afaf24a84a2e9e064ff062b822d99eaaf6` established the specific
   blocker. Apple's Catalina download completed in about 10 minutes 14 seconds.
@@ -15,7 +40,7 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
   The probe stopped before creating installation media or booting a macOS guest;
   its private files and Oracle mount were cleaned up. No Lab execution or reboot
   was tested in this attempt, and no policy bypass or re-signing was performed.
-- The current Catalina-on-hosted-Intel installer route is blocked at that
+- The current Catalina/Monterey-on-hosted-Intel installer route is blocked at that
   verification gate. Repeating the same download has no established benefit.
   Apple documents [creating bootable media with its command-line tool](https://support.apple.com/en-us/101578),
   but a separately accepted tool plus validated dependencies/media has not been

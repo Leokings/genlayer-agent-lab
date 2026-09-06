@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Capacity, diskless VM, Apple catalog, or normal Apple installer boot attempt
+        description: Capacity, diskless VM, Apple catalog, installer boot, or read-only installer audit
         type: choice
         required: true
         default: capacity
@@ -13,8 +13,9 @@ on:
           - virtualbox
           - catalog
           - installer
+          - installer-audit
       installer_release:
-        description: Official Apple installer used only in installer mode
+        description: Official Apple installer used only in installer and installer-audit modes
         type: choice
         required: true
         default: catalina
@@ -34,6 +35,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Measure capacity and create an empty Hypervisor VM
+        if: inputs.mode != 'installer-audit'
         shell: bash
         env:
           PREFLIGHT_MODE: ${{ inputs.mode }}
@@ -42,6 +44,15 @@ jobs:
           args=(--output "$RUNNER_TEMP/macos-reboot-preflight.json")
           if test "$PREFLIGHT_MODE" = catalog; then args+=(--list-installers); fi
           /usr/bin/python3 -I scripts/macos-reboot-preflight.py "${args[@]}"
+      - name: Inspect Apple installer components without executing them
+        if: inputs.mode == 'installer-audit'
+        shell: bash
+        env:
+          INSTALLER_RELEASE: ${{ inputs.installer_release }}
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I scripts/macos-installer-media.py --audit-only \
+            --installer-release "$INSTALLER_RELEASE" --output "$RUNNER_TEMP/macos-installer-audit.json"
       - name: Check normal VirtualBox macOS device initialization
         if: inputs.mode == 'virtualbox' || inputs.mode == 'installer'
         shell: bash
@@ -67,7 +78,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for evidence in macos-reboot-preflight macos-virtualbox-preflight; do
+          for evidence in macos-reboot-preflight macos-virtualbox-preflight macos-installer-audit; do
             if test -f "$RUNNER_TEMP/$evidence.json"; then
               printf '%s; no macOS guest OS boot or reboot claim.\n\n```json\n' "$evidence" >> "$GITHUB_STEP_SUMMARY"
               cat "$RUNNER_TEMP/$evidence.json" >> "$GITHUB_STEP_SUMMARY"

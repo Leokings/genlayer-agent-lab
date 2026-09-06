@@ -7,13 +7,17 @@ The downloaded /Applications installer is left for disposable-runner cleanup.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
+import json
 import os
 import plistlib
 import re
 import shutil
 import stat
 import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 SPEC = importlib.util.spec_from_file_location(
@@ -80,6 +84,47 @@ def inspect_verification_failure(state, installer=None):
                               "stdout": verification_diagnostic(result.stdout, installer)}
         except (OSError, subprocess.TimeoutExpired) as exc:
             evidence[name] = {"failure": type(exc).__name__}
+
+
+def inspect_installer_components(state, installer):
+    """Observe the documented CLI entry point and payload; never execute either.
+
+    These observations do not override the app gate in prepare(). In particular,
+    hdiutil's image checksum is an integrity observation, not signer authentication.
+    """
+    evidence = state.setdefault("component_observations", {})
+    tool = installer / "Contents/Resources/createinstallmedia"
+    payload = installer / "Contents/SharedSupport/SharedSupport.dmg"
+    commands = {
+        "createinstallmedia": (tool, {
+            "strict_apple_signature": (["/usr/bin/codesign", "--verify", "--strict", "--verbose=4",
+                                         "-R", "=anchor apple"], 120),
+            "signature_metadata": (["/usr/bin/codesign", "--display", "--verbose=4"], 60),
+            "execution_policy": (["/usr/sbin/spctl", "--assess", "--type", "execute", "--verbose=4"], 120),
+            "linked_libraries": (["/usr/bin/otool", "-L"], 60),
+        }),
+        "shared_support_image": (payload, {
+            "strict_apple_signature": (["/usr/bin/codesign", "--verify", "--strict", "--verbose=4",
+                                         "-R", "=anchor apple"], 180),
+            "signature_metadata": (["/usr/bin/codesign", "--display", "--verbose=4"], 60),
+            "image_checksum_only": (["/usr/bin/hdiutil", "verify"], 300),
+        }),
+    }
+    for name, (path, checks) in commands.items():
+        record = evidence.setdefault(name, {})
+        if not path.is_file() or path.is_symlink() or not path.resolve().is_relative_to(installer):
+            record["failure"] = "component_missing_or_outside_installer"
+            continue
+        record["bytes"] = path.stat().st_size
+        for check, (command, timeout) in checks.items():
+            try:
+                result = subprocess.run([*command, str(path)], stdin=subprocess.DEVNULL,
+                                        capture_output=True, check=False, timeout=timeout)
+                record[check] = {"exit_code": result.returncode,
+                                 "stderr": verification_diagnostic(result.stderr, installer),
+                                 "stdout": verification_diagnostic(result.stdout, installer)}
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                record[check] = {"failure": type(exc).__name__}
 
 
 def read_plist(args, code):
@@ -154,13 +199,16 @@ def select_installer(release):
     raise MediaError("media_unknown_release")
 
 
-def prepare(private: Path, report: dict, *, release="catalina") -> Path:
+def prepare(private: Path, report: dict, *, release="catalina", audit_only=False):
     installer, version = select_installer(release)
     state = {"status": "running", "requested_release": release, "requested_version": version,
              "media_mounted": False, "media_detached": False,
              "host_install_requested": False, "host_reboot_requested": False,
              "hardware_check_overrides": False, "raw_logs_exported": False}
     report["installer_media"] = state
+    if audit_only:
+        state.update(audit_only=True, installer_execution_authorized=False,
+                     scope="Read-only component observations; no media creation, guest boot or reboot")
 
     def stage(value):
         state["stage"] = value
@@ -194,6 +242,13 @@ def prepare(private: Path, report: dict, *, release="catalina") -> Path:
             "media_apple_download_failed", timeout=1500)
         require(installer.is_dir() and not installer.is_symlink(), "media_apple_installer_missing")
         state["official_installer_downloaded"] = True
+        if audit_only:
+            stage("inspect_apple_installer_components_without_execution")
+            inspect_verification_failure(state, installer)
+            inspect_installer_components(state, installer)
+            # Completed observation is not a pass of any verification or execution gate.
+            state.update(status="observed", installer_left_for_runner_disposal=True)
+            return None
         require(shutil.disk_usage(private).free >= 40 * GIB, "media_insufficient_conversion_space")
 
         stage("verify_apple_installer_signature")
@@ -263,3 +318,37 @@ def prepare(private: Path, report: dict, *, release="catalina") -> Path:
             except (MediaError, OSError, ValueError, TypeError):
                 state["media_mounted"] = True
                 state["cleanup_failure"] = "media_detach_unconfirmed"
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Download and inspect an official Apple installer; never execute it")
+    parser.add_argument("--audit-only", action="store_true", required=True)
+    parser.add_argument("--installer-release", choices=("catalina", "monterey"), default="monterey")
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args(argv)
+    runner_temp = capacity.hosted_intel_temp()
+    output = (args.output or runner_temp / "macos-installer-audit.json").resolve()
+    capacity.require(output.is_relative_to(runner_temp) and output != runner_temp,
+                     "Evidence output must stay within RUNNER_TEMP")
+    capacity.require(output.parent.is_dir() and not output.exists(), "Evidence destination must be new")
+    report = {"schema_version": 1, "status": "running", "macos_guest_installed": False,
+              "reboot_verified": False, "installer_execution_authorized": False}
+    try:
+        # audit_only returns before any disk-image creation, mounting or execution.
+        with tempfile.TemporaryDirectory(prefix="glab-macos-installer-audit-", dir=runner_temp) as raw:
+            prepare(Path(raw), report, release=args.installer_release, audit_only=True)
+        report["status"] = "observed"
+    except (MediaError, OSError) as exc:
+        report.update(status="fail", failure=str(exc) if isinstance(exc, MediaError) else type(exc).__name__)
+    with output.open("x", encoding="utf-8") as stream:
+        stream.write(json.dumps(report, indent=2) + "\n")
+    print(json.dumps(report, indent=2))
+    return 0 if report["status"] == "observed" else 1
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except capacity.PreflightError as error:
+        print("macOS installer audit refused: " + str(error), file=sys.stderr)
+        raise SystemExit(1) from None
