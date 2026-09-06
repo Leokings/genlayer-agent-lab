@@ -17,6 +17,24 @@ uv run --locked gl-agent-lab --url http://127.0.0.1:8765 scenarios
 
 Set `LAB_URL` to the loopback origin and `LAB_TOKEN` to your local administrator token. By default the token is in `~/.genlayer-agent-lab/admin.token`; never commit it. The examples' `--scenario` mode uses that credential to create a run, then switches to the run-scoped token for every agent action.
 
+For a private PowerShell setup, the developer can create an external run without
+printing a token or placing the administrator credential in the agent's
+environment:
+
+```powershell
+$labData = Join-Path $env:USERPROFILE '.genlayer-agent-lab'
+$labUrl = 'http://127.0.0.1:8765'
+$labHeaders = @{ Authorization = 'Bearer ' + [IO.File]::ReadAllText((Join-Path $labData 'admin.token')).Trim() }
+$labRequest = @{ scenario_id = 'escrow-normal'; agent = 'external'; backend = 'glsim' } | ConvertTo-Json
+$labRun = Invoke-RestMethod -Method Post -Uri "$labUrl/v1/runs" -Headers $labHeaders -ContentType 'application/json' -Body $labRequest
+```
+
+Keep `$labHeaders` in the developer's shell. Configure a separate agent process
+with only `$labRun.run_id` and `$labRun.agent_token` using the join-run mode below;
+do not print `$labRun` or the token file. Wait for the run to reach `running`
+before launching the agent, as described in the connection steps. Use the same
+developer headers for `GET /v1/runs/<run_id>` to check preparation.
+
 Run one example with an identifier returned by `scenarios`:
 
 ```console

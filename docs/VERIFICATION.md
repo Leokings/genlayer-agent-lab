@@ -2,6 +2,69 @@
 
 Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
+## Alpha 4 installation, startup and recovery — September 6
+
+- [Cross-platform CI run 34019705696](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34019705696)
+  passed at source commit `6a7f5739316afd713f703c7bb8faff9c37997a04`:
+  **Ubuntu 439 passed/8 skipped, macOS 439/8, Windows 438/9**.
+  Node 24.13.0 was installed and the TypeScript HTTP integration test passed on
+  every OS. Opt-in local Studio/container tests and platform-only checks account
+  for the skips; Docker has its own separate live job.
+- Each OS built a wheel, installed it in a fresh virtual environment outside
+  the checkout with a fresh cache/home, and passed actual bundled GLSim doctor,
+  all **18 fixture scenarios**, Python HTTP, actual MCP stdio, dashboard asset
+  serving, and export of the **25-file setup kit**. Full resolved dependency
+  versions and wheel/resource hashes are in the CI artifacts. These checks do
+  not depend on an editable source installation.
+- The separate Ubuntu Docker job passed **5 live tests** and **18/18 custom
+  binding scenarios**. The local alpha 4 worker also built and executed its
+  readiness contract, image
+  `sha256:32569c33bdce33e194618bfadf015227c4e3ef2d2af2796900d9fe5f115e6176`.
+- A local clean Linux container install passed in **422.065 seconds** without
+  host source, venv, cache, credentials or Docker socket. This is additional
+  Linux userspace evidence on the Windows Docker host, separate from native CI.
+- Windows user startup was exercised through actual Task Scheduler: install,
+  start, completed test, stop, restart with saved history, and uninstall. The
+  installation token and SQLite database survived. **27 focused service tests**
+  cover ownership and platform definitions. Native Linux/macOS service-manager
+  lifecycle tests remain unperformed; their definitions/manager checks have
+  unit coverage and documented user-session requirements.
+- The demo upgraded from alpha 3 to an installed alpha 4 wheel and current-user
+  startup. All **55 historical records were unchanged** against the pre-upgrade
+  backup. Its new actual GLSim run `35895329f9154a719d16f44788107039` passed all
+  four grades. The optional Studio stack remained ready with its original image
+  and persisted data. The SQLite backup excludes Studio volumes.
+- Actual installed alpha 3 to alpha 4 upgrade/rollback rehearsal preserved two
+  completed reports, accepted a new run after upgrade, and let the retained
+  alpha 3 executable read a fresh restore of the pre-upgrade archive. Restored
+  administrator credentials were new and two old run credentials were revoked.
+  Recovery tests additionally cover actual schema-1 to schema-2 migration,
+  committed WAL transactions, active-owner refusal, corrupt archives and
+  no-overwrite restoration.
+- An independent agent-assisted Windows onboarding rehearsal used only the
+  supplied candidate bundle and exported kit. Its first real doctor took
+  **291.19 seconds** and passed without a workaround or host SDK cache. Safe run
+  `2567ff937e454d4a908401ccb07e39c0` passed, unsafe provisional run
+  `656b74560c044d489caaf5af88f4a28d` failed as intended, and a separate Python
+  agent with only its run credential passed run
+  `147b79057133455c9dcbd6cf122b7c37`. JSON/HTML reports exported. Dashboard login
+  rendered; authenticated browser use was not part of this rehearsal. This
+  counts as an agent-assisted installation, **not a human external trial**.
+- An earlier cold Windows verification hit the former **300-second setup
+  limit**, and the first macOS CI attempt started execution tests before
+  preparing the cache. Setup now has a configurable **900-second doctor budget**
+  (maximum 1800), a visible preparation message, and a CI warm-up step. Normal
+  evaluations retain their **60-second** deadline. The passing native CI above
+  exercises this correction. The Windows relay's rejected-route handling also
+  now consumes valid bounded request bodies before closing, avoiding a TCP reset
+  observed during the full local suite.
+
+Local source verification passed **432 tests** before the preparation-budget
+change; the final focused runtime/CLI/service checks passed **75 tests**. These
+counts overlap CI and are not additive. Ruff and the setup skill validator
+passed. Historical alpha 3 Studio execution/appeal evidence below remains
+separate from the alpha 4 fixture and installation gates.
+
 ## Alpha 3 local Studio verification — September 6
 
 - The complete non-Studio-live suite passed **379 tests**. Later relay/stack
@@ -109,6 +172,10 @@ The Docker gate was unresolved at that point; the later live checks above supers
 
 ## Not established by these checks
 
-Linux/macOS host CI has been authored but not run on this Windows host. The examples are scripted agent controls, not tests of live LLM reasoning. No real funds, live provider API calls, public-network finality, modern appeal bond settlement, automatic startup installation or external developer onboarding were tested.
+Native Windows/Linux/macOS package CI and Windows user startup have passed as
+recorded above. Native Linux/macOS startup lifecycles and two human external
+developer installation trials remain open. The examples are scripted controls,
+not tests of live LLM reasoning. No real funds, live provider calls,
+public-network finality or modern appeal bond settlement were tested.
 
 The SDK archive was checked against the pinned official release hash; it is cached outside this repository. Native execution checks run bundled trusted code. The live container checks exercise specific isolation and resource-limit behavior; they are not a general security certification or independent attestation.

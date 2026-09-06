@@ -65,6 +65,8 @@ examples to a new directory. A checkout is unnecessary. In those examples,
 replace `uv run --locked python` with the absolute Python path in this installed
 environment, and `uv run --locked gl-agent-lab` with its installed CLI path.
 Run example file paths relative to the exported `lab-kit` directory.
+If you received this guide as a standalone file, open `lab-kit/docs/INSTALL.md`
+after export so its relative documentation links resolve inside the kit.
 
 The source archive carries `uv.lock` for the locked development environment.
 Wheel installation resolves transitive dependencies through the package index;

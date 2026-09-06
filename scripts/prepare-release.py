@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import tarfile
 import tomllib
@@ -17,7 +18,10 @@ def main() -> None:
     version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=root / "dist" / f"release-{version}")
+    parser.add_argument("--source-commit", help="Explicit verified 40-character project commit, never inferred from a parent repo")
     args = parser.parse_args()
+    if args.source_commit and not re.fullmatch(r"[0-9a-f]{40}", args.source_commit):
+        parser.error("--source-commit must be a lowercase 40-character Git commit")
     output = args.output.expanduser().absolute()
     if output.exists() or output.is_symlink():
         raise SystemExit("Choose a new output directory; release bundles are not overwritten.")
@@ -56,7 +60,8 @@ def main() -> None:
                          "sha256": digest})
     (output / "SHA256SUMS").write_text(
         "".join(f"{item['sha256']}  {item['file']}\n" for item in manifest), encoding="utf-8")
-    record = {"version": version, "published": False, "artifacts": manifest,
+    record = {"version": version, "source_commit": args.source_commit, "artifacts": manifest,
+              "prepared_by": "prepare-release; this command does not publish",
               "notice": "Developer alpha. Consult packaged BUILD_STATUS and VERIFICATION for release gates."}
     (output / "release.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"output": str(output), **record}, indent=2))
