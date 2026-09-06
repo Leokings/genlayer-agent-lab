@@ -29,14 +29,17 @@ try {
     if ($process.ExitCode -notin @(0,3010)) { throw 'python_install_failed' }
     Send-Stage 'guest_python_installed'
     $operation = 'guest_venv_creation'
-    & "$root\Python\python.exe" -I -m venv "$root\venv" *> "$root\venv-install.log"
-    if ($LASTEXITCODE -ne 0) { throw 'venv_failed' }
+    # Windows PowerShell5.1 can turn harmless native stderr into a terminating
+    # NativeCommandError under ErrorActionPreference=Stop. Judge native processes
+    # by their exit status, with separate private stdout/stderr streams.
+    $process = Start-Process -FilePath "$root\Python\python.exe" -ArgumentList @('-I','-m','venv',"$root\venv") -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput "$root\venv.stdout.log" -RedirectStandardError "$root\venv.stderr.log"
+    if ($process.ExitCode -ne 0) { throw 'venv_failed' }
     $wheel = Join-Path $root $config.wheel_name
     $operation = 'guest_wheel_verification'
     if ((Get-FileHash -LiteralPath $wheel -Algorithm SHA256).Hash.ToLowerInvariant() -cne $config.wheel_sha256) { throw 'wheel_hash_mismatch' }
     $operation = 'guest_wheel_installation'
-    & "$root\venv\Scripts\python.exe" -I -m pip --isolated install --no-cache-dir --index-url https://pypi.org/simple $wheel *> "$root\pip-install.log"
-    if ($LASTEXITCODE -ne 0) { throw 'wheel_install_failed' }
+    $process = Start-Process -FilePath "$root\venv\Scripts\python.exe" -ArgumentList @('-I','-m','pip','--isolated','--disable-pip-version-check','install','--no-cache-dir','--index-url','https://pypi.org/simple',$wheel) -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput "$root\pip.stdout.log" -RedirectStandardError "$root\pip.stderr.log"
+    if ($process.ExitCode -ne 0) { throw 'wheel_install_failed' }
     Send-Stage 'guest_wheel_installed'
     # Accounts are created by the oobeSystem LocalAccounts settings. This SYSTEM
     # observer registers the user probe once that standard account exists.
