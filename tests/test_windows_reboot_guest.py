@@ -146,7 +146,8 @@ class FakeRuntime:
                 "last_run_utc": self.system["observed_utc"], "last_result": self.last_result}
 
     def wait_ready(self, owner, deadline):
-        assert 0 < deadline - time.monotonic() <= 120
+        now = time.monotonic()
+        assert now < deadline <= now + 120
         self.waits += 1
         if self.failure:
             raise self.failure
@@ -172,7 +173,7 @@ def test_real_boot_required_then_only_reads_and_new_run(tmp_path):
     assert runtime.installs == 1 and runtime.admin.creates == 1
     runtime.reboot()
     result = guest.observe(tmp_path, NONCE, runtime)
-    assert result["verification"] == "pass"
+    assert result["verification"] == "pass", result
     assert runtime.installs == 1 and runtime.status_reads == 1 and runtime.admin.creates == 2
     assert runtime.preparations == 1
     assert result["task_last_result"] == 0x41301
@@ -183,6 +184,17 @@ def test_real_boot_required_then_only_reads_and_new_run(tmp_path):
         assert private not in (tmp_path / "baseline.json").read_text()
     assert guest.observe(tmp_path, NONCE, runtime) == result
     assert runtime.admin.creates == 2 and runtime.installs == 1
+
+
+def test_deadline_rounding_does_not_fail_post_reboot_verification(tmp_path, monkeypatch):
+    # A clock tick can repeat on Windows. Subtracting this rounded deadline
+    # would yield 120.00000000000001 even though the requested budget is 120.
+    monkeypatch.setattr(time, "monotonic", lambda: 100.002)
+    runtime = arm(tmp_path)
+    runtime.reboot()
+    result = guest.observe(tmp_path, NONCE, runtime)
+    assert result["verification"] == "pass", result
+    assert runtime.waits == 1 and runtime.installs == 1 and runtime.admin.creates == 2
 
 
 @pytest.mark.parametrize("kind", ["token", "metadata", "report", "task", "grade", "last_result"])
