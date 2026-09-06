@@ -1,4 +1,4 @@
-"""Prepare unmodified Apple Catalina installation media on an Intel hosted runner.
+"""Prepare allowlisted unmodified Apple installation media on an Intel hosted runner.
 
 Only Apple's full-installer download and createinstallmedia are used. The latter
 may erase only a volume proven to belong to this helper's new private disk image.
@@ -37,14 +37,14 @@ def require(condition, code):
         raise MediaError(code)
 
 
-def verification_diagnostic(raw):
+def verification_diagnostic(raw, installer=None):
     """Bound diagnostics from Apple verifier tools to the downloaded installer."""
     text = raw[:4096].decode("utf-8", errors="replace")
-    text = text.replace(str(INSTALLER), "$INSTALLER").replace(str(Path.home()), "$HOME")
+    text = text.replace(str(installer or INSTALLER), "$INSTALLER").replace(str(Path.home()), "$HOME")
     return "".join(char for char in text if char in "\n\t" or char.isprintable())
 
 
-def run(args, code, timeout=60, *, diagnostics=None):
+def run(args, code, timeout=60, *, diagnostics=None, diagnostic_installer=None):
     try:
         result = subprocess.run(args, stdin=subprocess.DEVNULL, capture_output=True,
                                 timeout=timeout, check=False)
@@ -57,13 +57,14 @@ def run(args, code, timeout=60, *, diagnostics=None):
         # VM/SMC logs and all other subprocess outputs remain private.
         diagnostics[code] = {"exit_code": result.returncode}
         if result.returncode:
-            diagnostics[code]["stderr"] = verification_diagnostic(result.stderr)
+            diagnostics[code]["stderr"] = verification_diagnostic(result.stderr, diagnostic_installer)
     require(result.returncode == 0, code)
     return result.stdout
 
 
-def inspect_verification_failure(state):
+def inspect_verification_failure(state, installer=None):
     """Read-only comparisons explain a rejected gate; they cannot authorize media creation."""
+    installer = installer or INSTALLER
     commands = {
         "strict_integrity": ["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=4"],
         "signature_metadata": ["/usr/bin/codesign", "--display", "--verbose=4"],
@@ -72,11 +73,11 @@ def inspect_verification_failure(state):
     evidence = state.setdefault("rejected_verification_diagnostics", {})
     for name, command in commands.items():
         try:
-            result = subprocess.run([*command, str(INSTALLER)], stdin=subprocess.DEVNULL,
+            result = subprocess.run([*command, str(installer)], stdin=subprocess.DEVNULL,
                                     capture_output=True, check=False, timeout=120)
             evidence[name] = {"exit_code": result.returncode,
-                              "stderr": verification_diagnostic(result.stderr),
-                              "stdout": verification_diagnostic(result.stdout)}
+                              "stderr": verification_diagnostic(result.stderr, installer),
+                              "stdout": verification_diagnostic(result.stdout, installer)}
         except (OSError, subprocess.TimeoutExpired) as exc:
             evidence[name] = {"failure": type(exc).__name__}
 
@@ -145,8 +146,17 @@ def detach_owned(image, state):
     state["media_detached"] = True
 
 
-def prepare(private: Path, report: dict) -> Path:
-    state = {"status": "running", "requested_version": VERSION,
+def select_installer(release):
+    if release == "catalina":
+        return INSTALLER, VERSION
+    if release == "monterey":
+        return Path("/Applications/Install macOS Monterey.app"), "12.7.6"
+    raise MediaError("media_unknown_release")
+
+
+def prepare(private: Path, report: dict, *, release="catalina") -> Path:
+    installer, version = select_installer(release)
+    state = {"status": "running", "requested_release": release, "requested_version": version,
              "media_mounted": False, "media_detached": False,
              "host_install_requested": False, "host_reboot_requested": False,
              "hardware_check_overrides": False, "raw_logs_exported": False}
@@ -172,31 +182,33 @@ def prepare(private: Path, report: dict) -> Path:
         directory = private.stat()
         require(directory.st_uid == os.geteuid() and not directory.st_mode & 0o022,
                 "media_private_directory_not_owned")
-        require(not INSTALLER.exists() and not INSTALLER.is_symlink(), "media_existing_apple_installer")
+        require(not installer.exists() and not installer.is_symlink(), "media_existing_apple_installer")
         require(shutil.disk_usage(private).free >= 60 * GIB, "media_insufficient_disk_space")
         image, iso = private / "apple-installer.dmg", private / "apple-installer.iso"
         master, mount = private / "apple-installer.cdr", private / "apple-installer-mount"
         for path in (image, iso, master, mount):
             require(not path.exists() and not path.is_symlink(), "media_private_destination_exists")
 
-        stage("download_official_catalina_installer")
-        run(["/usr/sbin/softwareupdate", "--fetch-full-installer", "--full-installer-version", VERSION],
+        stage("download_official_" + release + "_installer")
+        run(["/usr/sbin/softwareupdate", "--fetch-full-installer", "--full-installer-version", version],
             "media_apple_download_failed", timeout=1500)
-        require(INSTALLER.is_dir() and not INSTALLER.is_symlink(), "media_apple_installer_missing")
+        require(installer.is_dir() and not installer.is_symlink(), "media_apple_installer_missing")
         state["official_installer_downloaded"] = True
         require(shutil.disk_usage(private).free >= 40 * GIB, "media_insufficient_conversion_space")
 
         stage("verify_apple_installer_signature")
         verification = state.setdefault("verification_checks", {})
         run(["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=4", "-R", "=anchor apple",
-             str(INSTALLER)], "media_apple_signature_rejected", timeout=300, diagnostics=verification)
-        run(["/usr/sbin/spctl", "--assess", "--type", "execute", "--verbose=4", str(INSTALLER)],
-            "media_apple_policy_rejected", timeout=180, diagnostics=verification)
-        tool = INSTALLER / "Contents/Resources/createinstallmedia"
+             str(installer)], "media_apple_signature_rejected", timeout=300, diagnostics=verification,
+            diagnostic_installer=installer)
+        run(["/usr/sbin/spctl", "--assess", "--type", "execute", "--verbose=4", str(installer)],
+            "media_apple_policy_rejected", timeout=180, diagnostics=verification, diagnostic_installer=installer)
+        tool = installer / "Contents/Resources/createinstallmedia"
         require(tool.is_file() and not tool.is_symlink(), "media_apple_tool_missing")
-        require(tool.resolve().is_relative_to(INSTALLER), "media_apple_tool_outside_installer")
+        require(tool.resolve().is_relative_to(installer), "media_apple_tool_outside_installer")
         run(["/usr/bin/codesign", "--verify", "--strict", "--verbose=4", "-R", "=anchor apple", str(tool)],
-            "media_apple_tool_signature_rejected", timeout=120, diagnostics=verification)
+            "media_apple_tool_signature_rejected", timeout=120, diagnostics=verification,
+            diagnostic_installer=installer)
         state["apple_signature_and_policy_verified"] = True
 
         stage("create_private_installer_disk_image")
@@ -239,7 +251,7 @@ def prepare(private: Path, report: dict) -> Path:
         state.update(status="fail", failure=str(exc))
         if str(exc) in {"media_apple_signature_rejected", "media_apple_policy_rejected",
                         "media_apple_tool_signature_rejected"}:
-            inspect_verification_failure(state)
+            inspect_verification_failure(state, installer)
         raise
     except (OSError, ValueError, TypeError):
         state.update(status="fail", failure="media_preparation_error")

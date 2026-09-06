@@ -198,10 +198,14 @@ The `catalog` mode additionally runs Apple's read-only
 `softwareupdate --list-full-installers` and records only version numbers.
 It does not fetch an installer or update the host operating system.
 
-The `installer` mode downloads Apple's Catalina 10.15.7 installer and attempts
-normal boot-media preparation only after signature and system-policy checks pass.
+The `installer` mode accepts an allowlisted `installer_release`: `catalina`
+(10.15.7, the default) or `monterey` (12.7.6). Both were present in the observed
+Apple installer catalog. It attempts normal boot-media preparation only after
+signature and system-policy checks pass. Guest DMI, SMC and hardware-validation
+settings stay at their defaults; installer compatibility is determined by an
+actual boot attempt, not inferred solely from a physical-Mac model table.
 Its [diagnostic run 34053729590](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34053729590)
-is blocked: both strict verification and Gatekeeper reject the downloaded app's
+with Catalina is blocked: both strict verification and Gatekeeper reject the downloaded app's
 obsolete resource envelope with custom omit rules. No media creation or macOS
 guest boot occurred. Re-running the same inputs is not an established remedy;
 the macOS reboot trial still needs a usable, verified guest installation route

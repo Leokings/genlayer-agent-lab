@@ -135,7 +135,7 @@ def test_failed_attach_and_detach_leave_conservative_report_and_owned_image(tmp_
             return os.stat_result(values)
         return result
 
-    def fake_run(args, code, timeout=60, *, diagnostics=None):
+    def fake_run(args, code, timeout=60, *, diagnostics=None, diagnostic_installer=None):
         calls.append(args)
         if args[0] == "/usr/sbin/softwareupdate":
             tool = installer / "Contents/Resources/createinstallmedia"
@@ -198,3 +198,18 @@ def test_non_verification_failure_keeps_subprocess_output_private(monkeypatch):
     with pytest.raises(media.MediaError) as failure:
         media.run(["/usr/bin/hdiutil", "create"], "media_disk_image_create_failed")
     assert str(failure.value) == "media_disk_image_create_failed"
+
+
+def test_monterey_uses_its_pinned_apple_path_version_and_diagnostic_redaction():
+    installer, version = media.select_installer("monterey")
+    assert installer == Path("/Applications/Install macOS Monterey.app") and version == "12.7.6"
+    reason = (str(installer) + ": rejected").encode()
+    assert media.verification_diagnostic(reason, installer) == "$INSTALLER: rejected"
+    assert media.select_installer("catalina") == (media.INSTALLER, "10.15.7")
+
+
+@pytest.mark.parametrize("release", ["latest", "12.7.6", "../../Applications/other.app"])
+def test_unknown_installer_cannot_select_an_arbitrary_download_or_path(tmp_path, release):
+    with pytest.raises(media.MediaError, match="media_unknown_release"):
+        media.prepare(tmp_path, {}, release=release)
+    assert list(tmp_path.iterdir()) == []

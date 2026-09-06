@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Capacity, diskless VM, Apple catalog, or normal Catalina installer boot attempt
+        description: Capacity, diskless VM, Apple catalog, or normal Apple installer boot attempt
         type: choice
         required: true
         default: capacity
@@ -13,6 +13,14 @@ on:
           - virtualbox
           - catalog
           - installer
+      installer_release:
+        description: Official Apple installer used only in installer mode
+        type: choice
+        required: true
+        default: catalina
+        options:
+          - catalina
+          - monterey
 
 permissions:
   contents: read
@@ -39,10 +47,13 @@ jobs:
         shell: bash
         env:
           PREFLIGHT_MODE: ${{ inputs.mode }}
+          INSTALLER_RELEASE: ${{ inputs.installer_release }}
         run: |
           set -euo pipefail
           args=(--output "$RUNNER_TEMP/macos-virtualbox-preflight.json")
-          if test "$PREFLIGHT_MODE" = installer; then args+=(--boot-installer); fi
+          if test "$PREFLIGHT_MODE" = installer; then
+            args+=(--boot-installer --installer-release "$INSTALLER_RELEASE")
+          fi
           /usr/bin/python3 -I scripts/macos-virtualbox-preflight.py "${args[@]}"
       - name: Preserve disposable installer screen for review
         if: always() && inputs.mode == 'installer'

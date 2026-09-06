@@ -1,7 +1,8 @@
 """Initialize a diskless macOS-type VM on an owned Intel GitHub Mac runner.
 
 Uses the unmodified Oracle base package and its default macOS hardware settings.
-No Apple installation media, guest OS, host restart or hardware-check override.
+Optional boot-media preparation uses Apple's installer with normal verification.
+The default diskless probe uses no Apple media. No host restart or hardware-check override.
 VirtualBox logs remain private because upstream SMC diagnostics can contain data.
 """
 
@@ -65,7 +66,7 @@ def private_workspace(runner_temp, report):
         report["private_vm_files_removed"] = not private.exists()
 
 
-def probe(runner_temp, *, boot_installer=False):
+def probe(runner_temp, *, boot_installer=False, installer_release="catalina"):
     report = {
         "schema_version": 1, "status": "running",
         "scope": "Default VirtualBox macOS device initialization and diskless EFI only",
@@ -75,7 +76,8 @@ def probe(runner_temp, *, boot_installer=False):
         "raw_logs_exported": False, "private_vm_files_removed": False,
     }
     if boot_installer:
-        report["scope"] = "Normal Apple Catalina installer boot attempt; screenshot requires review"
+        report["scope"] = "Normal Apple installer boot attempt; screenshot requires review"
+        report["requested_installer_release"] = installer_release
         report["installer_boot_confirmed"] = None
         report["guest_os_booted"] = False
     try:
@@ -130,7 +132,7 @@ def probe(runner_temp, *, boot_installer=False):
                     module = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(module)
                     try:
-                        media = module.prepare(private, report)
+                        media = module.prepare(private, report, release=installer_release)
                     except module.MediaError as exc:
                         raise capacity.PreflightError(str(exc)) from None
                 report["stage"] = "create_default_macos_configuration"
@@ -232,14 +234,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--boot-installer", action="store_true",
-                        help="Fetch official Catalina media and attempt a normal disposable guest boot")
+                        help="Fetch official Apple media and attempt a normal disposable guest boot")
+    parser.add_argument("--installer-release", choices=("catalina", "monterey"), default="catalina")
     args = parser.parse_args(argv)
     runner_temp = capacity.hosted_intel_temp()
     output = (args.output or runner_temp / "macos-virtualbox-preflight.json").resolve()
     capacity.require(output.is_relative_to(runner_temp) and output != runner_temp,
                      "Evidence output must stay within RUNNER_TEMP")
     capacity.require(output.parent.is_dir() and not output.exists(), "Evidence destination must be new")
-    result = probe(runner_temp, boot_installer=args.boot_installer)
+    result = probe(runner_temp, boot_installer=args.boot_installer, installer_release=args.installer_release)
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))
     return 0 if result["status"] == "pass" else 1
