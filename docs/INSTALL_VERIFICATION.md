@@ -34,3 +34,26 @@ The pinned universal GenVM archive is about 217 MB. The first `doctor` preparati
 A local Linux Docker check can install the same wheel inside a fresh official Python Linux image. Mount only the wheel read-only, pass the verification script over stdin, and provide no host virtual environment, caches, credentials, project source or Docker socket. A temporary filesystem containing the fresh virtual environment needs explicit `exec` permission so its installed console scripts and Python extensions can run; the container root can remain read-only. Retrieve the sanitized report from that owned container and remove only that container afterward. This establishes Linux userspace behavior inside Docker on the current host; it is not evidence of a native Linux or macOS runner.
 
 The JSON report records the wheel SHA-256, Python/platform identity, installed distribution versions, resource hashes, doctor evidence, suite counts and HTTP/MCP results. It distinguishes the fixture scenario suite from actual trusted GLSim execution. Studio consensus, appeals, custom contracts and remote operating-system execution retain their separate verification records.
+
+## Linux service verification without a VPS
+
+The public repository can use a standard GitHub-hosted Ubuntu virtual machine
+to exercise the real systemd user service. This is a short-lived automated
+test, not a hosted Lab installation. It needs no DigitalOcean account or
+payment card. Standard runner execution is free for public repositories;
+larger runners and storage have separate billing rules in the
+[GitHub Actions documentation](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+
+The dedicated Linux service check installs a wheel into a persistent virtual
+environment belonging to an isolated CI user, outside the source checkout.
+It checks service registration, real bundled GLSim execution through HTTP,
+stop/start with preserved reports, and removal of the startup registration.
+Its compact evidence is printed in the workflow log rather than uploading
+application data or credentials.
+
+The CI host prepares a systemd user manager for the test account. This host
+preparation is separate from the package's current-user installer, which does
+not grant itself privileges or enable lingering. A passing test establishes
+the service lifecycle on that runner. It does not establish recovery from a
+whole-machine reboot, a macOS GUI login, Studio-volume disaster recovery, or
+independent human onboarding.

@@ -1,0 +1,84 @@
+name: Native Linux user-service verification
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/linux-service.yml'
+      - 'scripts/verify-linux-service.py'
+      - 'src/genlayer_agent_lab/service.py'
+  pull_request:
+    paths:
+      - '.github/workflows/linux-service.yml'
+      - 'scripts/verify-linux-service.py'
+      - 'src/genlayer_agent_lab/service.py'
+
+permissions:
+  contents: read
+
+jobs:
+  installed-systemd-service:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.10.9'
+          enable-cache: false
+      - name: Build the wheel to be tested
+        run: uv build --out-dir dist-linux-service
+      - name: Prepare a disposable regular user and actual systemd user manager
+        id: service_user
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! id gl-lab-ci >/dev/null 2>&1
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-venv dbus-user-session
+          sudo useradd --create-home --shell /bin/bash gl-lab-ci
+          echo 'created=true' >> "$GITHUB_OUTPUT"
+          sudo loginctl enable-linger gl-lab-ci
+          lab_uid=$(id -u gl-lab-ci)
+          sudo systemctl start "user@${lab_uid}.service"
+          wheels=(dist-linux-service/genlayer_agent_lab-*-py3-none-any.whl)
+          test "${#wheels[@]}" -eq 1
+          sudo install -m 0644 "${wheels[0]}" /home/gl-lab-ci/
+          sudo install -m 0644 scripts/verify-linux-service.py /home/gl-lab-ci/probe-driver.py
+      - name: Install and test the actual wheel through systemd
+        shell: bash
+        run: |
+          set -euo pipefail
+          lab_uid=$(id -u gl-lab-ci)
+          wheels=(dist-linux-service/genlayer_agent_lab-*-py3-none-any.whl)
+          wheel="/home/gl-lab-ci/$(basename "${wheels[0]}")"
+          sudo -u gl-lab-ci env -i \
+            HOME=/home/gl-lab-ci USER=gl-lab-ci LOGNAME=gl-lab-ci PATH=/usr/bin:/bin \
+            XDG_RUNTIME_DIR="/run/user/${lab_uid}" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${lab_uid}/bus" \
+            PYTHONUTF8=1 PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 \
+            /usr/bin/python3 -I /home/gl-lab-ci/probe-driver.py \
+            --wheel "$wheel" --output /home/gl-lab-ci/service-evidence.json
+      - name: Record bounded evidence without uploaded artifacts
+        if: always() && steps.service_user.outputs.created == 'true'
+        shell: bash
+        run: |
+          if sudo test -f /home/gl-lab-ci/service-evidence.json; then
+            printf 'Native systemd user-service lifecycle; no VM reboot, logout or Studio claim.\n\n```json\n' >> "$GITHUB_STEP_SUMMARY"
+            sudo cat /home/gl-lab-ci/service-evidence.json >> "$GITHUB_STEP_SUMMARY"
+            printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Remove only the disposable test user and its services
+        if: always() && steps.service_user.outputs.created == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if id gl-lab-ci >/dev/null 2>&1; then
+            lab_uid=$(id -u gl-lab-ci)
+            sudo loginctl disable-linger gl-lab-ci
+            sudo systemctl stop "user@${lab_uid}.service"
+            sudo loginctl terminate-user gl-lab-ci || true
+            sudo userdel --remove gl-lab-ci
+          fi
