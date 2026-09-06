@@ -37,7 +37,27 @@ def command(args, *, stage, cwd, timeout=60, expected=0):
         raise VerificationError(f"{stage}: OS error {exc.errno}") from None
     if result.returncode != expected:
         # CLI errors can contain third-party payloads. Never publish those here.
-        raise VerificationError(f"{stage}: exit {result.returncode}")
+        detail = ""
+        if stage.startswith("CLI service"):
+            stderr = result.stderr.decode("utf-8", errors="replace")
+            for phrase, category in (
+                ("systemd user manager is unavailable", "user_manager_unavailable"),
+                ("systemd user manager rejected", "user_manager_operation_rejected"),
+                ("different service definition", "loaded_definition_mismatch"),
+                ("loopback service port is in use", "port_in_use"),
+            ):
+                if phrase in stderr:
+                    detail = ": " + category
+                    break
+            try:
+                state = json.loads(result.stdout)
+                flags = {key: state[key] for key in ("installed", "running", "ready", "enabled")
+                         if type(state.get(key)) is bool}
+                if flags:
+                    detail = ": " + json.dumps(flags, sort_keys=True)
+            except (ValueError, AttributeError, TypeError):
+                pass
+        raise VerificationError(f"{stage}: exit {result.returncode}{detail}")
     return result.stdout
 
 
@@ -138,6 +158,22 @@ def probe(root):
                               "bundle_sha256": runtime["bundle_sha256"]})
     except Exception as exc:
         result["error"] = str(exc) if isinstance(exc, VerificationError) else type(exc).__name__
+        # Only emit fixed systemd status fields, never journal entries or process
+        # arguments. The service name is constrained to this package's identity.
+        manifest = data / "service/installation.json"
+        if manifest.is_file():
+            try:
+                name = json.loads(manifest.read_text())["name"]
+                suffix = name.removeprefix("genlayer-agent-lab-")
+                checked(len(suffix) == 24 and all(char in "0123456789abcdef" for char in suffix),
+                        "Invalid diagnostic service identity")
+                raw = command(["systemctl", "--user", "show", name + ".service",
+                               "--property=LoadState,ActiveState,SubState,Result,ExecMainCode,ExecMainStatus"],
+                              stage="owned service diagnostics", cwd=root)
+                result["service_state"] = dict(line.split("=", 1) for line in raw.decode().splitlines()
+                                               if "=" in line)
+            except Exception:
+                result["service_diagnostics_unavailable"] = True
     finally:
         if not result["service_cleanup"]:
             try:

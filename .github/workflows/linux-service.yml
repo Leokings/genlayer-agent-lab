@@ -35,7 +35,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ! id gl-lab-ci >/dev/null 2>&1
+          if id gl-lab-ci >/dev/null 2>&1; then
+            echo 'The disposable test account already exists.' >&2
+            exit 1
+          fi
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends python3-venv dbus-user-session
           sudo useradd --create-home --shell /bin/bash gl-lab-ci
