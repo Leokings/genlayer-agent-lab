@@ -245,10 +245,9 @@ def _definition(state) -> bytes:
         return (f"# {marker}\n[Unit]\nDescription={marker}\n"
                 "StartLimitIntervalSec=60\nStartLimitBurst=3\n\n[Service]\nType=simple\n"
                 "ExecStart=" + " ".join(_systemd_quote(arg) for arg in args) + "\n"
-                # Unlike ExecStart, WorkingDirectory does not unquote or C-unescape
-                # its value. A final slash preserves trailing spaces/backslashes
-                # through the INI parser; only systemd % specifiers need escaping.
-                "WorkingDirectory=" + state["data_dir"].replace("%", "%%") + "/\n"
+                # WorkingDirectory parses paths differently from ExecStart. Enter
+                # the exact data directory in Python after validating identity.
+                "WorkingDirectory=%h\n"
                 "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=20\n"
                 "UMask=0077\nNoNewPrivileges=true\n\n[Install]\nWantedBy=default.target\n").encode()
     if kind == "darwin":
@@ -582,6 +581,8 @@ def _serve(data_dir, port, owner):
     state = _load(data_dir)
     if state["owner"] != owner or state["port"] != port:
         _fail("identity_mismatch", "The startup invocation does not match its installation")
+    if state["platform"] == "linux":
+        os.chdir(state["data_dir"])
     for key in ("LAB_URL", "LAB_TOKEN", "LAB_DATA_DIR"):
         os.environ.pop(key, None)
     log_path = _root(data_dir) / "service.log"

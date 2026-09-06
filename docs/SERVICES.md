@@ -38,6 +38,17 @@ Linux and macOS send the process a normal termination request. Windows Task Sche
 
 To change the interpreter or port, uninstall the startup definition, then install it again with the same data directory and desired settings. To update package files in place, stop the service before the update and start it afterward. If a release changes the generated startup definition, reinstall that definition; the ownership check deliberately refuses to overwrite an unexpected existing version.
 
+## Upgrading an alpha 4 Linux registration
+
+Alpha 4 generated a quoted `WorkingDirectory` value that systemd rejected as
+`bad-setting`. Alpha 5 starts in the user's home and enters the exact data
+directory in Python after validating the startup identity. If an alpha 4 Linux
+installation left a startup registration behind, run `service uninstall` with
+the retained alpha 4 executable **before** switching versions, then install the
+startup service with alpha 5 against the same data directory. Uninstall preserves
+the database, token and logs. A newer executable intentionally refuses to change
+a definition that differs from its own expected format.
+
 ## Verification and platform limits
 
 This release has focused tests for deterministic ownership, shell-independent quoting, exported Windows defaults, definition tampering, Linux overrides, LaunchAgent argument verification, persistent interpreter paths and data preservation. The Windows lifecycle was exercised on the development host using a separate `.lab/service-test` installation and port 8875. Linux and macOS definitions and manager behavior are covered by tests with representative manager output; they were not executed on native Linux/macOS hosts during this Windows build.

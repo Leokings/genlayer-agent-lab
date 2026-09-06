@@ -109,7 +109,7 @@ def test_systemd_escapes_specifiers_environment_and_shell_punctuation_separately
     unit = service._definition(state).decode()
     assert '"/venv with space/py\\"thon"' in unit
     assert '"/home/test/a%%id$$b;$$(touch nope)"' in unit  # ExecStart arguments.
-    assert 'WorkingDirectory=/home/test/a%%id$b;$(touch nope)/\n' in unit
+    assert 'WorkingDirectory=%h\n' in unit
     assert "WantedBy=default.target" in unit
     assert "User=root" not in unit and "/bin/sh" not in unit
 

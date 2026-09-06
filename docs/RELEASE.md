@@ -1,19 +1,20 @@
-# Alpha 4 release checklist
+# Alpha 5 release checklist
 
 This is a developer alpha with controlled model responses. It is suitable for
 reproducible agent integration experiments within the documented interfaces.
 It does not certify an agent's general safety or performance with live models.
 
-## What changed after alpha 3
+## What changed after alpha 4
 
-- User startup commands for Windows Task Scheduler, Linux systemd user services
-  and macOS LaunchAgents, with separate installation ownership and preserved data.
-- Offline SQLite backup and fresh-directory restore with integrity checks,
-  credential rotation, and a documented upgrade/rollback procedure.
-- Setup skill, documentation and Python/TypeScript/MCP examples shipped inside
-  the wheel; `kit --output NEW_DIRECTORY` exports them without a checkout.
-- A clean installed-wheel check in the three-OS CI matrix, exercising actual
-  bundled GLSim execution, all 18 fixture cases, HTTP and MCP.
+- Corrected Linux startup: systemd rejected alpha 4's quoted working directory
+  as `bad-setting`. The service now starts in the user's home and enters the
+  exact data directory in Python after validating its startup identity.
+- Added native systemd user-service verification on a standard Ubuntu CI runner:
+  actual wheel installation, GLSim HTTP execution, stop/start, historical report
+  preservation and uninstall. The data path includes spaces, quotes, `%`, `$`,
+  and a trailing backslash/space to exercise the real parser.
+- Bounded Studio operation timeouts against floating-point rounding on clocks
+  with coarse resolution, without extending the total operation deadline.
 
 Consult [BUILD_STATUS.md](BUILD_STATUS.md) and [VERIFICATION.md](VERIFICATION.md)
 for the actual evidence and remaining gates. Source tests, container checks,
@@ -33,7 +34,7 @@ uv run --locked python scripts/prepare-release.py
 
 The final command requires a new destination, audits the wheel/source file lists,
 then assembles the wheel, source archive, initial setup instructions, setup skill
-and `SHA256SUMS` under `dist/release-0.1.0a4`. It never publishes anything. Preserve
+and `SHA256SUMS` under `dist/release-0.1.0a5`. It never publishes anything. Preserve
 the verified bundle unchanged and record its checksum when sharing it. The
 source archive includes `uv.lock`; the wheel carries the installation kit.
 
@@ -67,4 +68,4 @@ cases and does not touch Studio or the normal installation.
 The optional Studio checks retain their separate evidence for actual GenVM
 deployment, approved/denied execution and appeals. The SQLite backup does not
 restore Studio's persistent PostgreSQL volumes. Live inference, modern appeal
-bonds and public-chain finality remain outside alpha 4.
+bonds and public-chain finality remain outside alpha 5.
