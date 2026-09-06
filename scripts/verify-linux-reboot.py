@@ -329,12 +329,13 @@ def verify(wheel):
         disk = root / "guest.qcow2"
         command(["qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", image, disk, "8G"],
                 name="create disposable persistent guest disk")
-        private_log = (root / "qemu-private.log").open("wb")
+        private_log = (root / "qemu-startup-private.log").open("wb")
         stage("boot owned KVM guest")
         process = subprocess.Popen([
             "qemu-system-x86_64", "-name", "gl-lab-reboot-" + guest_id,
             "-accel", "kvm", "-cpu", "host", "-smp", "2", "-m", "4096",
-            "-display", "none", "-monitor", "none", "-serial", "stdio",
+            "-display", "none", "-monitor", "none",
+            "-serial", f"file:{root / 'guest-serial-private.log'}",
             "-drive", f"file={disk},if=virtio,format=qcow2",
             "-drive", f"file={root / 'seed.img'},if=virtio,format=raw,readonly=on",
             "-nic", f"user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:{port}-:22"],
@@ -404,6 +405,27 @@ def verify(wheel):
     except Exception as exc:
         result.update(verification="fail", stage=STAGE,
                       error=str(exc) if isinstance(exc, VerificationError) else type(exc).__name__)
+        if process is not None and process.poll() is not None:
+            result["qemu_exit_code"] = process.returncode
+            # The QEMU host diagnostic stream is separate from guest console
+            # output. Emit only fixed categories, never arbitrary log content.
+            log_path = root / "qemu-startup-private.log"
+            if log_path.is_file():
+                with log_path.open("rb") as stream:
+                    diagnostic = stream.read(16384).decode(errors="replace").lower()
+                result["qemu_failure_categories"] = [category for phrase, category in (
+                    ("romfile", "firmware_rom_file"),
+                    ("could not load", "firmware_load"),
+                    ("read-only", "readonly_device"),
+                    ("kvm", "kvm_initialization"),
+                    ("could not open", "device_file_open"),
+                    ("permission denied", "permission_denied"),
+                    ("host forwarding", "ssh_port_forward"),
+                    ("address already in use", "port_in_use"),
+                    ("invalid parameter", "unsupported_argument"),
+                    ("cannot allocate memory", "memory_allocation"),
+                    ("failed to initialize", "device_initialization"),
+                ) if phrase in diagnostic]
     finally:
         signal.alarm(0)
         try:
