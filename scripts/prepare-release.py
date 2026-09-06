@@ -29,6 +29,7 @@ def main() -> None:
     wheel = root / "dist" / f"{basename}-py3-none-any.whl"
     source = root / "dist" / f"{basename}.tar.gz"
     required_kit = {"docs/INSTALL.md", "docs/SERVICES.md", "docs/RECOVERY.md",
+                    "docs/STUDIO.md", "docs/EXTERNAL_ONBOARDING.md",
                     "examples/python_agent.py", "examples/typescript/agent.ts", "examples/mcp_agent.py",
                     "skills/setup-genlayer-agent-lab/SKILL.md"}
     with zipfile.ZipFile(wheel) as package:

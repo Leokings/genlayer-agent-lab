@@ -328,7 +328,7 @@ def compose_config(state: dict) -> dict:
     return config
 
 
-def _compose(data_dir: Path, args: list[str], *, timeout=30):
+def _compose(data_dir: Path, args: list[str], *, timeout=30, endpoint=None):
     root = _root(data_dir)
     state = _load(root)
     # Regenerate from validated metadata; never execute an arbitrary edited compose file.
@@ -338,7 +338,7 @@ def _compose(data_dir: Path, args: list[str], *, timeout=30):
         raise RuntimeError("Generated Studio configuration must not be a symlink")
     path.write_text(payload, encoding="utf-8")
     (root / "empty.env").write_text("", encoding="utf-8")
-    return _checked(_command(_endpoint(), ["compose", "--env-file", str(root / "empty.env"),
+    return _checked(_command(endpoint or _endpoint(), ["compose", "--env-file", str(root / "empty.env"),
         "--project-directory", str(root), "--project-name", f"gl-agent-lab-{state['owner']}",
         "--file", str(path), *args], timeout=timeout, output_limit=8_388_608), "compose operation")
 
@@ -360,10 +360,10 @@ def down(data_dir: Path) -> dict:
     return {"stopped": True, "data_preserved": True}
 
 
-def _inventory(endpoint: str, state: dict) -> dict:
+def _inventory(endpoint: str, state: dict, *, deadline=None) -> dict:
     """Read actual resources by Compose project, including foreign-owner conflicts."""
     project = f"gl-agent-lab-{state['owner']}"
-    deadline = time.monotonic() + 25
+    deadline = min(time.monotonic() + 25, deadline) if deadline is not None else time.monotonic() + 25
 
     def command(args):
         remaining = deadline - time.monotonic()
@@ -428,7 +428,7 @@ def _memory_bytes(value: str) -> int:
 
 
 def _verify_runtime(endpoint: str, state: dict, inventory: dict,
-                    *, diagnostic: dict | None = None) -> bool:
+                    *, diagnostic: dict | None = None, deadline=None) -> bool:
     """Fail closed on actual runtime configuration, not ps display strings."""
     def fail(code: str, service: str | None = None) -> bool:
         if diagnostic is not None:
@@ -469,8 +469,11 @@ def _verify_runtime(endpoint: str, state: dict, inventory: dict,
         return fail("unexpected_access_network_peer")
     images = {}
     for reference in {state["image_id"], *AUXILIARY_IMAGES.values()}:
+        remaining = 5 if deadline is None else min(5, deadline - time.monotonic())
+        if remaining <= 0:
+            raise RuntimeError("Studio runtime verification timed out")
         image = _json_output(_command(endpoint, ["image", "inspect", reference,
-                            "--format", "{{json .}}"], timeout=5), "image inspection")
+                            "--format", "{{json .}}"], timeout=remaining), "image inspection")
         if image.get("Os") != "linux" or not re.fullmatch(r"sha256:[0-9a-f]{64}", image.get("Id", "")):
             return fail("image_identity_invalid")
         if reference == state["image_id"] and (

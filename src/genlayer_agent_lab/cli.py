@@ -85,12 +85,18 @@ def build_parser() -> argparse.ArgumentParser:
                               ("up", "Start this installation's Studio services"),
                               ("down", "Stop this installation's services, preserving data"),
                               ("status", "Inspect the owned stack's readiness"),
+                              ("verify-recovery", "Verify finalized results survive a controlled Studio restart"),
                               ("verify", "Deploy and execute a contract using real Studio checkpoints")):
         operation = studio_operations.add_parser(name, help=description)
         _common(operation, child=True)
         if name == "build":
             operation.add_argument("--port", type=int, default=8766,
                                    help="Loopback RPC port fixed for this installation")
+        elif name == "verify-recovery":
+            operation.add_argument("--timeout", type=float, default=600,
+                                   help="Overall deadline including recovery cleanup (default 600 seconds)")
+            operation.add_argument("--output", type=Path,
+                                   help="New file for sanitized restart evidence; never overwritten")
         elif name == "verify":
             operation.add_argument("--binding", type=Path, help="Local binding YAML; default bundled contract")
             operation.add_argument("--scenario", default="escrow-normal",
@@ -163,6 +169,25 @@ def _studio_command(args) -> int:
         result = studio_stack.down(args.data_dir)
         _json(result)
         return 0 if result.get("stopped") is True else 2
+    if args.studio_operation == "verify-recovery":
+        from .studio_recovery import run_studio_recovery
+
+        # Check the evidence destination before any operation that stops Studio.
+        # Exclusive creation rejects existing files and symlinks.
+        output = args.output.open("x", encoding="utf-8") if args.output else None
+        try:
+            result = run_studio_recovery(
+                args.data_dir, timeout=args.timeout,
+                progress=lambda message: print(message, file=sys.stderr, flush=True),
+            )
+            if output:
+                output.write(json.dumps(result, indent=2) + "\n")
+                output.flush()
+            _json(result)
+            return {"pass": 0, "fail": 1}.get(result.get("verification"), 2)
+        finally:
+            if output:
+                output.close()
     stack = studio_stack.status(args.data_dir)
     if args.studio_operation == "status":
         _json(stack)

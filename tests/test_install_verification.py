@@ -1,5 +1,6 @@
 """Guards for the clean artifact verification boundary, not a second app suite."""
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -33,6 +34,32 @@ def test_wheel_selection_refuses_ambiguous_old_artifacts(tmp_path):
         verification.choose_wheel(str(tmp_path / "*.whl"))
     wheel = tmp_path / "genlayer_agent_lab-0.1.0a4-py3-none-any.whl"
     assert verification.choose_wheel(str(wheel)) == wheel.resolve()
+
+
+def test_verification_installs_private_hashed_wheel_when_original_is_rebuilt(tmp_path, monkeypatch):
+    wheel = tmp_path / "genlayer_agent_lab-0.1.0a7-py3-none-any.whl"
+    original = b"original selected artifact"
+    wheel.write_bytes(original)
+    installed = []
+
+    def run(command, *, cwd, env, stage, **kwargs):
+        if stage == "create fresh virtual environment":
+            wheel.write_bytes(b"newly rebuilt artifact at the same source path")
+        elif stage == "install built wheel and its declared dependencies":
+            artifact = Path(command[-1])
+            assert artifact != wheel and artifact.name == wheel.name
+            assert artifact.is_relative_to(cwd.parent)
+            installed.append(artifact.read_bytes())
+        elif stage == "exercise installed package":
+            return json.dumps({"verification": "pass"})
+        return ""
+
+    monkeypatch.setattr(verification, "run", run)
+    result = verification.verify(wheel)
+    assert result["verification"] == "pass"
+    assert installed == [original]
+    assert result["wheel_sha256"] == hashlib.sha256(original).hexdigest()
+    assert result["wheel_sha256"] != hashlib.sha256(wheel.read_bytes()).hexdigest()
 
 
 def test_smoke_grade_does_not_trust_only_a_claimed_pass():

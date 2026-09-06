@@ -76,3 +76,13 @@ new appeal round before claiming observed local appeal processing. Stable Studio
 does not verify modern appeal bond accounting or public-network finality.
 Canceling a test may leave an already submitted Studio transaction running.
 `studio down` preserves this installation's database and VM cache.
+
+When the developer requests a Studio restart recovery check, use
+`studio verify-recovery --output <new-evidence-file>` after stopping the Lab
+service and pausing other Studio writers. Studio must already be healthy, with
+no unfinished transactions. Inspect the returned checks and cleanup status;
+do not claim host reboot, automatic Studio startup, interrupted-consensus
+recovery or PostgreSQL disaster recovery from this result. Restart the Lab
+service after the check. Use `docs/EXTERNAL_ONBOARDING.md` to collect human
+developer trial feedback; an agent-assisted rehearsal alone does not count as
+an independent human installation.

@@ -108,12 +108,20 @@ def choose_wheel(value: str) -> Path:
 def verify(wheel: Path, *, backend="fixture", require_kit=False) -> dict:
     started = time.monotonic()
     result = {"schema_version": 1, "verification": "fail", "wheel": wheel.name,
-              "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+              "wheel_sha256": None,
               "host_platform": platform.system(), "host_python": platform.python_version(),
               "source_checkout_used_by_probe": False, "inherited_environment": "system allowlist only"}
     try:
         with tempfile.TemporaryDirectory(prefix="gl-agent-lab-install-") as temporary:
             root = Path(temporary).resolve()
+            artifacts = root / "artifacts"
+            artifacts.mkdir()
+            copied_wheel = artifacts / wheel.name
+            # Builds can replace the source artifact while venv/pip are running.
+            # Hash and install the same private copy, keeping its valid wheel name.
+            shutil.copyfile(wheel, copied_wheel)
+            with copied_wheel.open("rb") as stream:
+                result["wheel_sha256"] = hashlib.file_digest(stream, "sha256").hexdigest()
             environment = root / "environment"
             work = root / "work"
             work.mkdir()
@@ -122,7 +130,7 @@ def verify(wheel: Path, *, backend="fixture", require_kit=False) -> dict:
             run([sys.executable, "-I", "-m", "venv", str(environment)], cwd=work, env=env,
                 stage="create fresh virtual environment")
             run([str(python), "-I", "-m", "pip", "--isolated", "install", "--no-cache-dir",
-                 "--index-url", "https://pypi.org/simple", str(wheel)],
+                 "--index-url", "https://pypi.org/simple", str(copied_wheel)],
                 cwd=work, env=env, stage="install built wheel and its declared dependencies")
             probe = root / "probe.py"
             shutil.copyfile(Path(__file__).resolve(), probe)
@@ -256,7 +264,8 @@ def probe(*, backend: str, require_kit: bool) -> dict:
         cli("kit", "--output", str(exported))
         files = list(exported.rglob("*"))
         required_kit_files = {"SKILL.md", "python_agent.py", "mcp_agent.py", "client.ts", "agent.ts",
-                              "INSTALL.md", "SERVICES.md", "RECOVERY.md"}
+                              "INSTALL.md", "SERVICES.md", "RECOVERY.md", "STUDIO.md",
+                              "EXTERNAL_ONBOARDING.md"}
         nonempty = {p.name for p in files if p.is_file() and p.stat().st_size > 0}
         if not required_kit_files <= nonempty:
             raise VerificationError("Installed integration kit lacks its skill or clients")

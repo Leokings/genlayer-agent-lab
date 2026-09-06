@@ -2,6 +2,11 @@
 
 The release gate installs the built wheel into a new virtual environment and runs from a new working directory outside the checkout. It does not treat tests against an editable source installation as evidence that a wheel works.
 
+For the two human developer installation trials, use the separate
+[external onboarding checklist and report template](EXTERNAL_ONBOARDING.md).
+Its completed reports complement CI; exporting the checklist is not a passed
+external trial.
+
 ```sh
 uv build --out-dir dist-ci
 uv run python -I scripts/verify-install.py \

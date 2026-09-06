@@ -2,6 +2,38 @@
 
 Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
+## Alpha 7 controlled Studio restart and onboarding kit — September 6
+
+- The installed alpha 7 wheel passed `studio verify-recovery` against the existing
+  owned Studio stack on the Windows Docker Desktop Linux engine. The final
+  implementation completed in **184.750 seconds**; a preceding candidate also
+  passed in 197.704 seconds. The final live-tested wheel SHA-256 was
+  `8e8635f58d9008bf9be3b786204fc0e0ba0496893e8a6809d034a662ed9bff48`.
+  Later documentation changes produce a different release artifact hash.
+- Both checks used real local GenVM execution with deterministic model fixtures,
+  without a paid model or public-chain transaction. The verifier finalized a
+  deployment and approval, confirmed no pending transactions, stopped and
+  recreated all seven owned containers, preserved both named-volume identities,
+  and checked unchanged finalized contract state and receipts. A new denial on
+  the same contract then finalized and changed its stored state.
+- Recovery holds the Lab lifetime lock and Studio lifecycle lock, uses one
+  bounded deadline with a cleanup reserve, and refuses missing or replaced
+  original volumes before Compose can create empty replacement storage. Focused
+  tests cover ownership, active writers, timeouts, changed storage/results,
+  malformed verdicts, cleanup failure, and CLI evidence/exit behavior. The final
+  CLI/Studio/recovery selection passed **97 tests**. Installation-verifier tests
+  passed **6 tests**, including replacement of the source wheel during setup;
+  the verifier now hashes and installs the same private artifact copy.
+- An installed alpha 4 to alpha 7 upgrade/rollback rehearsal preserved both
+  frozen fixture reports, accepted a new run, restored the old-version-readable
+  backup, rotated the restored administrator credential and revoked both old
+  agent credentials. This rehearsal is separate from Studio storage recovery.
+- The setup kit now includes [EXTERNAL_ONBOARDING.md](EXTERNAL_ONBOARDING.md),
+  with a checklist and report template for two independent human developer
+  trials. Those trials remain open. This restart check does not establish
+  recovery from lost volumes, interrupted consensus, Docker/OS restart,
+  Windows/macOS login, or live-model behavior.
+
 ## Alpha 6 native macOS user-service verification — September 6
 
 - [Native macOS CI run 34028354236](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34028354236)

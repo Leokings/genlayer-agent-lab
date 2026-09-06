@@ -204,13 +204,14 @@ def _json_output(result, description):
         raise RuntimeError(f"{description} returned invalid metadata") from exc
 
 
-def _endpoint():
+def _endpoint(*, timeout=8):
     explicit = os.environ.get("DOCKER_HOST")
     if explicit:
         endpoint = explicit
     else:
         endpoint = _json_output(
-            _command(None, ["context", "inspect", "--format", "{{json .Endpoints.docker.Host}}"]),
+            _command(None, ["context", "inspect", "--format", "{{json .Endpoints.docker.Host}}"],
+                     timeout=timeout),
             "Docker context inspection",
         )
     if (not isinstance(endpoint, str)

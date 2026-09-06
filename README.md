@@ -4,9 +4,14 @@ A self-hosted testing toolkit for agents that consume GenLayer decisions. Connec
 
 [Source repository](https://github.com/Leokings/genlayer-agent-lab) · [Release artifacts](https://github.com/Leokings/genlayer-agent-lab/releases) · [Installation](docs/INSTALL.md)
 
-**Version 0.1.0a6 — developer alpha.** Test bundled or custom GenLayer contracts with controlled model responses. GLSim provides fast local execution; the optional [Studio backend](docs/STUDIO.md) uses GenVM and records observed local consensus checkpoints. Agent scenario events remain scripted, with separate conformance checks for Studio appeals. Live-model evaluation and public-network settlement are outside this release. See [build status](docs/BUILD_STATUS.md) and the dated [verification record](docs/VERIFICATION.md).
+**Version 0.1.0a7 — developer alpha.** Test bundled or custom GenLayer contracts with controlled model responses. GLSim provides fast local execution; the optional [Studio backend](docs/STUDIO.md) uses GenVM and records observed local consensus checkpoints. Agent scenario events remain scripted, with separate conformance checks for Studio appeals. Live-model evaluation and public-network settlement are outside this release. See [build status](docs/BUILD_STATUS.md) and the dated [verification record](docs/VERIFICATION.md).
 
 Install from a supplied wheel or source archive with the [installation guide](docs/INSTALL.md). The wheel includes a setup kit and all three agent examples.
+
+The [external developer trial checklist](docs/EXTERNAL_ONBOARDING.md) includes
+the expected passing and failing results and a report template. For an owned
+Studio stack, `studio verify-recovery` checks finalized results and a new write
+across a controlled container restart; see [Studio recovery checks](docs/STUDIO.md#verify-recovery-from-a-controlled-restart).
 
 ## Start from this checkout
 

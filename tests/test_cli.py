@@ -320,3 +320,40 @@ def test_cli_explicit_studio_backend_keeps_optional_binding(tmp_path, capsys, cu
     assert main(command, engine_factory=lambda data: Engine(data, studio_evaluator=evaluate)) == 0
     assert json.loads(capsys.readouterr().out)["backend"] == "studio"
     assert (calls[0] is not None) is custom
+
+
+@pytest.mark.parametrize(("verification", "expected"), [("pass", 0), ("fail", 1), ("inconclusive", 2)])
+def test_studio_recovery_cli_saves_evidence_and_exit_status(tmp_path, monkeypatch, capsys,
+                                                         verification, expected):
+    from genlayer_agent_lab import studio_recovery
+
+    def verify(data_dir, timeout=600, progress=None):
+        assert data_dir == tmp_path and timeout == 450
+        progress("Checking Studio recovery")
+        return {"verification": verification, "scope": "controlled_container_restart"}
+
+    monkeypatch.setattr(studio_recovery, "run_studio_recovery", verify)
+    output = tmp_path / "restart.json"
+    assert main(["studio", "verify-recovery", "--data-dir", str(tmp_path),
+                 "--timeout", "450", "--output", str(output)]) == expected
+    captured = capsys.readouterr()
+    assert "Checking Studio recovery" in captured.err
+    assert json.loads(output.read_text()) == json.loads(captured.out)
+
+
+def test_studio_recovery_rejects_existing_output_and_remote_mode_before_mutation(tmp_path,
+                                                                              monkeypatch, capsys):
+    from genlayer_agent_lab import studio_recovery
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Studio must not be stopped before output and location are validated")
+
+    monkeypatch.setattr(studio_recovery, "run_studio_recovery", unexpected)
+    output = tmp_path / "existing.json"
+    output.write_text("keep original")
+    assert main(["studio", "verify-recovery", "--data-dir", str(tmp_path),
+                 "--output", str(output)]) == 2
+    capsys.readouterr()
+    assert output.read_text() == "keep original"
+    assert main(["studio", "verify-recovery", "--url", "http://127.0.0.1:8765"]) == 2
+    assert "this installation" in capsys.readouterr().err

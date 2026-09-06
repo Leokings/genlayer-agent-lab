@@ -198,6 +198,20 @@ def test_owned_runtime_accepts_inspected_pins_ports_networks_and_limits(inspecte
     assert stack._verify_runtime("unix:///owned.sock", state, inventory)
 
 
+def test_shared_recovery_deadline_prevents_new_docker_inspections(inspected, monkeypatch):
+    _, state, inventory = inspected
+    monkeypatch.setattr(stack.time, "monotonic", lambda: 100.0)
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("An expired recovery deadline must not start another Docker command")
+
+    monkeypatch.setattr(stack, "_command", unexpected)
+    with pytest.raises(RuntimeError, match="timed out"):
+        stack._inventory("unix:///owned.sock", state, deadline=99.0)
+    with pytest.raises(RuntimeError, match="timed out"):
+        stack._verify_runtime("unix:///owned.sock", state, inventory, deadline=99.0)
+
+
 def test_configured_but_unpublished_port_is_reported_without_probing_rpc(inspected, monkeypatch):
     directory, _, inventory = inspected
     rpc = next(item for item in inventory["containers"]

@@ -105,3 +105,36 @@ gl-agent-lab --data-dir .lab/my-lab studio down
 Only this installation's Compose project is stopped. The Lab reports, Studio
 database and GenVM cache remain available for the next startup. There is no
 automatic global Docker cleanup or reset.
+
+## Verify recovery from a controlled restart
+
+Stop the Lab service or foreground server and pause other clients that write
+directly to this Studio endpoint. Leave Studio running. Then run:
+
+```sh
+gl-agent-lab --data-dir .lab/my-lab studio verify-recovery --output studio-recovery.json
+```
+
+The command requires a healthy, owned stack and refuses unfinished Studio
+transactions. It holds this installation's Lab and Studio lifecycle locks while
+it creates a finalized approval, stops and recreates the Studio containers,
+checks the original volumes and finalized result, and obtains a new denial
+from the same deployed contract. The evidence file must be new. Restart the Lab
+service after the check; the verifier does not change its startup registration.
+
+The default overall budget is 600 seconds, including a reserved recovery attempt
+if the check fails after stopping Studio. Progress appears on stderr; the JSON
+result contains sanitized checks and failure codes. Exit codes are 0 for a pass,
+1 for an observed verification failure, and 2 for an inconclusive or infrastructure
+failure. If cleanup cannot return Studio to readiness, inspect the error and
+`studio status`. Missing or replaced volumes stop recovery before Compose can
+create empty storage; restore the original volumes before resuming. For other
+startup failures, correct the reported problem and run `studio up`. Direct Studio writers must stay paused:
+the Lab's locks cannot prevent an unrelated process from calling Studio's RPC.
+
+This checks an orderly restart with retained Docker volumes. It does not back up
+or restore a lost PostgreSQL volume, resume interrupted consensus, restart Docker
+or the host OS, or prove automatic startup after login. Studio still requires
+explicit `studio up` after a Docker/host restart. Redis is temporary; only the
+PostgreSQL database and GenVM cache are retained. Use [RECOVERY.md](RECOVERY.md)
+for the separate Lab SQLite backup boundary.
