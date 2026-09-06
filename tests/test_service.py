@@ -167,10 +167,24 @@ def test_loaded_launchagent_arguments_are_verified(state, tmp_path, monkeypatch)
     path = tmp_path / "agent.plist"
     path.write_bytes(service._definition(state))
     monkeypatch.setattr(service, "_definition_path", lambda _: path)
-    raw = (f"path = {path}\nprogram = {state['launcher']}\narguments = {{\n"
-           + "\n".join(service._arguments(state)) + "\n}\n")
+    raw = (f"gui/501/test = {{\n\tpath = {path}\n\tprogram = {state['launcher']}\n\targuments = {{\n"
+           + "".join("\t\t" + arg + "\n" for arg in service._arguments(state)) + "\t}\n}\n")
     assert service._launchd_matches(raw, state)
     assert not service._launchd_matches(raw.replace("--port", "--other"), state)
+
+
+def test_launchagent_preserves_path_whitespace_and_rejects_changed_arguments(state, tmp_path, monkeypatch):
+    state = {**state, "platform": "darwin", "launcher": '/Users/test/python with trailing ',
+             "data_dir": '/Users/test/state % $ " and trailing\\ '}
+    path = tmp_path / "agent.plist"
+    monkeypatch.setattr(service, "_definition_path", lambda _: path)
+    raw = (f"gui/501/test = {{\n\tpath = {path}\n\tprogram = {state['launcher']}\n\targuments = {{\n"
+           + "".join("\t\t" + arg + "\n" for arg in service._arguments(state)) + "\t}\n}\n")
+    assert service._launchd_matches(raw, state)
+    assert not service._launchd_matches(raw.replace("trailing\\ \n", "trailing\\\n"), state)
+    assert not service._launchd_matches(raw.replace("\t\t--port\n", "\t\t --port\n"), state)
+    assert not service._launchd_matches(raw.replace("\t\t--port\n", "\t--port\n"), state)
+    assert not service._launchd_matches(raw + f"\tprogram = {state['launcher']}\n", state)
 
 
 def test_uninstall_preserves_database_token_and_logs_even_if_interpreter_was_removed(state, monkeypatch):

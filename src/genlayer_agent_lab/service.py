@@ -436,10 +436,14 @@ def _inspect(state):
 def _launchd_matches(raw, state):
     values = {}
     for key in ("path", "program"):
-        match = re.search(r"^\s*" + key + r" = (.+)$", raw, re.M)
-        values[key] = match[1].strip() if match else None
-    arguments = re.search(r"^\s*arguments = \{\n(.*?)^\s*\}", raw, re.M | re.S)
-    actual = [line.strip() for line in arguments[1].splitlines()] if arguments else []
+        matches = re.findall(r"^\t" + key + r" = (.+)$", raw, re.M)
+        values[key] = matches[0] if len(matches) == 1 else None
+    arguments = re.findall(r"^\targuments = \{\n(.*?)^\t\}", raw, re.M | re.S)
+    # Native launchctl print indents each argument with two tabs. Strip only
+    # those display tabs: spaces at either end belong to the actual argument.
+    # Newlines/tabs cannot occur in the managed paths (_absolute rejects them).
+    lines = arguments[0].split("\n")[:-1] if len(arguments) == 1 else []
+    actual = [line[2:] if line.startswith("\t\t") else None for line in lines]
     return (values["path"] == str(_definition_path(state))
             and values["program"] == state["launcher"] and actual == _arguments(state))
 
