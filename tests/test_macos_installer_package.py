@@ -6,6 +6,8 @@ import io
 import json
 import os
 import ssl
+import struct
+import zlib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -36,13 +38,35 @@ def trusted_signature(subjects=None, fingerprint=None):
             f"  2. {subjects[1]}\n  3. {subjects[2]}\n").encode()
 
 
+def synthetic_xar():
+    items = [(name, ("synthetic " + name).encode())
+             for name in ("Bom", "Payload", "Scripts", "PackageInfo", "SharedSupport.dmg")]
+    xml = (b'<xar><toc><checksum style="sha1"><offset>0</offset>'
+           b'<size>20</size></checksum>')
+    relative = 20
+    for name, data in items:
+        xml += (f'<file><name>{name}</name><data><offset>{relative}</offset><length>{len(data)}</length>'
+                f'<archived-checksum style="sha1">{hashlib.sha1(data).hexdigest()}</archived-checksum>'
+                '</data></file>').encode()
+        relative += len(data)
+    xml += b"</toc></xar>"
+    toc = zlib.compress(xml)
+    header = struct.pack(">4sHHQQI", b"xar!", 28, 1, len(toc), len(xml), 1)
+    body = header + toc + hashlib.sha1(toc).digest()
+    manifest = []
+    for name, data in items:
+        manifest.append((name, len(body), len(data), hashlib.sha1(data).hexdigest()))
+        body += data
+    return body + b"padding outside archived data", toc, tuple(manifest)
+
+
 @pytest.fixture
 def trial(tmp_path, monkeypatch):
     private = tmp_path / "private"
     private.mkdir(mode=0o700)
     installer = tmp_path / "Install macOS Monterey.app"
     target = private / "InstallAssistant.pkg"
-    body = b"synthetic signed distribution payload"
+    body, toc, manifest = synthetic_xar()
     original_stat = Path.stat
     ownership = {"root_owned": False}
 
@@ -74,10 +98,11 @@ def trial(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "stat", owned_stat)
     monkeypatch.setattr(package, "INSTALLER", installer)
     monkeypatch.setattr(package, "PACKAGE_SIZE", len(body))
-    monkeypatch.setattr(package, "PACKAGE_SHA1", hashlib.sha1(body).hexdigest())
+    monkeypatch.setattr(package, "CATALOG_TOC_SHA1", hashlib.sha1(toc).hexdigest())
+    monkeypatch.setattr(package, "ARCHIVED_RANGES", manifest)
     monkeypatch.setattr(package, "_open_download", response)
-    return SimpleNamespace(private=private, installer=installer, target=target, body=body,
-                           ownership=ownership)
+    return SimpleNamespace(private=private, installer=installer, target=target, body=body, toc=toc,
+                           ownership=ownership, manifest=manifest)
 
 
 @pytest.mark.parametrize(("system", "architecture", "uid", "hosted"), [
@@ -102,7 +127,7 @@ def test_host_guard_refuses_before_creating_or_downloading(
     assert state["apple_package"]["package_signature_and_policy_verified"] is False
 
 
-@pytest.mark.parametrize("field", ["PACKAGE_URL", "PACKAGE_SIZE", "PACKAGE_SHA1", "LEAF_SHA256"])
+@pytest.mark.parametrize("field", ["PACKAGE_URL", "PACKAGE_SIZE", "CATALOG_TOC_SHA1", "LEAF_SHA256"])
 def test_unset_metadata_fails_closed(trial, monkeypatch, field):
     monkeypatch.setattr(package, field, None)
     with pytest.raises(package.PackageError, match="package_metadata_unavailable"):
@@ -131,7 +156,7 @@ def test_initial_url_and_redirects_reject_downgrade_foreign_host_or_credentials(
 ])
 def test_bad_download_cannot_reach_any_verifier_or_installer(trial, monkeypatch, change, code):
     if change == "digest":
-        monkeypatch.setattr(package, "PACKAGE_SHA1", "0" * 40)
+        monkeypatch.setattr(package, "CATALOG_TOC_SHA1", "0" * 40)
     elif change == "size":
         monkeypatch.setattr(package, "PACKAGE_SIZE", len(trial.body) - 1)
     else:
@@ -145,6 +170,14 @@ def test_bad_download_cannot_reach_any_verifier_or_installer(trial, monkeypatch,
     assert state["apple_package"]["package_signature_and_policy_verified"] is False
     assert not trial.installer.exists()
     assert "private certificate diagnostic" not in json.dumps(state)
+    if change == "digest":
+        record = state["apple_package"]
+        assert record["downloaded_bytes"] == len(trial.body)
+        assert record["download_sha256"] == hashlib.sha256(trial.body).hexdigest()
+        assert record["catalog_digest_scope"] == "compressed_xar_toc"
+        assert record["catalog_digest_expected"] == "0" * 40
+        assert record["catalog_digest_observed"] == hashlib.sha1(trial.toc).hexdigest()
+        assert record["catalog_digest_verified"] is False
 
 
 @pytest.mark.parametrize(("failure", "code"), [
@@ -228,6 +261,17 @@ def test_only_verified_unchanged_package_is_installed_and_then_removed(trial, mo
         assert state["apple_package"]["owned_package_removed"] is False
         assert len(calls) == (2 if mutation == "during_policy" else 3)
     record = state["apple_package"]
+    assert record["catalog_digest_verified"] is True
+    assert record["catalog_digest_scope"] == "compressed_xar_toc"
+    assert record["catalog_digest_expected"] == record["catalog_digest_observed"] == hashlib.sha1(trial.toc).hexdigest()
+    assert record["catalog_digest_observed"] != hashlib.sha1(trial.body).hexdigest()
+    assert record["download_sha256"] == hashlib.sha256(trial.body).hexdigest()
+    assert record["download_sha256_scope"] == "whole_file_informational"
+    assert record["archived_contents_verified"] is True
+    assert record["archived_items_verified"] == 5
+    assert record["archived_bytes_verified"] == sum(item[2] for item in trial.manifest)
+    assert record["archived_bytes_verified"] < len(trial.body)
+    assert record["archived_digest_scope"] == "five_archived_items_only"
     assert record["installer_application_executed"] is False
     assert record["host_os_install_requested"] is False and record["host_reboot_requested"] is False
     for check in record["verification_checks"].values():
@@ -271,5 +315,136 @@ def test_download_deadline_stops_before_verification(trial, monkeypatch):
     ticks = iter((0, 0, package.DOWNLOAD_SECONDS + 1))
     monkeypatch.setattr(package.time, "monotonic", lambda: next(ticks))
     with pytest.raises(package.PackageError, match="package_download_deadline_exceeded"):
+        package.download_and_install(trial.private, trial.installer, {})
+    assert not trial.installer.exists()
+
+
+@pytest.mark.parametrize(("fault", "code"), [
+    ("corrupted_toc", "package_catalog_digest_mismatch"),
+    ("magic", "package_xar_header_rejected"),
+    ("header_size", "package_xar_header_rejected"),
+    ("version", "package_xar_header_rejected"),
+    ("algorithm", "package_xar_header_rejected"),
+    ("zero_compressed", "package_xar_toc_bounds_rejected"),
+    ("large_compressed", "package_xar_toc_bounds_rejected"),
+    ("zero_uncompressed", "package_xar_toc_bounds_rejected"),
+    ("large_uncompressed", "package_xar_toc_bounds_rejected"),
+    ("short_header", "package_xar_header_truncated"),
+    ("short_toc", "package_xar_toc_truncated"),
+])
+def test_corrupted_or_unbounded_xar_fails_before_any_package_execution(trial, monkeypatch, fault, code):
+    fields = list(struct.unpack(">4sHHQQI", trial.body[:28]))
+    changes = {
+        "magic": (0, b"fake"), "header_size": (1, 29), "version": (2, 2), "algorithm": (5, 2),
+        "zero_compressed": (3, 0), "large_compressed": (3, 1024 * 1024 + 1),
+        "zero_uncompressed": (4, 0), "large_uncompressed": (4, 8 * 1024 * 1024 + 1),
+    }
+    body = trial.body
+    if fault in changes:
+        index, value = changes[fault]
+        fields[index] = value
+        body = struct.pack(">4sHHQQI", *fields) + body[28:]
+    elif fault == "corrupted_toc":
+        body = body[:28] + bytes([body[28] ^ 1]) + body[29:]
+    elif fault == "short_header":
+        body = body[:27]
+    elif fault == "short_toc":
+        body = body[:28 + len(trial.toc) - 1]
+
+    def response():
+        stream = io.BytesIO(body)
+        stream.status = 200
+        stream.headers = {"Content-Length": str(len(body))}
+        stream.geturl = lambda: package.PACKAGE_URL
+        return stream
+
+    monkeypatch.setattr(package, "PACKAGE_SIZE", len(body))
+    monkeypatch.setattr(package, "_open_download", response)
+    state = {}
+    with pytest.raises(package.PackageError, match=code):
+        package.download_and_install(trial.private, trial.installer, state)
+    record = state["apple_package"]
+    assert record["catalog_digest_scope"] == "compressed_xar_toc"
+    assert record["catalog_digest_expected"] == hashlib.sha1(trial.toc).hexdigest()
+    assert record["catalog_digest_verified"] is False
+    if fault == "corrupted_toc":
+        assert record["catalog_digest_observed"] == hashlib.sha1(body[28:28 + len(trial.toc)]).hexdigest()
+        assert record["catalog_digest_observed"] != record["catalog_digest_expected"]
+    else:
+        assert record["catalog_digest_observed"] is None
+    assert record["package_signature_and_policy_verified"] is False
+    assert not trial.installer.exists()
+
+
+def test_catalog_parser_rejects_short_read_even_when_declared_lengths_fit_file(trial, monkeypatch):
+    trial.target.write_bytes(trial.body)
+    original_open = Path.open
+    reads = []
+
+    class ShortToc(io.BytesIO):
+        def read(self, size=-1):
+            reads.append(size)
+            return super().read(size)
+
+    def short_open(path, *args, **kwargs):
+        if path == trial.target and args == ("rb",):
+            return ShortToc(trial.body[:28 + len(trial.toc) - 1])
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", short_open)
+    record = {}
+    with pytest.raises(package.PackageError, match="package_xar_toc_truncated"):
+        package._verify_catalog_toc(trial.target, record)
+    assert reads == [28, len(trial.toc)]
+    assert record["catalog_digest_verified"] is False
+
+
+def test_pure_catalog_reader_checks_only_header_and_compressed_toc(trial):
+    prefix = trial.body[:28 + len(trial.toc)]
+    stream = io.BytesIO(prefix)
+    assert package._read_catalog_toc(stream, len(prefix)) == hashlib.sha1(trial.toc).hexdigest()
+    assert stream.tell() == len(prefix)
+
+
+@pytest.mark.parametrize("item_index", range(5))
+def test_each_archived_payload_corruption_is_rejected_despite_unchanged_toc(trial, monkeypatch, item_index):
+    name, offset, length, expected = trial.manifest[item_index]
+    body = trial.body[:offset] + bytes([trial.body[offset] ^ 1]) + trial.body[offset + 1:]
+
+    def response():
+        stream = io.BytesIO(body)
+        stream.status = 200
+        stream.headers = {"Content-Length": str(len(body))}
+        stream.geturl = lambda: package.PACKAGE_URL
+        return stream
+
+    monkeypatch.setattr(package, "_open_download", response)
+    state = {}
+    with pytest.raises(package.PackageError, match="package_archived_digest_mismatch"):
+        package.download_and_install(trial.private, trial.installer, state)
+    record = state["apple_package"]
+    assert record["catalog_digest_verified"] is True
+    assert record["archived_contents_verified"] is False
+    assert record["archived_items_verified"] == item_index
+    assert record["archived_failure_item"] == name
+    assert record["archived_digest_expected"] == expected
+    assert record["archived_digest_observed"] == hashlib.sha1(body[offset:offset + length]).hexdigest()
+    assert record["package_signature_and_policy_verified"] is False
+    assert not trial.installer.exists()
+
+
+@pytest.mark.parametrize("fault", ["overlap", "outside_file", "wrong_name"])
+def test_archived_manifest_cannot_authorize_overlapping_or_out_of_file_ranges(trial, monkeypatch, fault):
+    manifest = list(trial.manifest)
+    name, offset, length, expected = manifest[1]
+    if fault == "overlap":
+        offset = manifest[0][1]
+    elif fault == "outside_file":
+        length = len(trial.body)
+    else:
+        name = "foreign"
+    manifest[1] = name, offset, length, expected
+    monkeypatch.setattr(package, "ARCHIVED_RANGES", tuple(manifest))
+    with pytest.raises(package.PackageError, match="package_archived_manifest_rejected"):
         package.download_and_install(trial.private, trial.installer, {})
     assert not trial.installer.exists()

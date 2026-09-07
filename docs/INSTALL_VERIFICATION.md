@@ -225,7 +225,8 @@ or execution approval. Existing `installer` mode acceptance checks remain intact
 For a separate package-based media trial, choose `mode: installer`,
 `installer_release: monterey`, and `installer_source: apple-package`. This
 downloads the pinned official Apple InstallAssistant.pkg into a new private
-runner directory. Exact size and catalog digest checks supplement mandatory
+runner directory. It checks the exact size, the compressed-XAR-TOC catalog digest,
+and all five archived payload ranges using that TOC's pinned checksums. These supplement mandatory
 full `pkgutil` signature validation, the pinned Apple signer, and normal
 `spctl --type install` acceptance. Only then may Apple's package installer
 populate `/Applications/Install macOS Monterey.app`; it does not install the

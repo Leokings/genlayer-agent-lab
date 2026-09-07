@@ -2,8 +2,30 @@
 
 Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
-## Intel Mac virtualization feasibility — September 6
+## Intel Mac virtualization feasibility — September 6–7
 
+- [Package trial 34058525144](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34058525144)
+  on source `c8fe857129180ea091168bd745eb038a79926b7f` stopped at
+  `package_catalog_digest_mismatch` after receiving the expected download size.
+  The harness incorrectly compared Apple's catalog Digest to SHA-1 of the
+  complete package. A bounded header inspection established that the published
+  digest instead matches its 4,333-byte **compressed XAR table of contents** and
+  stored TOC checksum. The signature and package-policy checks were not reached;
+  no installer was executed or guest booted, and private cleanup completed.
+  This mismatch does not establish corruption of the downloaded installer.
+- The correction verifies the catalog digest over the compressed TOC, with
+  bounded header/length checks, and records a separate whole-download SHA-256
+  solely for identification. It follows [Apple's XAR implementation](https://github.com/apple-oss-distributions/xar/blob/3efbc308e3699a4ab8258fd769f5853bae91a2dc/xar/lib/archive.c).
+  The helper also verifies all five archived data ranges against the hashes in
+  that pinned TOC (Bom, Payload, Scripts, PackageInfo and SharedSupport.dmg).
+  These are archived-content checks, not a claim about padding or trailer bytes.
+  They read the completed download without extraction or another network transfer.
+  On September 7, the corrected parser matched the live Apple catalog digest
+  using only a 65,536-byte HTTP 206 header sample. That checks the parser against
+  real archive bytes; it is not full-package signature or payload verification.
+  The existing mandatory Apple package signature, pinned signer and normal
+  installation-policy checks remain in place. A corrected boot attempt has not
+  yet established media creation, guest installation or reboot recovery.
 - [Component audit 34057330222](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34057330222)
   completed on source `21200de110a0f56e7fd034a37a1371b22761da28`. The official
   Monterey download took about 3 minutes 12 seconds. Its `createinstallmedia`
@@ -22,7 +44,7 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
 - The package route pins Apple's current Monterey 12.7.6 / 21H1320 product
   `062-40406` from its [software-update catalog](https://swscan.apple.com/content/catalogs/others/index-15-14-13-12-10.16-10.15-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog)
   and [distribution metadata](https://swdist.apple.com/content/downloads/24/16/062-40406-A_LQ4WW26M04/j7bl9ygay5prezturwh72ai10fvseh2uhw/062-40406.English.dist).
-  The catalog size is 12,409,187,001 bytes and SHA-1 digest is
+  The catalog size is 12,409,187,001 bytes and compressed-TOC SHA-1 digest is
   `a654cd91b86528bbf0e1b006e9a7e62967f73de8`. A bounded 65,536-byte HTTP range
   inspection found a Software Update / Apple Software Update Certification
   Authority / Apple Root CA signing chain. This metadata is not full package

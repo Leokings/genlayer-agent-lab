@@ -2,8 +2,9 @@
 
 The signed package only populates the /Applications installer. This helper never
 runs that application, creates installation media, installs an OS, or reboots.
-The catalog SHA-1 is an additional transport check; Apple's package signature
-and normal package installation policy are both mandatory execution gates.
+The catalog SHA-1 covers the compressed XAR table of contents, not the entire
+download. Apple's package signature and normal package installation policy are
+both mandatory execution gates; the recorded whole-file SHA-256 is informational.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import os
 import re
 import ssl
 import stat
+import struct
 import subprocess
 import time
 import urllib.error
@@ -32,13 +34,22 @@ PACKAGE_URL = (
     "j7bl9ygay5prezturwh72ai10fvseh2uhw/InstallAssistant.pkg"
 )
 PACKAGE_SIZE = 12409187001
-PACKAGE_SHA1 = "a654cd91b86528bbf0e1b006e9a7e62967f73de8"
+CATALOG_TOC_SHA1 = "a654cd91b86528bbf0e1b006e9a7e62967f73de8"
 CERTIFICATE_SUBJECTS = (
     "Software Update", "Apple Software Update Certification Authority", "Apple Root CA",
 )
 LEAF_SHA256 = "e074d204ac2498e9dc904a7bc7ced8464119b79d05668028920583b1e896ebb4"
 DOWNLOAD_SECONDS = 1500
 CHUNK_BYTES = 1024 * 1024
+# Absolute archived-data ranges from the TOC authenticated by CATALOG_TOC_SHA1.
+# These cover five archived items, not padding, certificate data or the trailer.
+ARCHIVED_RANGES = (
+    ("Bom", 4637, 55870, "caa9bad21b707fa4c968292a3e8173b1109b4bd9"),
+    ("Payload", 60507, 16723233, "d48b0fb06cdbddcdf35883d19b5c62a2c89a5728"),
+    ("Scripts", 16783740, 645, "ac97bfb06db5fefe7024dbdab263246ff941fc11"),
+    ("PackageInfo", 16784385, 430, "d41e5ce04c2a5941d0df9267c61a613de2298231"),
+    ("SharedSupport.dmg", 16784847, 12392401130, "1713cdb44386a860b8d6b1a080abe4a79cacf649"),
+)
 
 
 class PackageError(RuntimeError):
@@ -54,7 +65,7 @@ def _metadata(release):
     require(release == "monterey", "package_unknown_release")
     require(isinstance(PACKAGE_URL, str) and isinstance(PACKAGE_SIZE, int)
             and not isinstance(PACKAGE_SIZE, bool) and 0 < PACKAGE_SIZE < 20 * 1024 ** 3
-            and isinstance(PACKAGE_SHA1, str) and re.fullmatch(r"[0-9a-f]{40}", PACKAGE_SHA1)
+            and isinstance(CATALOG_TOC_SHA1, str) and re.fullmatch(r"[0-9a-f]{40}", CATALOG_TOC_SHA1)
             and isinstance(LEAF_SHA256, str) and re.fullmatch(r"[0-9a-f]{64}", LEAF_SHA256)
             and CERTIFICATE_SUBJECTS == (
                 "Software Update", "Apple Software Update Certification Authority", "Apple Root CA"),
@@ -96,7 +107,7 @@ def _file_identity(path, *, require_single_link=True, allow_root_owner=False):
 
 def _download(package, record):
     deadline = time.monotonic() + DOWNLOAD_SECONDS
-    digest = hashlib.sha1()
+    digest = hashlib.sha256()
     total = 0
     try:
         with package.open("xb") as stream, _open_download() as response:
@@ -118,10 +129,89 @@ def _download(package, record):
                 digest.update(chunk)
                 stream.write(chunk)
         require(total == PACKAGE_SIZE, "package_download_size_mismatch")
-        require(digest.hexdigest() == PACKAGE_SHA1, "package_catalog_digest_mismatch")
     except (OSError, urllib.error.URLError, ValueError):
         raise PackageError("package_download_failed") from None
-    record.update(downloaded_bytes=total, catalog_digest_algorithm="sha1", catalog_digest_verified=True)
+    record.update(downloaded_bytes=total, download_sha256=digest.hexdigest(),
+                  download_sha256_scope="whole_file_informational")
+    _verify_catalog_toc(package, record)
+
+
+def _read_catalog_toc(stream, available_bytes):
+    """Hash a bounded compressed TOC; this does not verify the rest of a package."""
+    require(isinstance(available_bytes, int) and not isinstance(available_bytes, bool)
+            and available_bytes >= 28, "package_xar_header_truncated")
+    header = stream.read(28)
+    require(len(header) == 28, "package_xar_header_truncated")
+    magic, header_size, version, compressed, uncompressed, algorithm = struct.unpack(
+        ">4sHHQQI", header)
+    require(magic == b"xar!" and header_size == 28 and version == 1 and algorithm == 1,
+            "package_xar_header_rejected")
+    require(0 < compressed <= 1024 * 1024 and 0 < uncompressed <= 8 * 1024 * 1024,
+            "package_xar_toc_bounds_rejected")
+    require(header_size + compressed <= available_bytes, "package_xar_toc_truncated")
+    toc = stream.read(compressed)
+    require(len(toc) == compressed, "package_xar_toc_truncated")
+    return hashlib.sha1(toc).hexdigest()
+
+
+def _verify_catalog_toc(package, record):
+    """Check only the pinned compressed TOC, with bounded reads and no XML parsing."""
+    record.update(catalog_digest_algorithm="sha1", catalog_digest_scope="compressed_xar_toc",
+                  catalog_digest_expected=CATALOG_TOC_SHA1, catalog_digest_observed=None,
+                  catalog_digest_verified=False)
+    identity = _file_identity(package)
+    require(identity[2] == PACKAGE_SIZE, "package_download_size_mismatch")
+    with package.open("rb") as stream:
+        record["catalog_digest_observed"] = _read_catalog_toc(stream, identity[2])
+        record["xar_heap_offset"] = stream.tell()
+    require(_file_identity(package) == identity, "package_changed_during_catalog_verification")
+    require(record["catalog_digest_observed"] == CATALOG_TOC_SHA1, "package_catalog_digest_mismatch")
+    record["catalog_digest_verified"] = True
+
+
+def _verify_archived_ranges(package, record):
+    """Stream the five pinned archived items without extracting or executing them."""
+    record.update(archived_contents_verified=False, archived_items_verified=0,
+                  archived_bytes_verified=0, archived_digest_algorithm="sha1",
+                  archived_digest_scope="five_archived_items_only")
+    require(record.get("catalog_digest_verified") is True
+            and record.get("catalog_digest_observed") == CATALOG_TOC_SHA1,
+            "package_archived_toc_not_verified")
+    identity = _file_identity(package)
+    require(identity[2] == PACKAGE_SIZE, "package_download_size_mismatch")
+    require(len(ARCHIVED_RANGES) == 5
+            and [item[0] for item in ARCHIVED_RANGES]
+            == ["Bom", "Payload", "Scripts", "PackageInfo", "SharedSupport.dmg"],
+            "package_archived_manifest_rejected")
+    end = record["xar_heap_offset"]
+    for name, offset, length, expected in ARCHIVED_RANGES:
+        require(isinstance(offset, int) and isinstance(length, int)
+                and not isinstance(offset, bool) and not isinstance(length, bool)
+                and offset >= end and length > 0 and offset + length <= PACKAGE_SIZE
+                and isinstance(expected, str) and re.fullmatch(r"[0-9a-f]{40}", expected),
+                "package_archived_manifest_rejected")
+        end = offset + length
+    deadline = time.monotonic() + 600
+    with package.open("rb") as stream:
+        for name, offset, length, expected in ARCHIVED_RANGES:
+            stream.seek(offset)
+            remaining = length
+            digest = hashlib.sha1()
+            while remaining:
+                require(time.monotonic() < deadline, "package_archived_verification_timeout")
+                chunk = stream.read1(min(CHUNK_BYTES, remaining))
+                require(bool(chunk), "package_archived_data_truncated")
+                digest.update(chunk)
+                remaining -= len(chunk)
+            observed = digest.hexdigest()
+            if observed != expected:
+                record.update(archived_failure_item=name, archived_digest_expected=expected,
+                              archived_digest_observed=observed)
+                raise PackageError("package_archived_digest_mismatch")
+            record["archived_items_verified"] += 1
+            record["archived_bytes_verified"] += length
+    require(_file_identity(package) == identity, "package_changed_during_archived_verification")
+    record["archived_contents_verified"] = True
 
 
 def _diagnostic(raw, package):
@@ -201,6 +291,8 @@ def download_and_install(private: Path, installer: Path, state: dict, *, release
         stage("download_official_monterey_installassistant_package")
         _download(package, record)
         identity = _file_identity(package)
+        stage("verify_apple_installassistant_archived_contents")
+        _verify_archived_ranges(package, record)
         stage("verify_apple_installassistant_package")
         signature = _run(["/usr/sbin/pkgutil", "--check-signature", str(package)],
                          "package_signature_rejected", package, record, timeout=120, diagnostic=True)
