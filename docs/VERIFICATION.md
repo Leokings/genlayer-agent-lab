@@ -4,6 +4,26 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
 
 ## Intel Mac virtualization feasibility — September 6–7
 
+- **Full macOS guest reboot validation is deferred after the repeated installer
+  preflights. No further attempt is scheduled.**
+- [Package/media trial 34083470338](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34083470338)
+  on source `3fb9011853fd9895ffa984845632bbb55d0d79cc` passed the pinned catalog
+  digest and all five archived-content checks. Native `pkgutil` and the corrected
+  certificate parser passed; `spctl --assess --type install` returned exit code
+  0 with `accepted` and `source=Apple Installer`. The verified package populated
+  the Monterey installer application. Its original media tool passed the Apple
+  signature and system-library checks, and the installed payload checksum passed.
+  This resolves the earlier package-parser failure.
+- This run then stopped at `media_disk_image_create_failed`: `/usr/bin/hdiutil
+  create -size 16g -layout GPTSPUD -fs HFS+J -volname LabInstaller -format UDRW`
+  returned nonzero for the private `apple-installer.dmg` destination. The harness
+  did not retain that command's numeric exit code or stderr, so the underlying
+  cause is unknown. The Node.js deprecation warning was not the failed step.
+  The image was not mounted, `createinstallmedia` was not executed, and no guest
+  OS boot, installation or reboot occurred. Private-file cleanup and Oracle
+  mount detachment completed. This is a test-infrastructure failure; it does
+  not invalidate the native Lab installation and service checks below or prove
+  that every hosted Mac reboot route is impossible.
 - [Package trial 34082633291](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34082633291)
   on source `851675e0fa1fe2c8dfd4bc58f0a089aa7ed13a55` downloaded the expected
   12,409,187,001 bytes, verified the pinned compressed-TOC digest and all five

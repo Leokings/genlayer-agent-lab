@@ -26,12 +26,16 @@ The Docker execution gate has passed: the pinned worker image builds, executes i
 
 Remaining validation includes two human external installations, macOS reboot, separate desktop logout/login, Windows startup before login, automatic Studio startup and physical power-loss recovery. The native runtime remains restricted to bundled code. See the dated verification record for tested behavior and evidence limits.
 
-The latest [hosted Mac installer preflight](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34082633291)
-passed the pinned archive-content checks and Apple's native package-signature
-check, then stopped because the harness misread Apple's success wording.
-Correcting that parser does not establish guest boot or reboot recovery. This
-extra platform trial does not block developer-agent integration or the two
-external installation trials; those can proceed with the published alpha 8.
+**macOS full reboot validation is deferred.** The latest
+[hosted Mac installer preflight](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34083470338)
+passed the archive-content, Apple package-signature and package-policy checks,
+populated the installer application and verified its media tool and payload.
+It then stopped at `media_disk_image_create_failed`; the underlying `hdiutil`
+error was not retained. This failure precedes guest boot and does not exercise
+Lab installation or recovery. No further trial is scheduled. The existing
+native macOS installation and service-lifecycle evidence remains valid; full
+macOS reboot recovery remains unverified. Developer-agent integration and the
+two external installation trials can proceed with the published alpha 8.
 
 ## Position against the original schedule
 
