@@ -2,6 +2,83 @@
 
 Verified on 2026-09-05 through 2026-09-07, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
+## Fresh laptop Studio pilot — September 7
+
+The [fresh laptop pilot](evidence/fresh-laptop-pilot-2026-09-07.json) completed
+with a documented Studio build retry. It used a new Python environment and Lab
+data directory outside the checkout, plus a separately owned Studio stack on
+ports 8785/8786. The installed alpha 9 candidate wheel had SHA-256
+`111496c7d81c664b95a271733e31d82a9405a2b2fd4bec90142a07e08cb6e38b`.
+Existing host tools, dependency caches and Docker layers were available; this
+was a developer-assisted Windows laptop trial, not a fresh OS or independent
+human onboarding.
+
+The first Studio image build failed after 36.135 seconds. Its underlying Docker
+error was not retained by that wheel. One diagnostic retry of the same installed
+build implementation, changing only Docker output flags, succeeded in 9.31
+seconds with cached layers. The original cause remains unknown. GenVM then
+precompiled successfully in the new stack's fresh volume in 270.1 seconds,
+within the existing startup timeout. No timeout workaround was required.
+
+The installed scripted control completed a partial-40 release from 100 test
+units. After idle termination and restart of only the pilot Lab process tree,
+its report remained identical. A delegated model agent then completed a new
+61-of-150 scenario: it evaluated once, appealed the denial once, observed the
+corrected authorization become `FINALIZED` with successful execution, and
+released 61 units once. The resulting contract ledger retained 89 units. All
+four grades passed and both sessions restored the controlled validator
+configuration. Assertions independently checked transaction/operation identity,
+appeal rounds, release ordering, final state and Studio provenance.
+
+The model used its scoped connection and run API under instructions to avoid
+source, fixtures, reports and administrator access. This was not an additional
+OS sandbox. Desktop and 390-pixel mobile dashboard checks found no JavaScript
+errors or horizontal overflow, and the downloaded JSON report matched the
+scripted control. This trial establishes neither OS reboot recovery nor Linux
+VPS or independent developer onboarding.
+
+The development source now retains bounded, credential-free classifications,
+exit codes and hints for Studio image-build failures. **93 focused tests passed**
+for Studio build handling and shared diagnostics. This follow-up improves
+diagnosis; it does not establish the original failure's cause or a fix for it.
+It is newer than the installed wheel and the CI source recorded below.
+
+## Alpha 9 package CI and Linux Docker worker — September 7
+
+[CI run 34131594830](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34131594830)
+completed successfully at source `7a85b247f004331c07d50e80cb0dcd2c3a9a2982`.
+All three native package jobs passed lint, runtime preparation, the Python
+suite, package build and fresh installed-wheel verification:
+
+| Package job | Python suite | Installed-wheel probe |
+|---|---|---|
+| Ubuntu | 1,018 passed, 8 skipped | Pass; Python 3.12.3 |
+| macOS | 1,018 passed, 8 skipped | Pass; Python 3.12.10 |
+| Windows | 1,017 passed, 9 skipped | Pass; Python 3.12.10 |
+
+Each downloaded installed-wheel JSON records both verification levels as
+`pass` and installed version `0.1.0a9`. Each probe imported from a fresh virtual
+environment outside the checkout, installed dependencies without a package
+cache, and passed actual GLSim readiness, **18/18 fixture-backend scenarios**,
+Python HTTP, MCP stdio, dashboard asset serving, workflow API authentication
+and export of the **42-file setup kit**. Exporting workflow examples and checking
+their API authentication does not execute Studio workflows.
+
+The original artifact reports retain their wheel identities: Ubuntu and macOS
+record SHA-256 `457546dd44a107b2464078702fbe548a8de515e086e82fb6046c857e224ffb97`;
+Windows records `fc0700d9bba23566fbb3ce47b4c12f1b4a13d07076933aaafcb883f688fe1a4c`.
+These are the CI-built wheels, distinct from the earlier local Windows wheel
+recorded below. [Sanitized CI evidence](evidence/alpha9-ci-2026-09-07.json)
+preserves the run/source, job outcomes, artifact identities, original wheel
+hashes and checked probe results.
+
+The separate Ubuntu `custom-contract-worker` job built the Linux Docker image,
+passed worker readiness and **5 live container tests (26 deselected)**, then
+passed **18/18 delivery-binding scenarios**, with zero failed or inconclusive
+results. This is the custom GLSim worker gate. This CI run establishes no new
+Studio workflow execution, Studio image build, service-manager lifecycle,
+whole-machine reboot or independent human pilot evidence.
+
 ## Agent-driven Studio workflows — September 7
 
 The development checkout completed six actual HTTP reference-agent cases against
@@ -68,7 +145,8 @@ All 18 fixture-backend scenarios passed; HTTP/MCP checks, dashboard assets,
 workflow authentication and the exported setup kit also passed. Those fixture
 tests are not 18 new Studio execution claims. Total elapsed time was 1,172.875
 seconds (about 20 minutes). This closes the installation gate for the first
-Windows workflow pilot. Cross-platform alpha 9 CI has not been rerun.
+Windows workflow pilot. The later alpha 9 package CI above separately passed on
+Windows, Linux and macOS using its own recorded wheel hashes.
 
 A [model-driven agent smoke test](evidence/model-agent-workflow-2026-09-07.json)
 then completed a different configuration: 73 accepted units from a 200-unit

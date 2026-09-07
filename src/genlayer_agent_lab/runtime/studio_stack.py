@@ -18,6 +18,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .container import _bounded_process, _endpoint, _json_output, _linux_info
+from .studio_build_diagnostics import studio_build_failure
 from .studio_compat import (
     FIXTURE_CONFIG_PATCH,
     LEGACY_FIXTURE_CONFIG_PATCH,
@@ -230,11 +231,25 @@ def _build(data_dir: Path, *, port: int, progress, checkout: Path | None) -> Non
                       "COPY LICENSE /app/GENLAYER_STUDIO_LICENSE\n")
         if progress:
             progress("Building Studio and downloading GenVM (first build can take several minutes)...")
-        _checked(_command(endpoint, ["build", "--quiet", "--target", "prod", "--label",
-            f"{COMMIT_LABEL}={STUDIO_COMMIT}", "--label", f"{PATCH_LABEL}={FIXTURE_CONFIG_PATCH}",
-            "--tag", f"{IMAGE_TAG}-{state['owner']}", "--file",
-            str(context / "docker/Dockerfile.backend"), str(context)],
-            timeout=1200, output_limit=8_388_608), "image build")
+        started = time.monotonic()
+        image_tag = f"{IMAGE_TAG}-{state['owner']}"
+        try:
+            result = _command(endpoint, ["build", "--quiet", "--target", "prod", "--label",
+                f"{COMMIT_LABEL}={STUDIO_COMMIT}", "--label", f"{PATCH_LABEL}={FIXTURE_CONFIG_PATCH}",
+                "--tag", image_tag, "--file",
+                str(context / "docker/Dockerfile.backend"), str(context)],
+                timeout=1200, output_limit=8_388_608)
+        except (RuntimeError, OSError, ValueError) as exc:
+            failure = studio_build_failure(time.monotonic() - started, image_tag,
+                                           error=exc, log_dir=root / "build-logs")
+        else:
+            failure = studio_build_failure(
+                time.monotonic() - started, image_tag, docker_exit=result.returncode,
+                stdout=result.stdout, stderr=result.stderr, log_dir=root / "build-logs",
+            ) if result.returncode else None
+        if failure is not None:
+            # Raise outside the handler so arbitrary command errors are not chained.
+            raise failure from None
     image = _json_output(_command(endpoint, ["image", "inspect", f"{IMAGE_TAG}-{state['owner']}",
                          "--format", "{{json .}}"]), "Studio image inspection")
     labels = (image.get("Config") or {}).get("Labels") or {}

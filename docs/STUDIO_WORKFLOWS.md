@@ -130,6 +130,11 @@ an appeal round; it is not a lifetime appeal counter. A completed write may
 precede the next observed ledger refresh. Read the resulting state before
 finishing, and observe until the run actually becomes terminal after `finish`.
 
+`decision` contains the latest evaluation receipt, including revisions from
+appeals. A release leaves that receipt unchanged. Check the release entry in
+`operations` for completion and its result, then read `state` to verify the
+finalized ledger amounts; `decision.result` remains the evaluation snapshot.
+
 Installing MCP does not intercept hardcoded wallet calls. The developer must
 route the relevant tools through this interface. The agent's own reasoning model
 and unrelated tools remain under the developer's control.

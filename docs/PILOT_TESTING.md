@@ -1,7 +1,9 @@
 # Expanded Studio workflow: pilot readiness and trials
 
-Updated September 7, 2026. Checked items below have engineering verification;
-they do not represent an independent developer-agent pilot.
+Updated September 7, 2026. Engineering checks and the fresh Windows laptop
+pilot have passed, with a documented Studio build retry. The laptop pilot was
+developer-assisted on the project owner's machine; independent human onboarding
+and the Linux VPS pilot remain unverified.
 The implementation sequence is in [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
 The first two targets are the project owner's Windows laptop and a Linux VPS.
@@ -51,10 +53,10 @@ If a required backend capability cannot be demonstrated, resolve that capability
 or explicitly narrow the pilot's claims before scheduling it. Do not fabricate
 an outcome to make the checklist pass.
 
-The existing Windows installation has now also passed a model-driven agent
-smoke test (73 of 200 test units, one actual appeal), separately from the scripted
-controls. This validates that task/API interaction on the existing installation;
-the fresh-data, separately owned Studio setup below still needs its own evidence.
+The existing Windows installation passed a model-driven agent smoke test
+(73 of 200 test units, one actual appeal), separately from the scripted controls.
+Pilot A below subsequently passed with fresh application data, a separately
+owned Studio stack and a different model-agent scenario (61 of 150 test units).
 
 ## Small required behavior set
 
@@ -82,6 +84,45 @@ Do not demand a passing agent grade as proof that the testing product installed.
 
 ## Pilot A: Windows laptop
 
+**Completed September 7 with a documented build retry.** The
+[retained pilot evidence](evidence/fresh-laptop-pilot-2026-09-07.json) records
+alpha 9 wheel SHA-256
+`111496c7d81c664b95a271733e31d82a9405a2b2fd4bec90142a07e08cb6e38b`,
+installed into a fresh Python environment and Lab data directory outside the
+checkout, with separate owned Studio resources. The trial reused existing
+Python, Node, Docker and caches on the same Windows 11 laptop. It establishes
+a fresh application installation with developer assistance, not a fresh OS,
+independent human onboarding or a VPS installation.
+
+The first Studio build exited with code 2. A diagnostic retry used the installed
+wheel's build implementation, changing only command-output flags, and succeeded.
+The original failure and logs are retained; its cause remains unknown. The fresh
+Studio volume then completed GenVM precompilation and readiness. Setup also
+required reading the installed entry-point metadata to correct a guessed
+executable name to `gl-agent-lab`, and using the supplied alpha 9 wheel in place
+of alpha 8 filenames still present in the exported installation examples.
+
+| Check | Observed result |
+|---|---|
+| Scripted partial control | `workflow-7f15c53b5953487e9628c97de3ac4e93` passed; 40 of 100 test units released, 60 remain |
+| Idle Lab process restart | The owned idle process tree was terminated and restarted; the completed control report remained exactly equal after JSON decoding |
+| Fresh model-agent case after restart | `workflow-46106bb315c045e0a274ca08a836728b` passed all four grades; one evaluation, one appeal and one release; finalized authorization and contract state confirm 61 of 150 test units released, 89 remain |
+| Fixture cleanup | Both cases restored the controlled configuration |
+| Dashboard and export | Desktop and 390-pixel mobile checks found no page errors or horizontal overflow; exported JSON matched the control report |
+
+The model agent used run-scoped HTTP and was instructed to read only its
+connection and public run API; no additional OS sandbox was imposed. This pilot
+did not register a startup service, reboot the machine or test recovery of a
+workflow interrupted during consensus. Larger Job 1 protocol expansion remains
+outside the pilot scope.
+
+Separately, [package CI 34131594830](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34131594830)
+passed the Windows, Linux and macOS package jobs and the Linux custom-contract
+Docker-worker job. Those CI artifacts retain their own wheel hashes and do not
+substitute for this Studio pilot evidence.
+
+Procedure retained for repeat trials:
+
 1. Use the new candidate's wheel and checksums. Create a fresh environment and
    data directory outside the source checkout. Preserve the existing alpha
    installation and data.
@@ -101,6 +142,8 @@ Do not demand a passing agent grade as proof that the testing product installed.
    Studio startup action separately. No personal-machine reboot is needed.
 
 ## Pilot B: Linux VPS
+
+**Pending; no Linux VPS pilot result is established.**
 
 Begin only after the candidate is ready and resource requirements are measured.
 Provisioning is a later step; this plan does not purchase or create a server.

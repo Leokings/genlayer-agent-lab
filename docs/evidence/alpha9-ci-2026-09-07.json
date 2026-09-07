@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "verification": "pass",
+  "recorded_date": "2026-09-07",
+  "version": "0.1.0a9",
+  "run": {
+    "id": 34131594830,
+    "url": "https://github.com/Leokings/genlayer-agent-lab/actions/runs/34131594830",
+    "source_commit": "7a85b247f004331c07d50e80cb0dcd2c3a9a2982",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "package_jobs": [
+    {
+      "name": "test (ubuntu-latest)",
+      "id": 101772773323,
+      "status": "completed",
+      "conclusion": "success",
+      "pytest": {"passed": 1018, "skipped": 8},
+      "artifact": {
+        "id": 10022404840,
+        "name": "installed-wheel-ubuntu-latest",
+        "file": "install-verification-ubuntu-latest.json",
+        "file_sha256": "1a331211336bb00a28737da25f37a1af607261d6593be5a6393cab1df1daeca3"
+      },
+      "verification": "pass",
+      "installed_verification": "pass",
+      "installed_version": "0.1.0a9",
+      "platform": "Linux",
+      "python": "3.12.3",
+      "wheel": "genlayer_agent_lab-0.1.0a9-py3-none-any.whl",
+      "wheel_sha256": "457546dd44a107b2464078702fbe548a8de515e086e82fb6046c857e224ffb97",
+      "source_checkout_used_by_probe": false,
+      "imported_from_fresh_venv": true,
+      "glsim_doctor": {"ready": true, "execution_success": true},
+      "fixture_suite": {"total": 18, "passed": 18},
+      "python_http": "pass",
+      "mcp_stdio": "pass",
+      "kit": {"exported": true, "file_count": 42},
+      "elapsed_seconds": 89.243
+    },
+    {
+      "name": "test (macos-latest)",
+      "id": 101772773335,
+      "status": "completed",
+      "conclusion": "success",
+      "pytest": {"passed": 1018, "skipped": 8},
+      "artifact": {
+        "id": 10022514235,
+        "name": "installed-wheel-macos-latest",
+        "file": "install-verification-macos-latest.json",
+        "file_sha256": "d80f11c61d9e78ce026f9eeb5b523650e3074f9ff86dc4f9fa49cba3ee9151a2"
+      },
+      "verification": "pass",
+      "installed_verification": "pass",
+      "installed_version": "0.1.0a9",
+      "platform": "Darwin",
+      "python": "3.12.10",
+      "wheel": "genlayer_agent_lab-0.1.0a9-py3-none-any.whl",
+      "wheel_sha256": "457546dd44a107b2464078702fbe548a8de515e086e82fb6046c857e224ffb97",
+      "source_checkout_used_by_probe": false,
+      "imported_from_fresh_venv": true,
+      "glsim_doctor": {"ready": true, "execution_success": true},
+      "fixture_suite": {"total": 18, "passed": 18},
+      "python_http": "pass",
+      "mcp_stdio": "pass",
+      "kit": {"exported": true, "file_count": 42},
+      "elapsed_seconds": 151.265
+    },
+    {
+      "name": "test (windows-latest)",
+      "id": 101772773369,
+      "status": "completed",
+      "conclusion": "success",
+      "pytest": {"passed": 1017, "skipped": 9},
+      "artifact": {
+        "id": 10022506248,
+        "name": "installed-wheel-windows-latest",
+        "file": "install-verification-windows-latest.json",
+        "file_sha256": "1687468b005e4367428fb80ea74d1290717a4abd07fd0aa343f6302eaf45aee0"
+      },
+      "verification": "pass",
+      "installed_verification": "pass",
+      "installed_version": "0.1.0a9",
+      "platform": "Windows",
+      "python": "3.12.10",
+      "wheel": "genlayer_agent_lab-0.1.0a9-py3-none-any.whl",
+      "wheel_sha256": "fc0700d9bba23566fbb3ce47b4c12f1b4a13d07076933aaafcb883f688fe1a4c",
+      "source_checkout_used_by_probe": false,
+      "imported_from_fresh_venv": true,
+      "glsim_doctor": {"ready": true, "execution_success": true},
+      "fixture_suite": {"total": 18, "passed": 18},
+      "python_http": "pass",
+      "mcp_stdio": "pass",
+      "kit": {"exported": true, "file_count": 42},
+      "elapsed_seconds": 135.0
+    }
+  ],
+  "linux_docker_worker_job": {
+    "name": "custom-contract-worker",
+    "id": 101772773047,
+    "runner": "ubuntu-latest",
+    "status": "completed",
+    "conclusion": "success",
+    "evidence_source": "GitHub job steps and log output",
+    "backend": "container-glsim",
+    "image_build": "success",
+    "worker_doctor": "success",
+    "live_container_tests": {"passed": 5, "deselected": 26},
+    "binding_id": "delivery-assessment",
+    "suite": {"total": 18, "passed": 18, "failed": 0, "inconclusive": 0}
+  },
+  "evidence_validation": {
+    "installed_wheel_artifacts_downloaded": 3,
+    "original_artifact_json_preserved": true,
+    "original_wheel_hashes_preserved": true,
+    "local_artifact_directory": ".lab/ci-alpha9-34131594830",
+    "wheel_hash_basis": "Copied from original passing installed-wheel reports; wheel archives were not downloaded for this review."
+  },
+  "scope": {
+    "studio_workflow_execution": false,
+    "studio_image_build": false,
+    "service_manager_lifecycle": false,
+    "whole_machine_reboot": false,
+    "independent_human_pilot": false,
+    "same_wheel_as_earlier_local_windows_checks": false
+  }
+}

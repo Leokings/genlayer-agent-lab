@@ -23,10 +23,12 @@ understanding of evidence is outside scope. The new workflow extension combines
 incremental Studio execution, structured responses and workflow bindings, with
 tests built alongside it. Larger contract-project support can follow later.
 
-Next planned functional validation: [Windows laptop and Linux VPS pilots](PILOT_TESTING.md).
-The first profile's backend, integration, reporting and Windows installed-candidate
-engineering gates have passed. Both pilots may be operated by the project owner; that is two environments
-and one developer. Independent external onboarding remains separate and pending.
+The [fresh Windows laptop pilot](PILOT_TESTING.md#pilot-a-windows-laptop) completed
+with a documented Studio build retry. The first profile's backend, integration,
+reporting and Windows installed-candidate engineering gates have passed.
+The Linux VPS pilot and independent human onboarding remain unverified. Both
+planned environments may be operated by the project owner; that would be two
+environments and one developer.
 The original scenario payment actions update the Lab's test ledger. The new
 Studio workflow calls the contract's release method and verifies its test-unit
 ledger through a finalized state read. Six live HTTP reference cases have passed
@@ -39,8 +41,28 @@ runtime checks and live Studio evidence are recorded separately.
 The cache-empty Windows wheel installation also passed, including a real GLSim
 readiness execution and exported integration kit checks. A model-driven agent
 smoke test also passed a 73-of-200-unit appeal workflow through the public API.
-The full isolated laptop pilot, a separate VPS environment and independent
-human developer feedback remain distinct validation steps.
+The subsequent fresh laptop pilot installed the exact supplied alpha 9 wheel
+in a new environment and data directory outside the checkout, with a separate
+owned Studio stack. Existing tools and caches were reused on the same Windows
+laptop. This was a developer-assisted application installation. The first
+Studio build failed; a diagnostic retry succeeded using the installed build
+implementation with only command-output flags changed. The original failure is
+retained and its cause remains unknown.
+
+The scripted control released 40 of 100 test units. An idle Lab process restart
+preserved that report, and the fresh model-agent run afterward passed all four
+grades: one evaluation, one appeal and one release, with finalized authorization
+and contract state showing 61 of 150 test units released and 89 remaining.
+Desktop/mobile dashboard checks and control-report JSON export passed. The
+[pilot evidence](evidence/fresh-laptop-pilot-2026-09-07.json) records the exact
+wheel hash, setup corrections and results. This adds no whole-machine reboot,
+startup-service or interrupted-consensus recovery evidence.
+
+[Alpha 9 package CI 34131594830](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34131594830)
+also passed all four jobs: native Windows, Linux and macOS package checks and
+the separate Linux Docker worker. The CI-built wheel hashes are recorded
+separately from the laptop pilot's candidate wheel; these package/worker gates
+do not exercise Studio workflows.
 
 Alpha 8 fixes the GenVM download's missing certificate issuer on fresh Windows
 installations by adding bundled public certificate roots to its downloader's
@@ -54,17 +76,17 @@ reboot and real standard-user AutoLogon recovery trial on GitHub Actions.
 |---|---|---|
 | Standalone package and runtime | Pinned dependencies, verified GenVM artifact, clean wheel installations and native Windows/Linux/macOS CI passed | Broader Python/OS versions and external machines |
 | Complete escrow test | Actual bundled contract execution, independent grades, safe/unsafe/refusing reference agents | Real developer-agent onboarding |
-| Framework-independent connection | Authenticated HTTP, Python client, TypeScript client, MCP bridge | Broader framework adapters and real model-driven validation |
+| Framework-independent connection | Authenticated HTTP, Python client, TypeScript client, MCP bridge; model-driven HTTP workflow trials passed on the existing and fresh laptop installations | Broader framework adapters and independent agent trials |
 | Scenario packs | 18 cases across escrow, treasury and generic decisions; declarative YAML import | Domain-specific cases and new protocol semantics |
 | Custom contracts | Verified GLSim Docker worker and Studio GenVM delivery-contract execution; YAML bindings, immutable snapshots, Python/TypeScript/MCP/HTTP/CLI/dashboard selection, cancellation and bounded resources | Deferred: multi-file contracts and custom dependency sets |
 | GenLayer fidelity | GLSim plus an owned local Studio backend using GenVM, bounded SDK calls and separate observed conformance evidence | Separate future verification: modern bond accounting and public-network compatibility; contract-LLM judgment evaluation is outside scope |
 | Usability | CLI, dashboard, report export, packaged setup kit, native Windows/Linux/macOS user-service lifecycle, real Ubuntu guest reboot recovery with administrator-configured lingering, orderly Windows 11 guest reboot and standard-user AutoLogon recovery, offline backup/restore, upgrade/rollback procedure | macOS reboot and separate desktop logout/login trials; recurring schedules are deferred |
 | Recovery | Exclusive-lock SQLite snapshots, integrity/checksum verification, fresh restore destinations, credential rotation, preserved historical reports; explicit Studio restart verifier with retained volumes | Studio-volume disaster recovery and interrupted-consensus recovery remain separate, unimplemented capabilities |
-| Publication | Dedicated [public repository](https://github.com/Leokings/genlayer-agent-lab), wheel/source alpha, checksums and passing installed-artifact CI matrix | Complete two external developer installation trials before claiming broader release validation |
+| Publication | Dedicated [public repository](https://github.com/Leokings/genlayer-agent-lab), wheel/source alpha, checksums, passing installed-artifact CI matrix and completed assisted laptop model-agent pilot | Linux VPS pilot and two independent human developer installation trials before broader release validation |
 
 The Docker execution gate has passed: the pinned worker image builds, executes its readiness contract and runs the custom delivery contract through real client connections. The install/startup/recovery work from the September 13–16 stages is implemented. Native package CI passed on all three operating systems. Alpha 5 fixed a Linux startup defect; alpha 6 fixes exact macOS argument verification and asynchronous job unloading. The corrected native Linux and macOS service lifecycles passed on free standard CI runners. A separate Ubuntu guest OS reboot passed with administrator-configured lingering and an outside observer; the Lab recovered before its user logged in. Alpha 8 passed an [orderly Windows 11 guest reboot and real standard-user AutoLogon trial](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34048951171): the owned login task recovered the Lab without a manual start, preserved its data and completed a fresh four-grade GLSim run.
 
-Remaining validation includes two human external installations, macOS reboot, separate desktop logout/login, Windows startup before login, automatic Studio startup and physical power-loss recovery. The native runtime remains restricted to bundled code. See the dated verification record for tested behavior and evidence limits.
+Remaining validation includes the Linux VPS pilot, two independent human external installations, macOS reboot, separate desktop logout/login, Windows startup before login, automatic Studio startup and physical power-loss recovery. The native runtime remains restricted to bundled code. See the dated verification record for tested behavior and evidence limits.
 
 **macOS full reboot validation is deferred.** The latest
 [hosted Mac installer preflight](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34083470338)

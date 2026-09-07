@@ -21,6 +21,13 @@ cloud account. The initial configuration allows up to roughly 5 GiB across its
 running services, plus Docker overhead. Smaller-memory machines can use GLSim.
 This resource budget is a configuration, not a measured minimum requirement.
 
+The development source now records a failed image build's stage, recognized
+category, exit code and fixed recovery hint in `studio/build-logs` under the
+selected data directory. The CLI prints that diagnostic path. Raw Docker output,
+environment values and credentials are excluded. Unknown failures remain labeled
+`build_failure`; the log does not invent a cause. This diagnostic follow-up is
+newer than the separately recorded alpha 9 candidate wheel.
+
 Studio binds to `127.0.0.1:8766`; the Lab dashboard remains on port 8765. The
 `studio build --port` option chooses another Studio port at initialization.
 The contract services' network has external access disabled. Its database,
