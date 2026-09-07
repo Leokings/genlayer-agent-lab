@@ -24,6 +24,21 @@ Begin with one real developer's supported GenLayer contract project and a
 complete workflow before generalizing the interface. Adding scenario files
 alone does not implement new protocol mechanics.
 
+### Scope and sequencing clarification — September 7, 2026
+
+The user confirmed developer-controlled contract outcomes and simulated workflows
+as the product scope. Contract-LLM evidence interpretation or judgment quality is
+not a required capability.
+
+Recommended first slice: structured results, action/state rules and controlled
+branches from items 2–3 above, built and tested through one complete workflow.
+Multi-file projects, extra dependencies and deployed-state import can follow
+later. Existing-alpha installation trials can continue; each new capability needs
+its own verification and an agent integration trial. Completing all of Job 1 is
+not a prerequisite to starting those tests.
+
+This is a sequencing recommendation, not an implementation or completion claim.
+
 **Reminder:** When the current developer version is explicitly recorded as
 finished, remind the user about Job 1 and ask whether they want to revisit it.
 An existing alpha release or a passing CI run alone is not that completion

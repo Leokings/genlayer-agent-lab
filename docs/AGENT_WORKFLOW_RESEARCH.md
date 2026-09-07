@@ -6,6 +6,28 @@ This is a research and design review, not an implementation or a new completion
 claim. Job 1 remains deferred with its existing scope. No contracts, transactions,
 paid model calls, installations or CI runs were started for this review.
 
+## Scope clarified after the review
+
+On September 7, 2026, the user confirmed that the product tests an agent's
+behavior against developer-supplied possible contract outcomes. Evaluating whether
+the contract's LLM correctly understands evidence is outside the product scope;
+it is neither a release requirement nor a mandatory later stage.
+
+Developers describe the response fields their agent actually reads, available
+actions, conditions and limits, simulated state changes, and expected completion.
+When a scenario executes contract code, controlled model replies may produce
+those outputs. A direct contract-output fixture must be labeled as simulated
+output, without claiming that contract execution was verified. Neither approach
+requires evaluating a live contract model's judgment.
+
+The recommended next implementation is the structured-response and workflow
+portion of Job 1 items 2–3, validated through one complete example. Supporting
+multi-file projects, custom dependencies or importing deployed state is not a
+prerequisite. Build and verify the new workflow together, then test it with a
+developer's agent. Existing installation and connection trials can continue in
+parallel. This records a recommendation; it does not claim implementation or
+completion of Job 1.
+
 ## What the product should be able to test
 
 An agent can do more than obey a favorable or unfavorable decision. It can check
@@ -144,13 +166,13 @@ Code and verification anchors:
 The critical architectural gap is timing. An MCP `appeal` tool added to the current
 finalize-then-return Studio path would not create a usable agent appeal test.
 
-## Three distinct evaluation modes
+## Evaluation boundaries
 
 | Proposed mode | Controlled by the Lab | What a passing run establishes |
 |---|---|---|
 | Decision reaction | Decision outputs, lifecycle events and tool effects | The tested agent responds correctly to those conditions |
 | Investigation and challenge | Case evidence, available tools, rules, deadlines, budgets and an independent grading rubric | The tested agent gathers evidence and chooses a justified, authorized next step |
-| Contract judgment evaluation | Evidence inputs with actual supported leader/validator model execution | The contract's own evidence handling and judgments satisfy the defined evaluation criteria |
+| Contract judgment evaluation — outside the clarified product scope | Evidence inputs with actual supported leader/validator model execution | A separate form of testing of the contract's own judgments |
 
 The first mode describes the current product direction. The second expands that
 direction: the agent can perform genuine investigation while the contract's
@@ -159,10 +181,9 @@ tests of upheld, changed and unresolved outcomes without making the real network
 produce each one on demand. A scripted reference agent only verifies the harness;
 it does not establish how a developer's model-driven agent performs.
 
-The third mode answers a separate question: whether the intelligent contract
-reaches a defensible judgment from evidence. It requires actual model execution
-and independent evaluation. Valid output formatting or model agreement alone
-cannot establish factual correctness.
+The third row describes a separate testing category, not proposed Lab work under
+the clarified scope. Valid output formatting or model agreement alone cannot
+establish factual correctness.
 [Equivalence principle](https://docs.genlayer.com/developers/intelligent-contracts/equivalence-principle).
 
 ## Proposed coverage map
@@ -234,20 +255,20 @@ protocol-specific workflows.
    required infrastructure evidence is unavailable. Avoid requiring disclosure
    of private chain-of-thought: record sources, concise justification and actions.
 
-7. **Verify one compatible real backend profile.** Expose an actual prefinal
-   decision to the agent, exercise submission and observe a completed appeal.
-   Demonstrate an actual overturned/recomputed case separately before claiming
-   it. Verify timeout-after-inclusion recovery and profile-specific accounting.
+7. **Validate with a developer's agent, then expand.** Run the complete controlled
+   example through the existing connection formats. Add a prediction-resolution
+   case and another supported workflow after validating that integration. This
+   does not require generic lending or DEX simulation.
 
-8. **Expand through real developer workflows.** Add a prediction-resolution case,
-   then another evidence-driven application. Validate with a developer's agent
-   through the existing connection formats. This gives coverage across distinct
-   workflows without assuming that generic lending or DEX simulation is required.
+8. **Optional later real-backend verification.** This is not required for the
+   controlled workflow extension. Expose an actual prefinal decision to the agent,
+   exercise submission and observe a completed appeal. Demonstrate an actual
+   overturned/recomputed case separately before claiming it. Verify
+   timeout-after-inclusion recovery and profile-specific accounting.
 
 Controlled tests need no real funds or shared hosting. A developer can continue
 to run the Lab on their own laptop or VPS. Model-driven investigation may use
-their chosen agent/provider; the Lab need not operate that model for them. A live
-contract-model profile has separate provider and runtime requirements.
+their chosen agent/provider; the Lab need not operate that model for them.
 
 ## Version compatibility and remaining uncertainty
 

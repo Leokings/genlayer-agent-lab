@@ -9,6 +9,12 @@ outside the current build scope.
 Research review: [agent investigation, appeals and decision workflows](AGENT_WORKFLOW_RESEARCH.md).
 Its proposed coverage is not implemented and does not change Job 1's saved scope.
 
+Scope clarification, September 7: developers supply possible contract outcomes
+and workflow rules; the Lab tests the agent's behavior. Evaluating the contract
+LLM's understanding of evidence is outside the product scope. The recommended
+next extension is the structured-response/workflow portion of Job 1, with tests
+built alongside it; larger contract-project support can follow later.
+
 Alpha 8 fixes the GenVM download's missing certificate issuer on fresh Windows
 installations by adding bundled public certificate roots to its downloader's
 default SSL context. System roots, certificate verification and pinned artifact
@@ -23,8 +29,8 @@ reboot and real standard-user AutoLogon recovery trial on GitHub Actions.
 | Complete escrow test | Actual bundled contract execution, independent grades, safe/unsafe/refusing reference agents | Real developer-agent onboarding |
 | Framework-independent connection | Authenticated HTTP, Python client, TypeScript client, MCP bridge | Broader framework adapters and real model-driven validation |
 | Scenario packs | 18 cases across escrow, treasury and generic decisions; declarative YAML import | Domain-specific cases and new protocol semantics |
-| Custom contracts | Verified GLSim Docker worker and Studio GenVM delivery-contract execution; YAML bindings, immutable snapshots, Python/TypeScript/MCP/HTTP/CLI/dashboard selection, cancellation and bounded resources | Multi-file contracts, custom dependency sets and live providers |
-| GenLayer fidelity | GLSim plus an owned local Studio backend using GenVM, bounded SDK calls and separate observed conformance evidence | Live-model evaluation, modern bond accounting and public-network compatibility |
+| Custom contracts | Verified GLSim Docker worker and Studio GenVM delivery-contract execution; YAML bindings, immutable snapshots, Python/TypeScript/MCP/HTTP/CLI/dashboard selection, cancellation and bounded resources | Deferred: multi-file contracts and custom dependency sets |
+| GenLayer fidelity | GLSim plus an owned local Studio backend using GenVM, bounded SDK calls and separate observed conformance evidence | Separate future verification: modern bond accounting and public-network compatibility; contract-LLM judgment evaluation is outside scope |
 | Usability | CLI, dashboard, report export, packaged setup kit, native Windows/Linux/macOS user-service lifecycle, real Ubuntu guest reboot recovery with administrator-configured lingering, orderly Windows 11 guest reboot and standard-user AutoLogon recovery, offline backup/restore, upgrade/rollback procedure | macOS reboot and separate desktop logout/login trials; recurring schedules are deferred |
 | Recovery | Exclusive-lock SQLite snapshots, integrity/checksum verification, fresh restore destinations, credential rotation, preserved historical reports; explicit Studio restart verifier with retained volumes | Studio-volume disaster recovery and interrupted-consensus recovery remain separate, unimplemented capabilities |
 | Publication | Dedicated [public repository](https://github.com/Leokings/genlayer-agent-lab), wheel/source alpha, checksums and passing installed-artifact CI matrix | Complete two external developer installation trials before claiming broader release validation |
