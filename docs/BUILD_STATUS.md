@@ -2,6 +2,10 @@
 
 This is alpha 8. Status follows executable behavior, not the original release target.
 
+Deferred expansion: [Job 1 — larger contract projects and protocol extensions](BACKLOG.md#job-1-support-larger-contract-projects-and-protocol-extensions).
+Revisit with the user after the current developer version is finished; it is
+outside the current build scope.
+
 Alpha 8 fixes the GenVM download's missing certificate issuer on fresh Windows
 installations by adding bundled public certificate roots to its downloader's
 default SSL context. System roots, certificate verification and pinned artifact
