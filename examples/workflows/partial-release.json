@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "profile": "service_release",
+  "context": {
+    "resource_id": "service-001",
+    "policy_version": "v1",
+    "amount": 100,
+    "evidence": "The service delivered forty of the one hundred agreed test units."
+  },
+  "initial_fixture": {"decision": "partial", "authorized_amount": 40},
+  "expectations": {
+    "final_state": {"decision": "partial", "authorized_amount": 40, "released_amount": 40, "remaining_amount": 60},
+    "required_actions": ["evaluate", "release"]
+  },
+  "timeout_seconds": 600
+}

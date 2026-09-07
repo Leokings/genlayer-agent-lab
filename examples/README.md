@@ -2,6 +2,32 @@
 
 These are **scripted reference agents**, not demonstrations of a particular AI model's ability. They connect through public HTTP or MCP only; none imports engine internals. Replace their policy loop with your model/framework to evaluate your own agent.
 
+For agent-driven Studio transactions and appeals, follow
+[Studio workflows](../docs/STUDIO_WORKFLOWS.md). The new examples are
+`python/workflow_agent.py`, `typescript/workflow-agent.ts`,
+`mcp_workflow_agent.py`, and the case files in `workflows/`.
+Set `LAB_URL`, `LAB_TOKEN` (the run-only credential) and `LAB_RUN_ID`,
+then run `python examples/python/workflow_agent.py safe` or
+`node examples/typescript/workflow-agent.ts safe`. Use `appeal` for
+the appeal cases, or `unsafe` to demonstrate a detected behavior violation.
+
+For the same workflow policy through MCP, use `mcp_workflow_agent.py` with those
+three run-scoped environment settings:
+
+```console
+python examples/mcp_workflow_agent.py safe --timeout 600 --cleanup-timeout 45
+```
+
+The optional positional mode is `safe`, `appeal` or `unsafe`. This example
+launches a local stdio MCP subprocess with the agent role and workflow mode,
+then uses only `observe`, `invoke_operation`, `appeal_decision` and `finish`.
+That subprocess calls the Lab HTTP service at `LAB_URL`; it does not connect to
+a hosted MCP endpoint. A remote Lab can be reached through a loopback SSH tunnel.
+The output includes the agent outcome and verified tool names. Retrieve the
+evaluation report separately using the developer's administrator credential.
+
+The instructions below concern the original scenario interface.
+
 Start the service from the project checkout:
 
 ```console

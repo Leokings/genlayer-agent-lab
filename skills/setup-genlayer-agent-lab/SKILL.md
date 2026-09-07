@@ -68,7 +68,22 @@ stack, change the global GenLayer CLI network, inherit wallet/provider keys or
 enable paid inference. Build downloads dependencies; the running stack uses
 fixtures and an internal network. Its RPC must remain on loopback.
 
-For agents, select `--backend studio` with an optional imported binding. Explicit
+For the agent-driven `service_release` profile, read `docs/STUDIO_WORKFLOWS.md`.
+Use `workflow validate` on a supplied case and optional workflow binding, then
+`workflow create --url <local-Lab-URL> --show-agent-token` against the persistent
+service. Give the tested agent only the returned run credential. For MCP set
+`LAB_MODE=workflow`, `LAB_ROLE=agent`, `LAB_RUN_ID` and the run-only `LAB_TOKEN`.
+The workflow dashboard is `/assets/workflows.html`. A reference case tests the
+installation; it does not establish compatibility with an arbitrary developer
+contract. Custom bindings currently map the get_state/evaluate/release roles to
+the supported typed service-release state. Observe actual successful execution,
+completed appeal rounds and any later recomputed result before claiming success.
+An ambiguous submission or unresolved cleanup is inconclusive and must not be
+replayed. This candidate does not automatically resume a workflow after an abrupt
+Lab stop. Keep this limitation distinct from ordinary agent reconnection.
+
+For the original 18 agent scenarios, select `--backend studio` with an optional
+imported binding. Explicit
 Studio failures must remain inconclusive; do not substitute GLSim or fixture
 results. Describe actual Studio execution checkpoints separately from scripted
 consumer lifecycle events. Use `studio verify --appeal` and inspect a completed

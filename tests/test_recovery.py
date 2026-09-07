@@ -265,6 +265,136 @@ def test_unsafe_paths_and_database_triggers_are_rejected(tmp_path):
     assert not (tmp_path / "unsafe.zip").exists()
 
 
+@pytest.mark.parametrize("version,ddl", [
+    (1, "CREATE TABLE workflow_runs (id TEXT PRIMARY KEY, body TEXT NOT NULL)"),
+    (2, "CREATE TABLE unrelated (id TEXT PRIMARY KEY, body TEXT NOT NULL)"),
+    (2, "CREATE TABLE workflow_runs (id TEXT PRIMARY KEY, body TEXT)"),
+    (2, "CREATE TABLE workflow_runs (id TEXT PRIMARY KEY, body TEXT NOT NULL, extra TEXT)"),
+    (2, "CREATE TABLE workflow_runs (id TEXT PRIMARY KEY, body TEXT NOT NULL CHECK(body <> ''))"),
+    (2, "CREATE TABLE workflow_runs (id TEXT PRIMARY KEY, body TEXT NOT NULL UNIQUE)"),
+])
+def test_optional_workflow_table_does_not_allow_other_schema_extensions(tmp_path, version, ddl):
+    source = tmp_path / "source"
+    _database(source, version=version)
+    with sqlite3.connect(source / "lab.sqlite3") as db:
+        db.execute(ddl)
+    with pytest.raises(ValueError, match="unexpected|layout"):
+        backup(source, tmp_path / "unsafe.zip")
+    assert not (tmp_path / "unsafe.zip").exists()
+
+
+def test_schema_two_accepts_exact_optional_empty_workflow_table(tmp_path):
+    source = tmp_path / "source"
+    _database(source)
+    with sqlite3.connect(source / "lab.sqlite3") as db:
+        db.execute("CREATE TABLE IF NOT EXISTS workflow_runs (id TEXT PRIMARY KEY, body TEXT NOT NULL)")
+    archive = tmp_path / "workflow.zip"
+    result = backup(source, archive)
+    assert result["manifest"]["database"]["counts"]["workflow_runs"] == 0
+    restored = restore(archive, tmp_path / "restored")
+    assert restored["schema_version"] == 2 and restored["counts"]["workflow_runs"] == 0
+
+
+@pytest.mark.parametrize("active_status", ["preparing", "running", "closing"])
+def test_workflow_restore_keeps_reports_revokes_access_and_interrupts_without_resuming(
+        tmp_path, active_status):
+    from genlayer_agent_lab.workflows import WorkflowManager, WorkflowSpec
+
+    def no_runtime(*args, **kwargs):
+        pytest.fail("Recovery must not recreate a signer, cohort or Studio session")
+
+    source = tmp_path / "source"
+    _database(source)
+    token = "old-workflow-agent-token"
+    spec = WorkflowSpec.model_validate({
+        "context": {"resource_id": "service-001", "policy_version": "v1",
+                    "amount": 100, "evidence": "Delivery receipt"},
+        "initial_fixture": {"decision": "approve", "authorized_amount": 100},
+        "expectations": {"final_state": {"decision": "approve", "authorized_amount": 100,
+                                         "released_amount": 100}, "required_actions": ["release"]},
+    }).model_dump()
+    completed = {
+        "run_id": "workflow-" + "a" * 32, "status": "completed", "spec": spec,
+        "token_sha256": hashlib.sha256(token.encode()).hexdigest(), "created_at": 1,
+        "contract_address": "0x" + "b" * 40,
+        "state": {"decision": "approve", "authorized_amount": 100, "released_amount": 100},
+        "decision": {"status": "FINALIZED", "execution_success": True,
+                     "result": {"decision": "approve", "authorized_amount": 100}},
+        "transactions": {}, "intents": {"release-key": {
+            "operation": "release", "idempotency_key": "release-key", "status": "completed",
+            "tx_id": "0x" + "c" * 64, "result": {"released_amount": 100}, "error_code": None}},
+        "events": [{"index": 0, "kind": "ended", "status": "completed", "cleanup": "restored"}],
+        "event_count": 1, "behavior_failures": [], "backend_failures": [], "cleanup": "restored",
+        "error_code": None, "finish_requested": True, "cancel_requested": False,
+        "ambiguous_submission": False,
+    }
+    store = Store(source)
+    manager = WorkflowManager(store, source, client_factory=no_runtime, cohort_factory=no_runtime)
+    try:
+        manager._runs[completed["run_id"]] = copy.deepcopy(completed)
+        manager._save(completed)
+        original_report = manager.report(completed["run_id"])
+        assert original_report["verification"] == "pass"
+        assert manager.authenticate(completed["run_id"], token)
+    finally:
+        manager.close()
+        store.close()
+    active = copy.deepcopy(completed)
+    active.update(run_id="workflow-" + "d" * 32, status=active_status,
+                  cleanup="required", finish_requested=False)
+    active["transactions"] = {"evaluate": {"tx_id": "0x" + "e" * 64, "status": "ACCEPTED"}}
+    with sqlite3.connect(source / "lab.sqlite3") as db:
+        db.execute("INSERT INTO workflow_runs VALUES (?,?)", (active["run_id"], json.dumps(active)))
+    archive = tmp_path / "workflows.zip"
+    backup(source, archive)
+    destination = tmp_path / "restored"
+    result = restore(archive, destination)
+    assert result["agent_tokens_revoked"] == 2
+    assert result["counts"]["workflow_runs"] == 2 and result["studio_restored"] is False
+    assert not (destination / "studio").exists()
+    with sqlite3.connect(destination / "lab.sqlite3") as db:
+        rows = {identifier: json.loads(body)
+                for identifier, body in db.execute("SELECT id, body FROM workflow_runs")}
+    interrupted = rows[active["run_id"]]
+    assert interrupted["status"] == "interrupted" and interrupted["cleanup"] == "unresolved"
+    assert interrupted["error_code"] == "interrupted_by_restore"
+    for key in ("spec", "transactions", "intents", "events"):
+        assert interrupted[key] == active[key]
+    store = Store(destination)
+    manager = WorkflowManager(store, destination, client_factory=no_runtime, cohort_factory=no_runtime)
+    try:
+        assert manager.report(completed["run_id"]) == original_report
+        assert not manager.authenticate(completed["run_id"], token)
+        assert not manager.authenticate(active["run_id"], token)
+        assert manager._thread is None and manager._active_id is None
+        with pytest.raises(ValueError, match="explicit external recovery"):
+            manager.create(spec)
+    finally:
+        manager.close()
+        store.close()
+
+
+@pytest.mark.parametrize("status", ["completed", "cancelled", "inconclusive", "interrupted"])
+def test_terminal_workflow_records_keep_outcomes_but_lose_old_credentials(tmp_path, status):
+    source = tmp_path / "source"
+    _database(source)
+    original = {"run_id": "workflow-history", "status": status, "cleanup": "restored",
+                "token_sha256": "a" * 64, "agent_hash": "b" * 64,
+                "events": [{"kind": "historical"}], "error_code": None}
+    with sqlite3.connect(source / "lab.sqlite3") as db:
+        db.execute("CREATE TABLE workflow_runs (id TEXT PRIMARY KEY, body TEXT NOT NULL)")
+        db.execute("INSERT INTO workflow_runs VALUES (?, ?)", (original["run_id"], json.dumps(original)))
+    archive = tmp_path / "workflow.zip"
+    backup(source, archive)
+    destination = tmp_path / "restored"
+    assert restore(archive, destination)["agent_tokens_revoked"] == 1
+    with sqlite3.connect(destination / "lab.sqlite3") as db:
+        recovered = json.loads(db.execute("SELECT body FROM workflow_runs").fetchone()[0])
+    assert recovered.pop("token_sha256") != original.pop("token_sha256")
+    assert recovered.pop("agent_hash") != original.pop("agent_hash")
+    assert recovered == original
+
+
 def test_source_symlink_rejected_where_supported(tmp_path):
     source = tmp_path / "source"
     _database(source)

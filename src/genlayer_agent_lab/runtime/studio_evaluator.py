@@ -29,6 +29,7 @@ def bundled_snapshot() -> dict:
 def evaluate(data_dir: Path, snapshot: dict | None, context: dict, *, timeout=180,
              cancel_event=None) -> dict:
     from ..studio_conformance import run_studio_conformance
+    from .studio_cohort import StudioFixtureLease
     from .studio_stack import status
 
     checked = validate_snapshot(snapshot) if snapshot is not None else bundled_snapshot()
@@ -39,10 +40,11 @@ def evaluate(data_dir: Path, snapshot: dict | None, context: dict, *, timeout=18
     stack = status(data_dir)
     if not stack.get("ready"):
         raise RuntimeError("Owned Studio is not ready; run studio status")
-    evidence = run_studio_conformance(
-        stack["endpoint"], checked, context, sim_config=fixtures, timeout=timeout,
-        stack_pins=stack, cancel_event=cancel_event,
-    )
+    with StudioFixtureLease(data_dir):
+        evidence = run_studio_conformance(
+            stack["endpoint"], checked, context, sim_config=fixtures, timeout=timeout,
+            stack_pins=stack, cancel_event=cancel_event,
+        )
     successful = evidence["verification"] == "pass" and evidence.get("verdict") in {"approve", "deny"}
     # Submission alone is not evidence of contract execution. Preserve an unknown
     # outcome if observation ended before Studio reported an execution result.

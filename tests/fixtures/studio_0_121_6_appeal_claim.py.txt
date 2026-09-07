@@ -1,0 +1,135 @@
+# Extracted from GenLayer Studio v0.121.6, commit 366f085a479bb9e6028ce326c2c13f798a9752c7.
+# https://github.com/genlayerlabs/genlayer-studio/blob/366f085a479bb9e6028ce326c2c13f798a9752c7/backend/consensus/worker.py
+# MIT License
+# Copyright (c) 2024 GenLayer Labs Corp.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+class Worker:
+    async def claim_next_appeal(self, session: Session) -> Optional[dict]:
+        """
+        Claim the next available appealed transaction for processing.
+        Uses FOR UPDATE SKIP LOCKED to ensure only one worker claims an appeal.
+
+        Returns:
+            Transaction data dict if claimed, None otherwise
+        """
+        # Query to atomically claim an appealed transaction
+        start_time = time.perf_counter()
+        query = text(
+            """
+            WITH locked_appeals AS (
+                SELECT t.hash, t.to_address, t.created_at
+                FROM transactions t
+                WHERE t.appealed = true
+                    AND t.status IN ('ACCEPTED', 'UNDETERMINED', 'LEADER_TIMEOUT', 'VALIDATORS_TIMEOUT')
+                    AND (t.blocked_at IS NULL
+                         OR t.blocked_at < NOW() - CAST(:timeout AS INTERVAL))
+                    AND NOT EXISTS (
+                        -- Ensure no other appeal for same contract is being processed
+                        SELECT 1 FROM transactions t2
+                        WHERE t2.to_address IS NOT DISTINCT FROM t.to_address
+                            AND t2.appealed = true
+                            AND t2.blocked_at IS NOT NULL
+                            AND t2.blocked_at > NOW() - CAST(:timeout AS INTERVAL)
+                            AND t2.hash != t.hash
+                    )
+                    AND pg_try_advisory_xact_lock(hashtext(COALESCE(t.to_address, t.hash)))
+                ORDER BY t.created_at ASC
+                FOR UPDATE SKIP LOCKED
+            ),
+            available_appeals AS (
+                SELECT *, ROW_NUMBER() OVER (
+                    PARTITION BY to_address
+                    ORDER BY created_at ASC
+                ) as rn
+                FROM locked_appeals
+            ),
+            single_appeal AS (
+                -- FIXED: Limit update to exactly ONE transaction
+                SELECT *
+                FROM available_appeals
+                WHERE rn = 1
+                ORDER BY created_at ASC
+                LIMIT 1
+            )
+            UPDATE transactions
+            SET blocked_at = NOW(),
+                worker_id = :worker_id
+            FROM single_appeal
+            WHERE transactions.hash = single_appeal.hash
+            RETURNING transactions.hash, transactions.from_address, transactions.to_address,
+                      transactions.data, transactions.value, transactions.type, transactions.nonce,
+                      transactions.gaslimit, transactions.r, transactions.s, transactions.v,
+                      transactions.leader_only, transactions.execution_mode, transactions.sim_config,
+                      transactions.status, transactions.consensus_data,
+                      transactions.input_data, transactions.created_at, transactions.appealed,
+                      transactions.appeal_failed, transactions.timestamp_appeal,
+                      transactions.appeal_undetermined, transactions.appeal_leader_timeout,
+                      transactions.appeal_validators_timeout, transactions.blocked_at,
+                      transactions.triggered_by_hash;
+        """
+        )
+
+        result = session.execute(
+            query,
+            {
+                "worker_id": self.worker_id,
+                "timeout": f"{self.transaction_timeout_minutes} minutes",
+            },
+        ).first()
+        duration = time.perf_counter() - start_time
+        self._log_query_result("appeal", result, duration)
+
+        if result:
+            session.commit()
+            # Convert result to dict
+            return {
+                "hash": result.hash,
+                "from_address": result.from_address,
+                "to_address": result.to_address,
+                "data": result.data,
+                "value": result.value,
+                "type": result.type,
+                "nonce": result.nonce,
+                "gaslimit": result.gaslimit,
+                "r": result.r,
+                "s": result.s,
+                "v": result.v,
+                "leader_only": result.leader_only,
+                "execution_mode": result.execution_mode,
+                "sim_config": result.sim_config,
+                "status": result.status,
+                "consensus_data": result.consensus_data,
+                "input_data": result.input_data,
+                "created_at": result.created_at,
+                "appealed": result.appealed,
+                "appeal_failed": result.appeal_failed,
+                "timestamp_appeal": result.timestamp_appeal,
+                "appeal_undetermined": result.appeal_undetermined,
+                "appeal_leader_timeout": result.appeal_leader_timeout,
+                "appeal_validators_timeout": result.appeal_validators_timeout,
+                "blocked_at": result.blocked_at,
+                "triggered_by": result.triggered_by_hash,
+            }
+
+        return None
+
+    async def claim_next_transaction(self, session):
+        pass

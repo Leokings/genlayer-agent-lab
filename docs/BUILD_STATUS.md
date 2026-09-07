@@ -1,6 +1,8 @@
 # Build status
 
-This is alpha 8. Status follows executable behavior, not the original release target.
+This checkout is the alpha 9 development candidate. Status follows executable
+behavior, not the original release target. Published alpha 8 evidence remains
+historical; it is not automatic verification of the new workflow extension.
 
 Deferred expansion: [Job 1 — larger contract projects and protocol extensions](BACKLOG.md#job-1-support-larger-contract-projects-and-protocol-extensions).
 Revisit with the user after the current developer version is finished; it is
@@ -9,13 +11,15 @@ outside the current build scope.
 Current improvement plan: [agents using GenLayer](DEVELOPMENT_ROADMAP.md).
 It consolidates the relevant Job 1 workflow improvements and uses owned local
 Studio as the primary backend for agent appeal and GenLayer-function tests.
-The plan is not implemented; the larger Job 1 remains deferred.
+The first `service_release` workflow implementation is now built. See
+[Studio workflows](STUDIO_WORKFLOWS.md) for the actual commands, supported
+integration format and boundaries. The larger Job 1 remains deferred.
 Supporting research: [agent investigation, appeals and decision workflows](AGENT_WORKFLOW_RESEARCH.md).
 
 Scope clarification, September 7: developers supply possible contract model
 responses and workflow rules; local Studio processes the actual supported
 operations, and the Lab tests the agent's behavior. Evaluating the contract LLM's
-understanding of evidence is outside scope. The next planned extension combines
+understanding of evidence is outside scope. The new workflow extension combines
 incremental Studio execution, structured responses and workflow bindings, with
 tests built alongside it. Larger contract-project support can follow later.
 
@@ -23,8 +27,15 @@ Next planned functional validation: [Windows laptop and Linux VPS pilots](PILOT_
 after the roadmap's backend, workflow, integration, reporting and installed-candidate
 gates pass. Both may be operated by the project owner; that is two environments
 and one developer. Independent external onboarding remains separate and pending.
-Current payment actions update the Lab's test ledger. The expanded pilot requires
-a contract method and Studio state read for its contract-effect coverage.
+The original scenario payment actions update the Lab's test ledger. The new
+Studio workflow calls the contract's release method and verifies its test-unit
+ledger through a finalized state read. Six live HTTP reference cases have passed
+their expected outcomes; [the evidence](VERIFICATION.md#agent-driven-studio-workflows--september-7)
+includes both appeal outcomes and a detected faulty-agent action.
+The alpha 9 candidate is installed as the laptop's user-login service. Its
+exported TypeScript and MCP examples have also passed actual Studio workflows.
+The final non-runtime/non-container regression run passed 1,006 tests; explicit
+runtime checks and live Studio evidence are recorded separately.
 
 Alpha 8 fixes the GenVM download's missing certificate issuer on fresh Windows
 installations by adding bundled public certificate roots to its downloader's

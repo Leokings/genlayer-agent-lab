@@ -24,6 +24,7 @@ from genlayer_py import create_account
 from genlayer_py.abi import calldata
 from genlayer_py.chains import localnet
 from genlayer_py.client.genlayer_client import GenLayerClient
+from genlayer_py.types import TransactionHashVariant
 from web3 import Web3
 from web3.providers import BaseProvider
 
@@ -145,10 +146,18 @@ def _snapshot(raw: dict, tx_id: str) -> dict:
         validators = item.get("validator_results") or []
         if type(validators) is not list:
             raise StudioError("malformed_receipt")
-        rounds.append({
+        round_data = {
             "index": len(rounds), "kind": name if name in ROUND_NAMES else "Unknown",
             "validator_votes": [_vote(v.get("vote")) for v in validators if type(v) is dict],
-        })
+        }
+        history_leader = item.get("leader_result")
+        if history_leader:
+            if type(history_leader) is list:
+                history_leader = history_leader[0]
+            history_success, history_result, history_code = _execution(history_leader)
+            round_data.update(execution_success=history_success, raw_result=history_result,
+                              result_code=history_code)
+        rounds.append(round_data)
     votes = consensus.get("votes") or {}
     if type(votes) is not dict:
         raise StudioError("malformed_receipt")
@@ -175,6 +184,8 @@ class _LoopbackProvider(BaseProvider):
         self._remaining = remaining
         self._http = httpx.Client(trust_env=False, follow_redirects=False)
         self._sequence = 0
+        self.on_submission = None
+        self.on_submission_attempt = None
 
     def make_request(self, method, params):
         remaining = self._remaining()
@@ -183,6 +194,8 @@ class _LoopbackProvider(BaseProvider):
         try:
             body = bytearray()
             timeout = httpx.Timeout(min(remaining, 10.0))
+            if method == "eth_sendRawTransaction" and self.on_submission_attempt is not None:
+                self.on_submission_attempt()
             with self._http.stream("POST", self.url, json=payload, timeout=timeout) as response:
                 if response.status_code != 200:
                     raise StudioError("rpc_http_error")
@@ -203,6 +216,8 @@ class _LoopbackProvider(BaseProvider):
                 raise StudioError("rpc_rejected")
             if "result" not in decoded:
                 raise StudioError("malformed_rpc_response")
+            if method == "eth_sendRawTransaction" and self.on_submission is not None:
+                self.on_submission(_hex(decoded["result"], 64, "invalid_transaction_id"))
             return decoded
         except StudioError:
             raise
@@ -371,6 +386,59 @@ class StudioClient:
             tx_id = self._sdk.write_contract(address=address, function_name=method, args=args,
                 leader_only=False, consensus_max_rotations=3, sim_config=config)
             return _hex(tx_id, 64, "invalid_transaction_id")
+
+    def _verify_workflow_method(self, address, snapshot, operation, readonly):
+        from ..workflow_bindings import validate_workflow_snapshot
+        checked = validate_workflow_snapshot(snapshot)
+        _hex(address, 40, "invalid_contract_address")
+        definition = checked["definition"]["operations"].get(operation)
+        if definition is None or definition["readonly"] is not readonly:
+            raise StudioError("unsupported_workflow_operation")
+        self._compatible()
+        encoded = self._rpc("gen_getContractCode", [address])
+        try:
+            actual = base64.b64decode(encoded, validate=True)
+        except Exception:
+            raise StudioError("malformed_deployed_source") from None
+        if hashlib.sha256(actual).hexdigest() != checked["source_sha256"]:
+            raise StudioError("deployed_source_mismatch")
+        schema = self._rpc("gen_getContractSchema", [address])
+        method = definition["method"]
+        if (type(schema) is not dict or type(schema.get("methods")) is not dict
+                or type(schema["methods"].get(method)) is not dict
+                or schema["methods"][method].get("readonly") is not readonly):
+            raise StudioError("workflow_method_schema_mismatch")
+        return checked, method
+
+    def deploy_workflow(self, snapshot: dict) -> str:
+        from ..workflow_bindings import validate_workflow_snapshot
+        with self._operation():
+            checked = validate_workflow_snapshot(snapshot)
+            self._compatible()
+            tx_id = self._sdk.deploy_contract(code=checked["source"].encode("utf-8"),
+                args=checked["definition"]["constructor_args"], leader_only=False,
+                consensus_max_rotations=3)
+            return _hex(tx_id, 64, "invalid_transaction_id")
+
+    def write_workflow(self, address, snapshot, operation, context) -> str:
+        from ..workflow_bindings import resolve_workflow_arguments
+        with self._operation():
+            checked, method = self._verify_workflow_method(address, snapshot, operation, False)
+            arguments = resolve_workflow_arguments(checked, operation, context)
+            tx_id = self._sdk.write_contract(address=address, function_name=method, args=arguments,
+                leader_only=False, consensus_max_rotations=3)
+            return _hex(tx_id, 64, "invalid_transaction_id")
+
+    def read_workflow(self, address, snapshot, operation, context, *, finalized=True):
+        from ..workflow_bindings import resolve_workflow_arguments, validate_workflow_result
+        with self._operation():
+            checked, method = self._verify_workflow_method(address, snapshot, operation, True)
+            arguments = resolve_workflow_arguments(checked, operation, context)
+            result = self._sdk.read_contract(address=address, function_name=method, args=arguments,
+                transaction_hash_variant=(TransactionHashVariant.LATEST_FINAL if finalized
+                                          else TransactionHashVariant.LATEST_NONFINAL))
+            bounded_json(result)
+            return validate_workflow_result(checked, operation, result)
 
     def _raw_transaction(self, tx_id: str) -> dict:
         _hex(tx_id, 64, "invalid_transaction_id")

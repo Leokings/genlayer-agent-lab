@@ -3,7 +3,10 @@
 Recorded September 7, 2026, following the user's scope and runtime decisions.
 This is the current improvement plan. It supersedes the research document's
 earlier proposal to implement scripted appeal outcomes first and add Studio
-integration later. It records planned work, not completed features.
+integration later. The first `service_release` implementation is now available
+in the development candidate; [Studio workflow documentation](STUDIO_WORKFLOWS.md)
+describes its actual scope. The remaining items below are gates, not automatic
+claims of completion.
 
 The immediate validation target is an expanded Studio workflow installed on the
 user's Windows laptop, followed by a Linux VPS. These are two pilot environments;
@@ -65,17 +68,19 @@ with Linux containers and adequate resources. An agent may use its own external
 model provider; no centrally operated Lab server or public Studionet connection
 is required for this development profile.
 
-## Current foundation and the gaps we will address
+## Baseline before this extension
 
-The current alpha has HTTP, Python, TypeScript and MCP connections; a dashboard
+The alpha 8 baseline has HTTP, Python, TypeScript and MCP connections; a dashboard
 and reports; 18 scenarios; controlled contract model replies; single-file contract
 bindings; GLSim execution; and optional owned local Studio execution.
 
-The developer command `studio verify --appeal` has observed a completed local
+In that baseline, the developer command `studio verify --appeal` observed a completed local
 appeal that upheld approval. It does not test an agent choosing to appeal, and it
 does not demonstrate an overturned decision. Ordinary Studio scenario preparation
-currently obtains a finalized result before giving the agent control. Results
-are reduced to approve/deny. These are the main restrictions to remove.
+obtains a finalized result before giving the agent control. Results
+are reduced to approve/deny. The alpha 9 `service_release` workflow adds a
+separate incremental path that removes these restrictions for its supported
+profile; the original scenario engine remains available.
 
 Evidence: [build status](BUILD_STATUS.md), [Studio setup and boundaries](STUDIO.md),
 [verification record](VERIFICATION.md),

@@ -19,11 +19,14 @@ def build_server(
     role: str = "agent",
     run_id: str | None = None,
     client: LabClient | None = None,
+    mode: str = "scenario",
 ) -> MCPServer:
     if role not in {"admin", "agent"}:
         raise ValueError("LAB_ROLE must be admin or agent")
     if role == "agent" and not run_id:
         raise ValueError("LAB_RUN_ID is required for the agent role")
+    if mode not in {"scenario", "workflow"}:
+        raise ValueError("LAB_MODE must be scenario or workflow")
     lab = client or LabClient(base_url, token)
     server = MCPServer(
         f"GenLayer Agent Lab ({role})",
@@ -34,6 +37,10 @@ def build_server(
             "Runs and reports are owned by the separate Lab HTTP service."
         ),
     )
+
+    if mode == "workflow":
+        _add_workflow_tools(server, lab, role, run_id)
+        return server
 
     if role == "admin":
 
@@ -129,6 +136,63 @@ def build_server(
     return server
 
 
+def _add_workflow_tools(server: MCPServer, lab: LabClient, role: str, run_id: str | None) -> None:
+    if role == "admin":
+
+        @server.tool(structured_output=True)
+        def list_workflows() -> list[dict[str, Any]]:
+            """List workflow run summaries without credentials."""
+            return lab.workflow_list()
+
+        @server.tool(structured_output=True)
+        def start_workflow(spec: dict[str, Any]) -> dict[str, Any]:
+            """Create a workflow from its administrator-provided specification."""
+            return lab.workflow_create(spec)
+
+        @server.tool(structured_output=True)
+        def get_workflow(run_id: str) -> dict[str, Any]:
+            """Read workflow progress without advancing it."""
+            return lab.workflow_get(run_id)
+
+        @server.tool(structured_output=True)
+        def get_workflow_report(run_id: str) -> dict[str, Any]:
+            """Read workflow evidence, provenance and evaluator results."""
+            return lab.workflow_report(run_id)
+
+        @server.tool(structured_output=True)
+        def cancel_workflow(run_id: str) -> dict[str, Any]:
+            """Cancel a workflow while retaining recorded evidence."""
+            return lab.workflow_cancel(run_id)
+
+    else:
+        assert run_id is not None
+
+        @server.tool(structured_output=True)
+        def observe() -> dict[str, Any]:
+            """Observe this workflow's task, available operations and current public state."""
+            return lab.workflow_observe(run_id)
+
+        @server.tool(structured_output=True)
+        def invoke_operation(
+            operation: str, arguments: dict[str, Any], idempotency_key: str,
+            expected_decision_id: str | None = None,
+        ) -> dict[str, Any]:
+            """Invoke an available workflow operation; retain the same key and arguments on retry."""
+            return lab.workflow_invoke(
+                run_id, operation, arguments, idempotency_key, expected_decision_id,
+            )
+
+        @server.tool(structured_output=True)
+        def appeal_decision(idempotency_key: str, expected_decision_id: str) -> dict[str, Any]:
+            """Appeal the identified active decision. This does not upload new evidence."""
+            return lab.workflow_appeal(run_id, idempotency_key, expected_decision_id)
+
+        @server.tool(structured_output=True)
+        def finish() -> dict[str, Any]:
+            """Finish this workflow; evaluation remains available to its administrator."""
+            return lab.workflow_finish(run_id)
+
+
 def main() -> None:
     try:
         server = build_server(
@@ -136,6 +200,7 @@ def main() -> None:
             token=os.environ.get("LAB_TOKEN", ""),
             role=os.environ.get("LAB_ROLE", "agent"),
             run_id=os.environ.get("LAB_RUN_ID"),
+            mode=os.environ.get("LAB_MODE", "scenario"),
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)

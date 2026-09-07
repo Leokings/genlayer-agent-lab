@@ -134,6 +134,26 @@ def build_parser() -> argparse.ArgumentParser:
     imported.add_argument("path", type=Path)
     binding = command("import-binding", "Snapshot a local declarative contract binding and its source")
     binding.add_argument("path", type=Path)
+    workflow = command("workflow", "Manage agent-driven local Studio workflows")
+    workflow_commands = workflow.add_subparsers(dest="workflow_operation", required=True)
+    for name in ("create", "validate", "verify", "list", "status", "report", "cancel"):
+        operation = workflow_commands.add_parser(name)
+        _common(operation, child=True)
+        if name == "verify":
+            operation.add_argument("--case", choices=["all", "partial", "overturn", "upheld",
+                                                     "unsafe", "deny", "approved"], default="all")
+            operation.add_argument("--timeout", type=float, default=600,
+                                   help="Per-case deadline in seconds, including cleanup")
+            operation.add_argument("--output", type=Path, help="New file for full reports and evidence")
+        elif name in {"create", "validate"}:
+            operation.add_argument("spec", type=Path, help="Developer-owned JSON workflow specification")
+            operation.add_argument("--binding", type=Path, help="Optional workflow binding YAML")
+            if name == "create":
+                operation.add_argument("--show-agent-token", action="store_true")
+        elif name != "list":
+            operation.add_argument("run_id")
+        if name == "report":
+            operation.add_argument("--output", type=Path)
     return parser
 
 
@@ -196,6 +216,7 @@ def _studio_command(args) -> int:
         _json({"verification": "inconclusive", "backend": "studio", "error_code": "owned_studio_not_ready"})
         return 2
     from .bindings import load_binding, resolve_template
+    from .runtime.studio_cohort import StudioFixtureLease
     from .runtime.studio_evaluator import bundled_snapshot
     from .runtime.studio_fixtures import virtual_validators
     from .scenarios import bundled_scenarios
@@ -208,9 +229,10 @@ def _studio_command(args) -> int:
                ("evidence", "resource_id", "policy_version", "amount", "fixture_verdict")}
     config = {"validators": virtual_validators(context["fixture_verdict"], definition["llm_pattern"],
                                                resolve_template(definition["llm_response"], context))}
-    result = run_studio_conformance(stack["endpoint"], snapshot, context, sim_config=config,
-                                    appeal=args.appeal, timeout=args.timeout, stack_pins=stack,
-                                    expected_verdict=args.expected_verdict or scenario["expected_decision"])
+    with StudioFixtureLease(args.data_dir):
+        result = run_studio_conformance(stack["endpoint"], snapshot, context, sim_config=config,
+                                        appeal=args.appeal, timeout=args.timeout, stack_pins=stack,
+                                        expected_verdict=args.expected_verdict or scenario["expected_decision"])
     if args.output:
         args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     _json(result)
@@ -427,6 +449,13 @@ def main(argv: list[str] | None = None, *, engine_factory: Any = None) -> int:
                 raise ValueError("--binding requires container-glsim or studio; container-glsim requires --binding.")
         if args.command == "studio":
             return _studio_command(args)
+        if args.command == "workflow":
+            from .workflow_cli import execute_workflow
+            result = execute_workflow(args)
+            _json(result)
+            if args.workflow_operation == "verify":
+                return {"pass": 0, "fail": 1}.get(result.get("verification"), 2)
+            return 0
         if args.command == "worker":
             if args.url:
                 raise ValueError("Worker commands operate on this machine only. Omit --url and LAB_URL.")

@@ -143,3 +143,47 @@ class LabClient:
 
     def finish(self, run_id: str) -> dict:
         return self._request("POST", self._run_path(run_id) + "/finish")
+
+    @staticmethod
+    def _workflow_path(run_id: str) -> str:
+        if not run_id or "/" in run_id or run_id in {".", ".."}:
+            raise ValueError("Invalid workflow identifier")
+        return f"/v1/workflows/{quote(run_id, safe='')}"
+
+    def workflow_create(self, spec: dict[str, Any]) -> dict:
+        return self._request("POST", "/v1/workflows", json={"spec": spec})
+
+    def workflow_list(self) -> list[dict]:
+        return self._request("GET", "/v1/workflows")
+
+    def workflow_get(self, run_id: str) -> dict:
+        return self._request("GET", self._workflow_path(run_id))
+
+    def workflow_observe(self, run_id: str) -> dict:
+        return self._request("POST", self._workflow_path(run_id) + "/observe")
+
+    def workflow_invoke(
+        self, run_id: str, operation: str, arguments: dict[str, Any], idempotency_key: str,
+        expected_decision_id: str | None = None,
+    ) -> dict:
+        payload = {"operation": operation, "arguments": arguments,
+                   "idempotency_key": idempotency_key}
+        if expected_decision_id is not None:
+            payload["expected_decision_id"] = expected_decision_id
+        return self._request("POST", self._workflow_path(run_id) + "/operations", json=payload)
+
+    def workflow_appeal(
+        self, run_id: str, idempotency_key: str, expected_decision_id: str,
+    ) -> dict:
+        return self._request("POST", self._workflow_path(run_id) + "/appeals", json={
+            "idempotency_key": idempotency_key, "expected_decision_id": expected_decision_id,
+        })
+
+    def workflow_finish(self, run_id: str) -> dict:
+        return self._request("POST", self._workflow_path(run_id) + "/finish")
+
+    def workflow_cancel(self, run_id: str) -> dict:
+        return self._request("POST", self._workflow_path(run_id) + "/cancel")
+
+    def workflow_report(self, run_id: str) -> dict:
+        return self._request("GET", self._workflow_path(run_id) + "/report")

@@ -10,6 +10,11 @@ its [release artifacts](https://github.com/Leokings/genlayer-agent-lab/releases)
 This alpha is not published on PyPI. Do not install a similarly named package
 from a registry. A supplied source archive or wheel also works.
 
+The expanded Studio workflows require the alpha 9 development candidate or
+later. Published alpha 8 artifacts contain the earlier scenario features.
+Use the supplied candidate wheel's actual filename in the wheel commands below;
+the alpha 8 filenames illustrate installation of that published release.
+
 ## From the source checkout or extracted source archive
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and run:

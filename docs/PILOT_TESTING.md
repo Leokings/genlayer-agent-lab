@@ -1,6 +1,7 @@
 # Expanded Studio workflow: pilot readiness and trials
 
-Planned September 7, 2026. No pilot has been performed by writing this checklist.
+Updated September 7, 2026. Checked items below have engineering verification;
+they do not represent an independent developer-agent pilot.
 The implementation sequence is in [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
 The first two targets are the project owner's Windows laptop and a Linux VPS.
@@ -11,32 +12,36 @@ checklist remains in [EXTERNAL_ONBOARDING.md](EXTERNAL_ONBOARDING.md).
 
 ## Ready before the expanded pilot starts
 
-The current alpha 8 alone does not satisfy this list. Internal verification must
-accompany the implementation of each item.
+The alpha 9 candidate implements the first `service_release` profile. The
+[verification record](VERIFICATION.md#agent-driven-studio-workflows--september-7)
+distinguishes actual Studio trials from automated fault-injection checks.
 
-- [ ] A coherent Studio/GenVM/SDK profile starts and reports its supported
+- [x] A coherent Studio/GenVM/SDK profile starts and reports its supported
   operations and resource needs. Supplied contract-model replies work without a
   live contract-model provider.
-- [ ] The run gives a connected client control before finalization and exposes
+- [x] The run gives a connected client control before finalization and exposes
   observed transaction progress. Agent-selected appeal submission and a completed
   actual local round are recorded. A changed/recomputed result is proven
   separately for the changed-decision case; a scripted revision is insufficient.
-- [ ] One supported contract returns structured results, including a partial
+- [x] One supported contract returns structured results, including a partial
   amount, and exposes a permitted state-changing operation. A Studio read confirms
   the effect. The Lab's own simulated payment ledger cannot satisfy this check.
-- [ ] Contract bindings declare methods, fields, permissions and expected
+- [x] Contract bindings and workflow specifications declare methods, fields, permissions and expected
   effects. Validation rejects unsupported mappings with actionable messages.
-- [ ] HTTP, Python, TypeScript and MCP expose the required shared operations.
+- [x] HTTP, Python, TypeScript and MCP expose the required shared operations.
   The pilot can choose one connection format per environment.
-- [ ] Required correct and faulty reference cases have meaningful expected
+- [x] Required correct and faulty reference cases have meaningful expected
   results. An agent violation and an infrastructure error are distinguishable.
-- [ ] Pending operation identities survive a lost response; the client can
-  reconcile before retrying, without an extra application effect.
-- [ ] Dashboard and exported reports show actions, actual Studio observations,
+- [x] Pending operation identities survive a lost client response; the client can
+  reconcile before retrying, without an extra application effect. Automated
+  fault-injection checks cover this within a running Lab session. An ambiguous
+  raw submission or an interrupted Lab process blocks reuse; automatic resumed
+  workflow execution is not implemented.
+- [x] Dashboard and exported reports show actions, actual Studio observations,
   grades, fixture provenance and the exact backend/scenario/binding versions.
 - [ ] The candidate wheel installs outside the source checkout in a fresh
   environment; checksums, setup instructions and examples match that artifact.
-- [ ] A normal Lab stop/start preserves historical reports and allows a fresh
+- [x] A normal Lab stop/start preserves historical reports and allows a fresh
   run. This is distinct from stopping Studio mid-consensus or rebooting the OS.
 
 If a required backend capability cannot be demonstrated, resolve that capability
@@ -46,7 +51,9 @@ an outcome to make the checklist pass.
 ## Small required behavior set
 
 Use controlled responses and actual supported Studio operations. These cases
-are planned additions, not claims about the existing 18-case catalog.
+belong to the separate workflow profile, not the existing 18-case catalog.
+Six reference cases have actual Studio evidence; closed-window, stale identity
+and lost-acknowledgment handling additionally have automated targeted tests.
 
 | Case | What the Lab must establish |
 |---|---|

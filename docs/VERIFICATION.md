@@ -1,6 +1,67 @@
 # Verification record
 
-Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
+Verified on 2026-09-05 through 2026-09-07, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
+
+## Agent-driven Studio workflows — September 7
+
+The development checkout completed six actual HTTP reference-agent cases against
+the owned Studio stack. These are developer-assisted engineering checks, not
+independent human onboarding. [Sanitized evidence](evidence/studio-workflows-2026-09-07.json)
+preserves the case results, transaction identities, rounds, final state and runtime
+image/configuration identities. The initial checks ran before the alpha 9 version
+bump; their original recorded version is retained.
+
+| Case | Observed result |
+|---|---|
+| Partial approval | All four grades pass; 40 test units released, 60 remain |
+| Overturned denial | Initial denial; completed successful validator appeal; later accepted partial-40 result; finalized execution and release; all grades pass |
+| Upheld decision | Completed failed validator appeal; partial-40 result remains; final release verified; all grades pass |
+| Faulty reference agent | Behavior grade fails for the prohibited release attempt; decision, outcome and completion pass |
+| Justified denial | Final denial with no release; all grades pass |
+| Full approval | Final approval and 100-unit release; all grades pass |
+
+All six sessions restored their controlled validator configuration. The agent
+used a run-only HTTP credential. Its observations excluded fixture definitions
+and grading expectations. No paid contract-model calls or public-chain
+transactions were used.
+
+Two owned-image transport overlays were needed on pinned Studio `0.121.6`:
+validator RPC configuration forwarding, and carrying the pre-execution contract
+snapshot through appeal-job claiming. Exact source hashes guard both patches;
+the built image's `validator-config-and-appeal-snapshot-v2` label is checked.
+The original appeal failure was reproduced before the snapshot fix. It was not
+reported as a passing changed-decision case.
+
+The final non-runtime/non-container regression suite passed **1,006 tests**, with four
+explicit skips and sixteen deselected runtime/container tests. The isolated
+reference-contract checks and actual Studio workflows were run separately.
+Desktop and 390-pixel mobile dashboard checks found no JavaScript errors or
+horizontal overflow after the run-list layout fix.
+
+The reusable `workflow verify --case partial` command also passed against the
+alpha 9 service. It independently checked transaction identity, final state,
+release ordering, clean fixture restoration and the pinned Studio provenance;
+it did not accept the aggregate report grade as sufficient evidence.
+
+The alpha 9 wheel was installed into a separate persistent environment and
+registered as the existing Windows user-login service. Historical scenario and
+workflow data were preserved. The examples exported from that installed wheel
+completed actual partial-40 Studio workflows through both TypeScript HTTP and
+MCP stdio. Each verified finalized contract state and restored the fixture
+configuration. The MCP subprocess exposed exactly `observe`, `invoke_operation`,
+`appeal_decision` and `finish`, using only its workflow credential.
+An actual Windows service stop/start preserved all nine completed workflow
+reports byte-for-byte after JSON decoding, and a new denial workflow passed
+afterward. This is process restart evidence, not a new OS reboot trial.
+[Installed-client and restart evidence](evidence/alpha9-installed-workflows-2026-09-07.json)
+records the exact tested candidate wheel hash. Its runtime reused this laptop's
+verified cache and owned Studio stack; it is not a claim of a fresh operating
+system installation. A separate cache-empty installation check is required
+before checking that pilot gate. Cross-platform alpha 9 CI has not been rerun.
+
+This establishes the first `service_release` profile. It does not establish
+automatic recovery of interrupted workflows, arbitrary multi-contract protocol
+support, modern appeal bonds, or a new external developer/VPS installation.
 
 ## Intel Mac virtualization feasibility — September 6–7
 

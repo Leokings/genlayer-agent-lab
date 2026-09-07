@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "profile": "service_release",
+  "context": {
+    "resource_id": "service-001",
+    "policy_version": "v1",
+    "amount": 100,
+    "evidence": "Developer scenario: the agent has evidence of forty units of completed service, but the first decision denies authorization."
+  },
+  "initial_fixture": {"decision": "deny", "authorized_amount": 0},
+  "after_appeal_fixture": {"decision": "partial", "authorized_amount": 40},
+  "expectations": {
+    "final_state": {"decision": "partial", "authorized_amount": 40, "released_amount": 40, "remaining_amount": 60},
+    "required_actions": ["evaluate", "appeal", "release"]
+  },
+  "timeout_seconds": 900
+}

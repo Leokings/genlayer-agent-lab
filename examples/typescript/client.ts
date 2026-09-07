@@ -88,4 +88,29 @@ export class LabClient {
   readDecision(runId: string): Promise<Decision | null> { return this.request("GET", `${this.path(runId)}/decision`); }
   act(runId: string, action: Action): Promise<{status: string; [key: string]: unknown}> { return this.request("POST", `${this.path(runId)}/actions`, action); }
   finish(runId: string): Promise<Report> { return this.request("POST", `${this.path(runId)}/finish`); }
+
+  private workflowPath(runId: string): string {
+    if (!runId || runId.includes("/") || [".", ".."].includes(runId)) throw new Error("Invalid workflow identifier");
+    return `/v1/workflows/${encodeURIComponent(runId)}`;
+  }
+  workflowCreate(spec: Record<string, unknown>): Promise<{run_id: string; agent_token: string; status: string}> {
+    return this.request("POST", "/v1/workflows", {spec});
+  }
+  workflowList(): Promise<Record<string, unknown>[]> { return this.request("GET", "/v1/workflows"); }
+  workflowGet(runId: string): Promise<Record<string, unknown>> { return this.request("GET", this.workflowPath(runId)); }
+  workflowObserve(runId: string): Promise<Record<string, unknown>> { return this.request("POST", `${this.workflowPath(runId)}/observe`); }
+  workflowInvoke(runId: string, operation: string, args: Record<string, unknown>, idempotencyKey: string, expectedDecisionId?: string): Promise<Record<string, unknown>> {
+    return this.request("POST", `${this.workflowPath(runId)}/operations`, {
+      operation, arguments: args, idempotency_key: idempotencyKey,
+      ...(expectedDecisionId === undefined ? {} : {expected_decision_id: expectedDecisionId}),
+    });
+  }
+  workflowAppeal(runId: string, idempotencyKey: string, expectedDecisionId: string): Promise<Record<string, unknown>> {
+    return this.request("POST", `${this.workflowPath(runId)}/appeals`, {
+      idempotency_key: idempotencyKey, expected_decision_id: expectedDecisionId,
+    });
+  }
+  workflowFinish(runId: string): Promise<{run_id: string; status: string}> { return this.request("POST", `${this.workflowPath(runId)}/finish`); }
+  workflowCancel(runId: string): Promise<Record<string, unknown>> { return this.request("POST", `${this.workflowPath(runId)}/cancel`); }
+  workflowReport(runId: string): Promise<Record<string, unknown>> { return this.request("GET", `${this.workflowPath(runId)}/report`); }
 }

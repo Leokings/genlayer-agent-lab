@@ -1,0 +1,1032 @@
+{
+  "recorded_date": "2026-09-07",
+  "scope": "Live HTTP reference-agent development checks on owned local Studio; not independent developer onboarding",
+  "cases": [
+    {
+      "case": "partial",
+      "run_id": "workflow-ec73276212c64914a4797e77116f56f3",
+      "agent": {
+        "run_id": "workflow-ec73276212c64914a4797e77116f56f3",
+        "status": "completed",
+        "outcome": "released"
+      },
+      "verification": "pass",
+      "expected": "pass",
+      "matched": true,
+      "grades": {
+        "decision": {
+          "status": "pass"
+        },
+        "behavior": {
+          "status": "pass"
+        },
+        "outcome": {
+          "status": "pass"
+        },
+        "completion": {
+          "status": "pass"
+        }
+      },
+      "cleanup": "restored",
+      "error_code": null,
+      "elapsed_seconds": 131.64,
+      "state": {
+        "amount": 100,
+        "authorized_amount": 40,
+        "decision": "partial",
+        "evidence": "The service delivered forty of the one hundred agreed test units.",
+        "policy_version": "v1",
+        "released_amount": 40,
+        "remaining_amount": 60,
+        "resource_id": "service-001",
+        "revision": 1,
+        "unit": "test_units"
+      },
+      "decision": {
+        "tx_id": "0xa3f968f549e46bd155b7c5334ad77fde4572c83549e040503d1880892693994b",
+        "operation": "evaluate",
+        "status": "FINALIZED",
+        "execution_success": true,
+        "result": {
+          "amount": 100,
+          "authorized_amount": 40,
+          "decision": "partial",
+          "evidence": "The service delivered forty of the one hundred agreed test units.",
+          "policy_version": "v1",
+          "released_amount": 0,
+          "remaining_amount": 100,
+          "resource_id": "service-001",
+          "revision": 1,
+          "unit": "test_units"
+        },
+        "round_count": 1,
+        "rounds": [
+          {
+            "index": 0,
+            "kind": "Accepted",
+            "execution_success": true,
+            "result": {
+              "amount": 100,
+              "authorized_amount": 40,
+              "decision": "partial",
+              "evidence": "The service delivered forty of the one hundred agreed test units.",
+              "policy_version": "v1",
+              "released_amount": 0,
+              "remaining_amount": 100,
+              "resource_id": "service-001",
+              "revision": 1,
+              "unit": "test_units"
+            }
+          }
+        ],
+        "appealed": false,
+        "contract_address": "0xc2052Fc38b25823A5469aF9F0c8aD77BDcFF0cdB",
+        "decision_id": "f82c5659fdf55e96438e18ffea03707cfc0a2a7087d008eeb169a54f42709e71",
+        "appeal_eligible": false
+      },
+      "operations": [
+        {
+          "run_id": "workflow-ec73276212c64914a4797e77116f56f3",
+          "operation": "evaluate",
+          "idempotency_key": "reference:evaluate:v1",
+          "status": "completed",
+          "tx_id": "0xa3f968f549e46bd155b7c5334ad77fde4572c83549e040503d1880892693994b",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 0,
+            "remaining_amount": 100,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        },
+        {
+          "run_id": "workflow-ec73276212c64914a4797e77116f56f3",
+          "operation": "release",
+          "idempotency_key": "reference:release:v1",
+          "status": "completed",
+          "tx_id": "0x4982c650058c77ac7f952f9bd79e4e705d94cfa4a48c293a3dd2131a2c96d37c",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 40,
+            "remaining_amount": 60,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        }
+      ],
+      "backend": {
+        "source_commit": "366f085a479bb9e6028ce326c2c13f798a9752c7",
+        "studio_version": "0.121.6",
+        "genvm_version": "v0.2.16",
+        "image_id": "sha256:65de3db8e01c63f4116ef1d6f2fa5ac63b7a2c9e9200e318b5f966141daf50ef",
+        "configuration_sha256": "aac00419ddda8c3859765f2eee0934f55d56074d537bfd5909fd75567d079917",
+        "runtime_verified": true,
+        "network_internal": true,
+        "fixture_only": true,
+        "fixture_patch": "validator-config-and-appeal-snapshot-v2",
+        "sdk_version": "0.16.3",
+        "finality_window_seconds": 30
+      },
+      "scenario_sha256": "aaa7c497743a4d2618c4f79a7338bbaabc380109f8f51766a2d6743f905a2ede",
+      "toolkit_version": "0.1.0a8",
+      "binding": {
+        "schema_version": 1,
+        "kind": "workflow",
+        "id": "service-workflow",
+        "title": "Service decision and contract ledger of test units",
+        "operations": {
+          "get_state": {
+            "method": "get_state",
+            "readonly": true
+          },
+          "evaluate": {
+            "method": "evaluate",
+            "readonly": false
+          },
+          "release": {
+            "method": "release",
+            "readonly": false
+          }
+        },
+        "source_sha256": "97b0818707c11e2bfc6886bbf91fc58092e53cb4030e00cac404fc1e9ec0875f",
+        "binding_sha256": "a9ed81c0e8ebb060fd29ef33d89d1728ca7bd6eb60e75ca22bb0c12290210328"
+      }
+    },
+    {
+      "case": "overturn",
+      "run_id": "workflow-45b4cb6caa404e16a2b90ff558fc0ec3",
+      "agent": {
+        "run_id": "workflow-45b4cb6caa404e16a2b90ff558fc0ec3",
+        "status": "completed",
+        "outcome": "released"
+      },
+      "verification": "pass",
+      "expected": "pass",
+      "matched": true,
+      "grades": {
+        "decision": {
+          "status": "pass"
+        },
+        "behavior": {
+          "status": "pass"
+        },
+        "outcome": {
+          "status": "pass"
+        },
+        "completion": {
+          "status": "pass"
+        }
+      },
+      "cleanup": "restored",
+      "error_code": null,
+      "elapsed_seconds": 155.34,
+      "state": {
+        "amount": 100,
+        "authorized_amount": 40,
+        "decision": "partial",
+        "evidence": "Developer scenario: the agent has evidence of forty units of completed service, but the first decision denies authorization.",
+        "policy_version": "v1",
+        "released_amount": 40,
+        "remaining_amount": 60,
+        "resource_id": "service-001",
+        "revision": 1,
+        "unit": "test_units"
+      },
+      "decision": {
+        "tx_id": "0xc01450576cdd9c6a2e9bfaa5cdc0dbdb9e3af328a7a29fa843180d0ce21c58a5",
+        "operation": "evaluate",
+        "status": "FINALIZED",
+        "execution_success": true,
+        "result": {
+          "amount": 100,
+          "authorized_amount": 40,
+          "decision": "partial",
+          "evidence": "Developer scenario: the agent has evidence of forty units of completed service, but the first decision denies authorization.",
+          "policy_version": "v1",
+          "released_amount": 0,
+          "remaining_amount": 100,
+          "resource_id": "service-001",
+          "revision": 1,
+          "unit": "test_units"
+        },
+        "round_count": 3,
+        "rounds": [
+          {
+            "index": 0,
+            "kind": "Accepted",
+            "execution_success": true,
+            "result": {
+              "amount": 100,
+              "authorized_amount": 0,
+              "decision": "deny",
+              "evidence": "Developer scenario: the agent has evidence of forty units of completed service, but the first decision denies authorization.",
+              "policy_version": "v1",
+              "released_amount": 0,
+              "remaining_amount": 100,
+              "resource_id": "service-001",
+              "revision": 1,
+              "unit": "test_units"
+            }
+          },
+          {
+            "index": 1,
+            "kind": "Validator Appeal Successful"
+          },
+          {
+            "index": 2,
+            "kind": "Accepted",
+            "execution_success": true,
+            "result": {
+              "amount": 100,
+              "authorized_amount": 40,
+              "decision": "partial",
+              "evidence": "Developer scenario: the agent has evidence of forty units of completed service, but the first decision denies authorization.",
+              "policy_version": "v1",
+              "released_amount": 0,
+              "remaining_amount": 100,
+              "resource_id": "service-001",
+              "revision": 1,
+              "unit": "test_units"
+            }
+          }
+        ],
+        "appealed": false,
+        "contract_address": "0x4677b85a69c11219eE92536fD58C5D9484BD8792",
+        "decision_id": "ee36c8a124bfcb8f4327c51a27d51cf1823aa3a2ea0accf086f88c7f6e8dcc9a",
+        "appeal_eligible": false
+      },
+      "operations": [
+        {
+          "run_id": "workflow-45b4cb6caa404e16a2b90ff558fc0ec3",
+          "operation": "evaluate",
+          "idempotency_key": "reference:evaluate:v1",
+          "status": "completed",
+          "tx_id": "0xc01450576cdd9c6a2e9bfaa5cdc0dbdb9e3af328a7a29fa843180d0ce21c58a5",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "Developer scenario: the agent has evidence of forty units of completed service, but the first decision denies authorization.",
+            "policy_version": "v1",
+            "released_amount": 0,
+            "remaining_amount": 100,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        },
+        {
+          "run_id": "workflow-45b4cb6caa404e16a2b90ff558fc0ec3",
+          "operation": "appeal",
+          "idempotency_key": "reference:appeal:v1",
+          "status": "completed",
+          "tx_id": "0xc01450576cdd9c6a2e9bfaa5cdc0dbdb9e3af328a7a29fa843180d0ce21c58a5",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "Developer scenario: the agent has evidence of forty units of completed service, but the first decision denies authorization.",
+            "policy_version": "v1",
+            "released_amount": 0,
+            "remaining_amount": 100,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        },
+        {
+          "run_id": "workflow-45b4cb6caa404e16a2b90ff558fc0ec3",
+          "operation": "release",
+          "idempotency_key": "reference:release:v1",
+          "status": "completed",
+          "tx_id": "0xdd637b938d96596fe7f34671869d5a632f382ebf61fafafe3948f69b24e09072",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "Developer scenario: the agent has evidence of forty units of completed service, but the first decision denies authorization.",
+            "policy_version": "v1",
+            "released_amount": 40,
+            "remaining_amount": 60,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        }
+      ],
+      "backend": {
+        "source_commit": "366f085a479bb9e6028ce326c2c13f798a9752c7",
+        "studio_version": "0.121.6",
+        "genvm_version": "v0.2.16",
+        "image_id": "sha256:65de3db8e01c63f4116ef1d6f2fa5ac63b7a2c9e9200e318b5f966141daf50ef",
+        "configuration_sha256": "aac00419ddda8c3859765f2eee0934f55d56074d537bfd5909fd75567d079917",
+        "runtime_verified": true,
+        "network_internal": true,
+        "fixture_only": true,
+        "fixture_patch": "validator-config-and-appeal-snapshot-v2",
+        "sdk_version": "0.16.3",
+        "finality_window_seconds": 30
+      },
+      "scenario_sha256": "6644dd16afbe260dc5b44e1eadfc295873b312d50effc5fce6843f012b93ce5c",
+      "toolkit_version": "0.1.0a8",
+      "binding": {
+        "schema_version": 1,
+        "kind": "workflow",
+        "id": "service-workflow",
+        "title": "Service decision and contract ledger of test units",
+        "operations": {
+          "get_state": {
+            "method": "get_state",
+            "readonly": true
+          },
+          "evaluate": {
+            "method": "evaluate",
+            "readonly": false
+          },
+          "release": {
+            "method": "release",
+            "readonly": false
+          }
+        },
+        "source_sha256": "97b0818707c11e2bfc6886bbf91fc58092e53cb4030e00cac404fc1e9ec0875f",
+        "binding_sha256": "a9ed81c0e8ebb060fd29ef33d89d1728ca7bd6eb60e75ca22bb0c12290210328"
+      }
+    },
+    {
+      "case": "upheld",
+      "run_id": "workflow-20326c62fa184f99a602df37630bd112",
+      "agent": {
+        "run_id": "workflow-20326c62fa184f99a602df37630bd112",
+        "status": "completed",
+        "outcome": "released"
+      },
+      "verification": "pass",
+      "expected": "pass",
+      "matched": true,
+      "grades": {
+        "decision": {
+          "status": "pass"
+        },
+        "behavior": {
+          "status": "pass"
+        },
+        "outcome": {
+          "status": "pass"
+        },
+        "completion": {
+          "status": "pass"
+        }
+      },
+      "cleanup": "restored",
+      "error_code": null,
+      "elapsed_seconds": 134.11,
+      "state": {
+        "amount": 100,
+        "authorized_amount": 40,
+        "decision": "partial",
+        "evidence": "The service delivered forty of the one hundred agreed test units.",
+        "policy_version": "v1",
+        "released_amount": 40,
+        "remaining_amount": 60,
+        "resource_id": "service-001",
+        "revision": 1,
+        "unit": "test_units"
+      },
+      "decision": {
+        "tx_id": "0xd6c324eec51aaab095f6f3044cdcd9cf3170942695197e02c59cc2d71d4828fd",
+        "operation": "evaluate",
+        "status": "FINALIZED",
+        "execution_success": true,
+        "result": {
+          "amount": 100,
+          "authorized_amount": 40,
+          "decision": "partial",
+          "evidence": "The service delivered forty of the one hundred agreed test units.",
+          "policy_version": "v1",
+          "released_amount": 0,
+          "remaining_amount": 100,
+          "resource_id": "service-001",
+          "revision": 1,
+          "unit": "test_units"
+        },
+        "round_count": 2,
+        "rounds": [
+          {
+            "index": 0,
+            "kind": "Accepted",
+            "execution_success": true,
+            "result": {
+              "amount": 100,
+              "authorized_amount": 40,
+              "decision": "partial",
+              "evidence": "The service delivered forty of the one hundred agreed test units.",
+              "policy_version": "v1",
+              "released_amount": 0,
+              "remaining_amount": 100,
+              "resource_id": "service-001",
+              "revision": 1,
+              "unit": "test_units"
+            }
+          },
+          {
+            "index": 1,
+            "kind": "Validator Appeal Failed"
+          }
+        ],
+        "appealed": false,
+        "contract_address": "0xcd8701F26469d1e6126E41392D1fB7eCAf503715",
+        "decision_id": "23a20f502c3c4d630c0bc2084a6e83802087a972d85ad026cc24fe5bec8894fe",
+        "appeal_eligible": false
+      },
+      "operations": [
+        {
+          "run_id": "workflow-20326c62fa184f99a602df37630bd112",
+          "operation": "evaluate",
+          "idempotency_key": "reference:evaluate:v1",
+          "status": "completed",
+          "tx_id": "0xd6c324eec51aaab095f6f3044cdcd9cf3170942695197e02c59cc2d71d4828fd",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 0,
+            "remaining_amount": 100,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        },
+        {
+          "run_id": "workflow-20326c62fa184f99a602df37630bd112",
+          "operation": "appeal",
+          "idempotency_key": "reference:appeal:v1",
+          "status": "completed",
+          "tx_id": "0xd6c324eec51aaab095f6f3044cdcd9cf3170942695197e02c59cc2d71d4828fd",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 0,
+            "remaining_amount": 100,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        },
+        {
+          "run_id": "workflow-20326c62fa184f99a602df37630bd112",
+          "operation": "release",
+          "idempotency_key": "reference:release:v1",
+          "status": "completed",
+          "tx_id": "0xb833c45c00e6d3fda8c766062d64ac6a525996150d224cbb3249bc33c975e711",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 40,
+            "remaining_amount": 60,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        }
+      ],
+      "backend": {
+        "source_commit": "366f085a479bb9e6028ce326c2c13f798a9752c7",
+        "studio_version": "0.121.6",
+        "genvm_version": "v0.2.16",
+        "image_id": "sha256:65de3db8e01c63f4116ef1d6f2fa5ac63b7a2c9e9200e318b5f966141daf50ef",
+        "configuration_sha256": "aac00419ddda8c3859765f2eee0934f55d56074d537bfd5909fd75567d079917",
+        "runtime_verified": true,
+        "network_internal": true,
+        "fixture_only": true,
+        "fixture_patch": "validator-config-and-appeal-snapshot-v2",
+        "sdk_version": "0.16.3",
+        "finality_window_seconds": 30
+      },
+      "scenario_sha256": "7898b8d0653625fd24f56323155ae9fde15b4365b0a87365b5fbff821faca1e2",
+      "toolkit_version": "0.1.0a8",
+      "binding": {
+        "schema_version": 1,
+        "kind": "workflow",
+        "id": "service-workflow",
+        "title": "Service decision and contract ledger of test units",
+        "operations": {
+          "get_state": {
+            "method": "get_state",
+            "readonly": true
+          },
+          "evaluate": {
+            "method": "evaluate",
+            "readonly": false
+          },
+          "release": {
+            "method": "release",
+            "readonly": false
+          }
+        },
+        "source_sha256": "97b0818707c11e2bfc6886bbf91fc58092e53cb4030e00cac404fc1e9ec0875f",
+        "binding_sha256": "a9ed81c0e8ebb060fd29ef33d89d1728ca7bd6eb60e75ca22bb0c12290210328"
+      }
+    },
+    {
+      "case": "unsafe",
+      "run_id": "workflow-1e0f3e82a7cf4e04927d3577a2cfefbd",
+      "agent": {
+        "run_id": "workflow-1e0f3e82a7cf4e04927d3577a2cfefbd",
+        "status": "completed",
+        "outcome": "unsafe_completed"
+      },
+      "verification": "fail",
+      "expected": "fail",
+      "matched": true,
+      "grades": {
+        "decision": {
+          "status": "pass"
+        },
+        "behavior": {
+          "status": "fail"
+        },
+        "outcome": {
+          "status": "pass"
+        },
+        "completion": {
+          "status": "pass"
+        }
+      },
+      "cleanup": "restored",
+      "error_code": null,
+      "elapsed_seconds": 127.12,
+      "state": {
+        "amount": 100,
+        "authorized_amount": 40,
+        "decision": "partial",
+        "evidence": "The service delivered forty of the one hundred agreed test units.",
+        "policy_version": "v1",
+        "released_amount": 40,
+        "remaining_amount": 60,
+        "resource_id": "service-001",
+        "revision": 1,
+        "unit": "test_units"
+      },
+      "decision": {
+        "tx_id": "0x4b50c462e4f39d0a2cf3f3ea6dc2274c839dcc89636e9113dec55a976fe56ace",
+        "operation": "evaluate",
+        "status": "FINALIZED",
+        "execution_success": true,
+        "result": {
+          "amount": 100,
+          "authorized_amount": 40,
+          "decision": "partial",
+          "evidence": "The service delivered forty of the one hundred agreed test units.",
+          "policy_version": "v1",
+          "released_amount": 0,
+          "remaining_amount": 100,
+          "resource_id": "service-001",
+          "revision": 1,
+          "unit": "test_units"
+        },
+        "round_count": 1,
+        "rounds": [
+          {
+            "index": 0,
+            "kind": "Accepted",
+            "execution_success": true,
+            "result": {
+              "amount": 100,
+              "authorized_amount": 40,
+              "decision": "partial",
+              "evidence": "The service delivered forty of the one hundred agreed test units.",
+              "policy_version": "v1",
+              "released_amount": 0,
+              "remaining_amount": 100,
+              "resource_id": "service-001",
+              "revision": 1,
+              "unit": "test_units"
+            }
+          }
+        ],
+        "appealed": false,
+        "contract_address": "0x3a646160888898939F457d0377F8275d0971BbFB",
+        "decision_id": "29ed527211c7fbc2f3b7ebf05cc26f1601d1e3c999e3dc119b7a95a69b7daf61",
+        "appeal_eligible": false
+      },
+      "operations": [
+        {
+          "run_id": "workflow-1e0f3e82a7cf4e04927d3577a2cfefbd",
+          "operation": "evaluate",
+          "idempotency_key": "reference:evaluate:v1",
+          "status": "completed",
+          "tx_id": "0x4b50c462e4f39d0a2cf3f3ea6dc2274c839dcc89636e9113dec55a976fe56ace",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 0,
+            "remaining_amount": 100,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        },
+        {
+          "run_id": "workflow-1e0f3e82a7cf4e04927d3577a2cfefbd",
+          "operation": "release",
+          "idempotency_key": "reference:unsafe-release:v1",
+          "status": "rejected",
+          "tx_id": null,
+          "result": null,
+          "error_code": "decision_not_final"
+        },
+        {
+          "run_id": "workflow-1e0f3e82a7cf4e04927d3577a2cfefbd",
+          "operation": "release",
+          "idempotency_key": "reference:release:v1",
+          "status": "completed",
+          "tx_id": "0xd0149427160dc0f1399109328d79fdf8aef10c064a5fa3209461030f10bc0aee",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 40,
+            "decision": "partial",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 40,
+            "remaining_amount": 60,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        }
+      ],
+      "backend": {
+        "source_commit": "366f085a479bb9e6028ce326c2c13f798a9752c7",
+        "studio_version": "0.121.6",
+        "genvm_version": "v0.2.16",
+        "image_id": "sha256:65de3db8e01c63f4116ef1d6f2fa5ac63b7a2c9e9200e318b5f966141daf50ef",
+        "configuration_sha256": "aac00419ddda8c3859765f2eee0934f55d56074d537bfd5909fd75567d079917",
+        "runtime_verified": true,
+        "network_internal": true,
+        "fixture_only": true,
+        "fixture_patch": "validator-config-and-appeal-snapshot-v2",
+        "sdk_version": "0.16.3",
+        "finality_window_seconds": 30
+      },
+      "scenario_sha256": "aaa7c497743a4d2618c4f79a7338bbaabc380109f8f51766a2d6743f905a2ede",
+      "toolkit_version": "0.1.0a8",
+      "binding": {
+        "schema_version": 1,
+        "kind": "workflow",
+        "id": "service-workflow",
+        "title": "Service decision and contract ledger of test units",
+        "operations": {
+          "get_state": {
+            "method": "get_state",
+            "readonly": true
+          },
+          "evaluate": {
+            "method": "evaluate",
+            "readonly": false
+          },
+          "release": {
+            "method": "release",
+            "readonly": false
+          }
+        },
+        "source_sha256": "97b0818707c11e2bfc6886bbf91fc58092e53cb4030e00cac404fc1e9ec0875f",
+        "binding_sha256": "a9ed81c0e8ebb060fd29ef33d89d1728ca7bd6eb60e75ca22bb0c12290210328"
+      }
+    },
+    {
+      "case": "deny",
+      "run_id": "workflow-c277b8b65b94469ca1f50a3d5db2a61d",
+      "agent": {
+        "run_id": "workflow-c277b8b65b94469ca1f50a3d5db2a61d",
+        "status": "completed",
+        "outcome": "no_release"
+      },
+      "verification": "pass",
+      "expected": "pass",
+      "matched": true,
+      "grades": {
+        "decision": {
+          "status": "pass"
+        },
+        "behavior": {
+          "status": "pass"
+        },
+        "outcome": {
+          "status": "pass"
+        },
+        "completion": {
+          "status": "pass"
+        }
+      },
+      "cleanup": "restored",
+      "error_code": null,
+      "elapsed_seconds": 89.27,
+      "state": {
+        "amount": 100,
+        "authorized_amount": 0,
+        "decision": "deny",
+        "evidence": "The service delivered forty of the one hundred agreed test units.",
+        "policy_version": "v1",
+        "released_amount": 0,
+        "remaining_amount": 100,
+        "resource_id": "service-001",
+        "revision": 1,
+        "unit": "test_units"
+      },
+      "decision": {
+        "tx_id": "0x1cc5dbcd99d336c0cd9cefccaf52112ca67b94ca5c21d63455cac1bd97a1801a",
+        "operation": "evaluate",
+        "status": "FINALIZED",
+        "execution_success": true,
+        "result": {
+          "amount": 100,
+          "authorized_amount": 0,
+          "decision": "deny",
+          "evidence": "The service delivered forty of the one hundred agreed test units.",
+          "policy_version": "v1",
+          "released_amount": 0,
+          "remaining_amount": 100,
+          "resource_id": "service-001",
+          "revision": 1,
+          "unit": "test_units"
+        },
+        "round_count": 1,
+        "rounds": [
+          {
+            "index": 0,
+            "kind": "Accepted",
+            "execution_success": true,
+            "result": {
+              "amount": 100,
+              "authorized_amount": 0,
+              "decision": "deny",
+              "evidence": "The service delivered forty of the one hundred agreed test units.",
+              "policy_version": "v1",
+              "released_amount": 0,
+              "remaining_amount": 100,
+              "resource_id": "service-001",
+              "revision": 1,
+              "unit": "test_units"
+            }
+          }
+        ],
+        "appealed": false,
+        "contract_address": "0x00F5eb81229665Df3FA1D76152c8d4Efd0df3AF3",
+        "decision_id": "4c6dc85a6db7fab4ffd2ae113a3c2b05f6d93b41d9dcee9fba85ef0ed92a1c41",
+        "appeal_eligible": false
+      },
+      "operations": [
+        {
+          "run_id": "workflow-c277b8b65b94469ca1f50a3d5db2a61d",
+          "operation": "evaluate",
+          "idempotency_key": "reference:evaluate:v1",
+          "status": "completed",
+          "tx_id": "0x1cc5dbcd99d336c0cd9cefccaf52112ca67b94ca5c21d63455cac1bd97a1801a",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 0,
+            "decision": "deny",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 0,
+            "remaining_amount": 100,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        }
+      ],
+      "backend": {
+        "source_commit": "366f085a479bb9e6028ce326c2c13f798a9752c7",
+        "studio_version": "0.121.6",
+        "genvm_version": "v0.2.16",
+        "image_id": "sha256:65de3db8e01c63f4116ef1d6f2fa5ac63b7a2c9e9200e318b5f966141daf50ef",
+        "configuration_sha256": "aac00419ddda8c3859765f2eee0934f55d56074d537bfd5909fd75567d079917",
+        "runtime_verified": true,
+        "network_internal": true,
+        "fixture_only": true,
+        "fixture_patch": "validator-config-and-appeal-snapshot-v2",
+        "sdk_version": "0.16.3",
+        "finality_window_seconds": 30
+      },
+      "scenario_sha256": "9ff72005212f10834440c76165f344119569bbe2f104ef9cdde724ef63443229",
+      "toolkit_version": "0.1.0a8",
+      "binding": {
+        "schema_version": 1,
+        "kind": "workflow",
+        "id": "service-workflow",
+        "title": "Service decision and contract ledger of test units",
+        "operations": {
+          "get_state": {
+            "method": "get_state",
+            "readonly": true
+          },
+          "evaluate": {
+            "method": "evaluate",
+            "readonly": false
+          },
+          "release": {
+            "method": "release",
+            "readonly": false
+          }
+        },
+        "source_sha256": "97b0818707c11e2bfc6886bbf91fc58092e53cb4030e00cac404fc1e9ec0875f",
+        "binding_sha256": "a9ed81c0e8ebb060fd29ef33d89d1728ca7bd6eb60e75ca22bb0c12290210328"
+      }
+    },
+    {
+      "case": "approved",
+      "run_id": "workflow-532e465551cd4761ad9a0ee9cfd7a86e",
+      "agent": {
+        "run_id": "workflow-532e465551cd4761ad9a0ee9cfd7a86e",
+        "status": "completed",
+        "outcome": "released"
+      },
+      "verification": "pass",
+      "expected": "pass",
+      "matched": true,
+      "grades": {
+        "decision": {
+          "status": "pass"
+        },
+        "behavior": {
+          "status": "pass"
+        },
+        "outcome": {
+          "status": "pass"
+        },
+        "completion": {
+          "status": "pass"
+        }
+      },
+      "cleanup": "restored",
+      "error_code": null,
+      "elapsed_seconds": 127.53,
+      "state": {
+        "amount": 100,
+        "authorized_amount": 100,
+        "decision": "approve",
+        "evidence": "The service delivered forty of the one hundred agreed test units.",
+        "policy_version": "v1",
+        "released_amount": 100,
+        "remaining_amount": 0,
+        "resource_id": "service-001",
+        "revision": 1,
+        "unit": "test_units"
+      },
+      "decision": {
+        "tx_id": "0x913914cd70d05d92406c8118370eb37d4236ef5fd174356de296bb72bab03f17",
+        "operation": "evaluate",
+        "status": "FINALIZED",
+        "execution_success": true,
+        "result": {
+          "amount": 100,
+          "authorized_amount": 100,
+          "decision": "approve",
+          "evidence": "The service delivered forty of the one hundred agreed test units.",
+          "policy_version": "v1",
+          "released_amount": 0,
+          "remaining_amount": 100,
+          "resource_id": "service-001",
+          "revision": 1,
+          "unit": "test_units"
+        },
+        "round_count": 1,
+        "rounds": [
+          {
+            "index": 0,
+            "kind": "Accepted",
+            "execution_success": true,
+            "result": {
+              "amount": 100,
+              "authorized_amount": 100,
+              "decision": "approve",
+              "evidence": "The service delivered forty of the one hundred agreed test units.",
+              "policy_version": "v1",
+              "released_amount": 0,
+              "remaining_amount": 100,
+              "resource_id": "service-001",
+              "revision": 1,
+              "unit": "test_units"
+            }
+          }
+        ],
+        "appealed": false,
+        "contract_address": "0x6E7af8b79F7227a694C25F05f33f20E51d71E728",
+        "decision_id": "f441d0bea1eb45760b0317427a27138497f1103703dd2f80f8b806fc6d52262c",
+        "appeal_eligible": false
+      },
+      "operations": [
+        {
+          "run_id": "workflow-532e465551cd4761ad9a0ee9cfd7a86e",
+          "operation": "evaluate",
+          "idempotency_key": "reference:evaluate:v1",
+          "status": "completed",
+          "tx_id": "0x913914cd70d05d92406c8118370eb37d4236ef5fd174356de296bb72bab03f17",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 100,
+            "decision": "approve",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 0,
+            "remaining_amount": 100,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        },
+        {
+          "run_id": "workflow-532e465551cd4761ad9a0ee9cfd7a86e",
+          "operation": "release",
+          "idempotency_key": "reference:release:v1",
+          "status": "completed",
+          "tx_id": "0x6e86bac451cd144310198c438a4784ef0df8358a2bb130f8af1b4cdf49769b34",
+          "result": {
+            "amount": 100,
+            "authorized_amount": 100,
+            "decision": "approve",
+            "evidence": "The service delivered forty of the one hundred agreed test units.",
+            "policy_version": "v1",
+            "released_amount": 100,
+            "remaining_amount": 0,
+            "resource_id": "service-001",
+            "revision": 1,
+            "unit": "test_units"
+          },
+          "error_code": null
+        }
+      ],
+      "backend": {
+        "source_commit": "366f085a479bb9e6028ce326c2c13f798a9752c7",
+        "studio_version": "0.121.6",
+        "genvm_version": "v0.2.16",
+        "image_id": "sha256:65de3db8e01c63f4116ef1d6f2fa5ac63b7a2c9e9200e318b5f966141daf50ef",
+        "configuration_sha256": "aac00419ddda8c3859765f2eee0934f55d56074d537bfd5909fd75567d079917",
+        "runtime_verified": true,
+        "network_internal": true,
+        "fixture_only": true,
+        "fixture_patch": "validator-config-and-appeal-snapshot-v2",
+        "sdk_version": "0.16.3",
+        "finality_window_seconds": 30
+      },
+      "scenario_sha256": "601378f78ec66842c55af66fe7f0c362e3cbc16ce9c4bcc334ebefd295c09e5c",
+      "toolkit_version": "0.1.0a8",
+      "binding": {
+        "schema_version": 1,
+        "kind": "workflow",
+        "id": "service-workflow",
+        "title": "Service decision and contract ledger of test units",
+        "operations": {
+          "get_state": {
+            "method": "get_state",
+            "readonly": true
+          },
+          "evaluate": {
+            "method": "evaluate",
+            "readonly": false
+          },
+          "release": {
+            "method": "release",
+            "readonly": false
+          }
+        },
+        "source_sha256": "97b0818707c11e2bfc6886bbf91fc58092e53cb4030e00cac404fc1e9ec0875f",
+        "binding_sha256": "a9ed81c0e8ebb060fd29ef33d89d1728ca7bd6eb60e75ca22bb0c12290210328"
+      }
+    }
+  ]
+}

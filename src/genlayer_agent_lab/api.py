@@ -212,6 +212,10 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
         if not hmac.compare_digest(bearer(authorization), admin_token):
             raise HTTPException(401, "Invalid administrator credentials")
 
+    from .workflow_api import mount_workflow_routes
+    mount_workflow_routes(app, lambda request: request.app.state.engine.workflows,
+                          administrator, bearer)
+
     def agent_access(run_id: str, request: Request,
                      authorization: Annotated[str | None, Header()] = None) -> None:
         token = bearer(authorization)
@@ -247,6 +251,17 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
                 active_engine = request.app.state.engine
                 if active_engine.authenticate_agent(run_id, token):
                     active_engine.reject_invalid_action(run_id, "Action schema validation failed")
+            except (HTTPException, KeyError, ValueError, RuntimeError):
+                pass
+        if request.method == "POST" and getattr(route, "path", None) in {
+            "/v1/workflows/{run_id}/operations", "/v1/workflows/{run_id}/appeals",
+        }:
+            try:
+                token = bearer(request.headers.get("authorization"))
+                run_id = request.path_params["run_id"]
+                manager = request.app.state.engine.workflows
+                if manager.authenticate(run_id, token):
+                    manager.reject_invalid_action(run_id)
             except (HTTPException, KeyError, ValueError, RuntimeError):
                 pass
         # Pydantic errors normally echo input values, which may contain credentials/evidence.

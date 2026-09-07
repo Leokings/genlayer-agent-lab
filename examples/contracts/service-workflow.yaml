@@ -1,0 +1,161 @@
+# Single-file reference; balances represent contract test units, not funds.
+schema_version: 1
+kind: workflow
+id: service-workflow
+title: Service decision and contract ledger of test units
+source: bundled:service_workflow
+constructor_args:
+- service-001
+- v1
+- 100
+operations:
+  get_state:
+    method: get_state
+    readonly: true
+    arguments: []
+    result:
+      fields:
+        decision:
+          type: string
+          enum:
+          - pending
+          - approve
+          - deny
+          - partial
+        resource_id:
+          type: string
+          max_length: 128
+        policy_version:
+          type: string
+          max_length: 128
+        evidence:
+          type: string
+        unit:
+          type: string
+          enum:
+          - test_units
+        amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        authorized_amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        released_amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        remaining_amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        revision:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+      allow_extra: false
+  evaluate:
+    method: evaluate
+    readonly: false
+    arguments:
+    - from_field: evidence
+    - from_field: resource_id
+    - from_field: policy_version
+    result:
+      fields:
+        decision:
+          type: string
+          enum:
+          - pending
+          - approve
+          - deny
+          - partial
+        resource_id:
+          type: string
+          max_length: 128
+        policy_version:
+          type: string
+          max_length: 128
+        evidence:
+          type: string
+        unit:
+          type: string
+          enum:
+          - test_units
+        amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        authorized_amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        released_amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        remaining_amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        revision:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+      allow_extra: false
+  release:
+    method: release
+    readonly: false
+    arguments:
+    - from_field: requested_amount
+    - from_field: resource_id
+    - from_field: policy_version
+    result:
+      fields:
+        decision:
+          type: string
+          enum:
+          - pending
+          - approve
+          - deny
+          - partial
+        resource_id:
+          type: string
+          max_length: 128
+        policy_version:
+          type: string
+          max_length: 128
+        evidence:
+          type: string
+        unit:
+          type: string
+          enum:
+          - test_units
+        amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        authorized_amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        released_amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        remaining_amount:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        revision:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+      allow_extra: false
+llm_prefix: 'AGENT_LAB_SERVICE_WORKFLOW_V1
+
+  '
+llm_response:
+  decision: $fixture_decision
+  authorized_amount: $fixture_amount

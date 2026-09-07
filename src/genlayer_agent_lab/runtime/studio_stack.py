@@ -18,6 +18,13 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .container import _bounded_process, _endpoint, _json_output, _linux_info
+from .studio_compat import (
+    FIXTURE_CONFIG_PATCH,
+    LEGACY_FIXTURE_CONFIG_PATCH,
+    PATCH_LABEL,
+    apply_appeal_snapshot_patch,
+    apply_fixture_config_patch,
+)
 
 STUDIO_VERSION = "0.121.6"
 STUDIO_COMMIT = "366f085a479bb9e6028ce326c2c13f798a9752c7"
@@ -77,6 +84,9 @@ def _validated_state(data: dict) -> dict:
         raise RuntimeError("Invalid Studio image identity")
     if data.get("auxiliary_images", AUXILIARY_IMAGES) != AUXILIARY_IMAGES:
         raise RuntimeError("Studio auxiliary image pins do not match this release")
+    if ("fixture_config_patch" in data
+            and data["fixture_config_patch"] not in (LEGACY_FIXTURE_CONFIG_PATCH, FIXTURE_CONFIG_PATCH)):
+        raise RuntimeError("Unknown Studio fixture config patch")
     return {**data, "auxiliary_images": dict(AUXILIARY_IMAGES)}
 
 
@@ -99,28 +109,27 @@ def _operation_lock(data_dir: Path):
     """Serialize only this installation's lifecycle, without taking the Lab DB lock."""
     root = _root(data_dir)
     root.mkdir(parents=True, exist_ok=True)
-    path = root / "operation.lock"
-    if path.is_symlink():
-        raise RuntimeError("Studio lock must not be a symlink")
-    handle = path.open("a+b")
-    try:
-        handle.seek(0, 2)
-        if handle.tell() == 0:
-            handle.write(b"0")
-            handle.flush()
-        handle.seek(0)
-        try:
-            if os.name == "nt":
-                import msvcrt
-                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError as exc:
-            raise RuntimeError("Another Studio lifecycle operation is using this installation") from exc
-        yield
-    finally:
-        handle.close()
+    from .studio_cohort import StudioFixtureLease
+    with StudioFixtureLease(data_dir):
+        path = root / "operation.lock"
+        if path.is_symlink():
+            raise RuntimeError("Studio lock must not be a symlink")
+        with path.open("a+b") as handle:
+            handle.seek(0, 2)
+            if handle.tell() == 0:
+                handle.write(b"0")
+                handle.flush()
+            handle.seek(0)
+            try:
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError as exc:
+                raise RuntimeError("Another Studio lifecycle operation is using this installation") from exc
+            yield
 
 
 def initialize(data_dir: Path, port: int = 8766) -> dict:
@@ -138,7 +147,7 @@ def _initialize(data_dir: Path, port: int = 8766) -> dict:
         if state["port"] != port:
             raise ValueError("Studio is already initialized on another port")
         return state
-    if any(path.name != "operation.lock" for path in root.iterdir()):
+    if any(path.name not in {"operation.lock", "fixture.lock"} for path in root.iterdir()):
         raise RuntimeError("Studio directory is nonempty and has no ownership record")
     state = {"schema": 1, "owner": uuid.uuid4().hex, "port": port,
              "source_commit": STUDIO_COMMIT, "studio_version": STUDIO_VERSION,
@@ -211,8 +220,10 @@ def _build(data_dir: Path, *, port: int, progress, checkout: Path | None) -> Non
         context = scratch / "context"
         context.mkdir()
         _extract_source(archive, context)
-        # Packaging-only overlay on the temporary committed build context. Never
-        # edit the checkout or vendored application code; retain upstream's notice.
+        apply_fixture_config_patch(context)
+        apply_appeal_snapshot_patch(context, studio_version=STUDIO_VERSION,
+                                   source_commit=STUDIO_COMMIT)
+        # Apply owned overlays to the archived temporary context, not the checkout.
         dockerfile = context / "docker/Dockerfile.backend"
         with dockerfile.open("a", encoding="utf-8") as out:
             out.write("\n# Agent Lab packaging: preserve the upstream MIT license notice.\n"
@@ -220,16 +231,19 @@ def _build(data_dir: Path, *, port: int, progress, checkout: Path | None) -> Non
         if progress:
             progress("Building Studio and downloading GenVM (first build can take several minutes)...")
         _checked(_command(endpoint, ["build", "--quiet", "--target", "prod", "--label",
-            f"{COMMIT_LABEL}={STUDIO_COMMIT}", "--tag", f"{IMAGE_TAG}-{state['owner']}", "--file",
+            f"{COMMIT_LABEL}={STUDIO_COMMIT}", "--label", f"{PATCH_LABEL}={FIXTURE_CONFIG_PATCH}",
+            "--tag", f"{IMAGE_TAG}-{state['owner']}", "--file",
             str(context / "docker/Dockerfile.backend"), str(context)],
             timeout=1200, output_limit=8_388_608), "image build")
     image = _json_output(_command(endpoint, ["image", "inspect", f"{IMAGE_TAG}-{state['owner']}",
                          "--format", "{{json .}}"]), "Studio image inspection")
-    if (image.get("Config", {}).get("Labels", {}).get(COMMIT_LABEL) != STUDIO_COMMIT
-            or image.get("Os") != "linux"):
-        raise RuntimeError("Studio image source label is missing")
+    labels = (image.get("Config") or {}).get("Labels") or {}
+    if (labels.get(COMMIT_LABEL) != STUDIO_COMMIT
+            or labels.get(PATCH_LABEL) != FIXTURE_CONFIG_PATCH or image.get("Os") != "linux"):
+        raise RuntimeError("Studio image source or fixture patch label is missing")
     state["image_id"] = image["Id"]
     state["packaging_overlay"] = "upstream-license-notice-v1"
+    state["fixture_config_patch"] = FIXTURE_CONFIG_PATCH
     _save(root, state)
 
 
@@ -481,6 +495,11 @@ def _verify_runtime(endpoint: str, state: dict, inventory: dict,
             or (image.get("Config", {}).get("Labels") or {}).get(COMMIT_LABEL) != STUDIO_COMMIT
         ):
             return fail("backend_source_mismatch")
+        if reference == state["image_id"] and (
+            (image.get("Config", {}).get("Labels") or {}).get(PATCH_LABEL)
+            != state.get("fixture_config_patch")
+        ):
+            return fail("backend_fixture_patch_mismatch")
         images[reference] = image
     for item in inventory["containers"]:
         actual = item.get("Config", {})
@@ -558,6 +577,7 @@ def status(data_dir: Path) -> dict:
               "public_chain": False, "bond_accounting": False,
               "auxiliary_images": dict(AUXILIARY_IMAGES), "reproducible_build": False,
               "runtime_verified": False}
+    result["fixture_config_patch"] = state.get("fixture_config_patch") == FIXTURE_CONFIG_PATCH
     if not state.get("image_id"):
         return result
     result["configuration_sha256"] = hashlib.sha256(

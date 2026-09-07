@@ -183,7 +183,7 @@ async def _mcp_agent(url, token, run_id):
     from mcp.client.stdio import StdioServerParameters
 
     env = dict(os.environ)
-    env.update(LAB_URL=url, LAB_TOKEN=token, LAB_ROLE="agent", LAB_RUN_ID=run_id)
+    env.update(LAB_URL=url, LAB_TOKEN=token, LAB_ROLE="agent", LAB_RUN_ID=run_id, LAB_MODE="scenario")
     params = StdioServerParameters(command=sys.executable,
                                   args=["-I", "-B", "-m", "genlayer_agent_lab.mcp_server"], env=env)
     async with Client(params, read_timeout_seconds=20) as client:
@@ -265,7 +265,9 @@ def probe(*, backend: str, require_kit: bool) -> dict:
         files = list(exported.rglob("*"))
         required_kit_files = {"SKILL.md", "python_agent.py", "mcp_agent.py", "client.ts", "agent.ts",
                               "INSTALL.md", "SERVICES.md", "RECOVERY.md", "STUDIO.md",
-                              "EXTERNAL_ONBOARDING.md"}
+                              "EXTERNAL_ONBOARDING.md", "STUDIO_WORKFLOWS.md", "workflow_agent.py",
+                              "workflow-agent.ts", "partial-release.json", "appeal-overturn.json",
+                              "service-workflow.yaml", "mcp_workflow_agent.py"}
         nonempty = {p.name for p in files if p.is_file() and p.stat().st_size > 0}
         if not required_kit_files <= nonempty:
             raise VerificationError("Installed integration kit lacks its skill or clients")
@@ -298,10 +300,15 @@ def probe(*, backend: str, require_kit: bool) -> dict:
             with httpx.Client(trust_env=False, follow_redirects=False) as web:
                 if web.get(url + "/v1/scenarios").status_code != 401:
                     raise VerificationError("Installed HTTP API accepted a missing credential")
-                for asset in ("/", "/assets/app.js", "/assets/styles.css"):
+                for asset in ("/", "/assets/app.js", "/assets/styles.css",
+                              "/assets/workflows.html", "/assets/workflows.js"):
                     response = web.get(url + asset)
                     if response.status_code != 200 or not response.content:
                         raise VerificationError("Installed dashboard resource was not served")
+                if web.get(url + "/v1/workflows").status_code != 401:
+                    raise VerificationError("Installed workflow API accepted a missing credential")
+                if admin.workflow_list() != []:
+                    raise VerificationError("Fresh installed workflow store is not empty")
             created = admin.create_run("escrow-normal", agent="external", backend="fixture")
             run_id = created["run_id"]
             _ready(admin, run_id)

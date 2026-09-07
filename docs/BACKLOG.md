@@ -43,7 +43,11 @@ later. Existing-alpha installation trials can continue; each new capability need
 its own verification and an agent integration trial. Completing all of Job 1 is
 not a prerequisite to starting those tests.
 
-This is a sequencing recommendation, not an implementation or completion claim.
+The user subsequently authorized implementation of this selected first slice.
+The `service_release` workflow is now built and has live HTTP/Studio evidence;
+see [its supported scope](STUDIO_WORKFLOWS.md). The broader multi-file,
+dependency and deployed-state work remains deferred. This does not mark all of
+Job 1 complete.
 
 **Reminder:** When the current developer version is explicitly recorded as
 finished, remind the user about Job 1 and ask whether they want to revisit it.

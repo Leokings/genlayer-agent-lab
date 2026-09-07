@@ -2,12 +2,14 @@ import copy
 import io
 import json
 import tarfile
+from pathlib import Path
 
 import pytest
 
 from genlayer_agent_lab.runtime import studio
 from genlayer_agent_lab.runtime import studio_stack as stack
 from genlayer_agent_lab.runtime.container import CommandResult
+from genlayer_agent_lab.runtime.studio_cohort import StudioFixtureLease
 
 IMAGE_ID = "sha256:" + "a" * 64
 
@@ -35,16 +37,49 @@ def test_initialization_retains_owner_and_rejects_foreign_directory(tmp_path):
 
 def test_lifecycle_lock_is_scoped_and_released(tmp_path):
     with stack._operation_lock(tmp_path):
-        with pytest.raises(RuntimeError, match="Another Studio lifecycle"):
+        with pytest.raises(RuntimeError, match="studio_fixture_busy"):
             stack.initialize(tmp_path)
         stack.initialize(tmp_path / "other-installation")
     assert stack.initialize(tmp_path)["schema"] == 1
+
+
+@pytest.mark.parametrize("failure", ["symlink", "open"])
+def test_lifecycle_lease_is_explicitly_released_before_handle_creation(tmp_path, monkeypatch, failure):
+    original_close = StudioFixtureLease.close
+    original_open = Path.open
+    original_is_symlink = Path.is_symlink
+    closed = []
+
+    def close(lease):
+        closed.append(lease)
+        original_close(lease)
+
+    def open_path(path, *args, **kwargs):
+        if path.name == "operation.lock":
+            raise OSError("cannot open lock")
+        return original_open(path, *args, **kwargs)
+
+    def is_symlink(path):
+        return path.name == "operation.lock" or original_is_symlink(path)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(StudioFixtureLease, "close", close)
+        patch.setattr(Path, "is_symlink" if failure == "symlink" else "open",
+                      is_symlink if failure == "symlink" else open_path)
+        with pytest.raises((RuntimeError, OSError)):
+            with stack._operation_lock(tmp_path):
+                pytest.fail("The operation must not run")
+        assert len(closed) == 1 and closed[0]._handle is None
+    with stack._operation_lock(tmp_path):
+        pass
 
 
 @pytest.mark.parametrize("change", [
     {"owner": "../../foreign"}, {"port": True}, {"port": 80}, {"image_id": "ubuntu:latest"},
     {"image_id": 3}, {"source_commit": "main"}, {"studio_version": "latest"},
     {"auxiliary_images": {"postgres": "postgres:latest"}},
+    {"fixture_config_patch": "unknown"}, {"fixture_config_patch": True},
+    {"fixture_config_patch": None},
 ])
 def test_metadata_cannot_redirect_images_or_projects(installed, change):
     directory, state = installed
@@ -62,6 +97,19 @@ def test_existing_schema_one_gains_auxiliary_pins_without_changing_identity(inst
     assert loaded["owner"] == state["owner"]
     assert loaded["image_id"] == IMAGE_ID
     assert loaded["auxiliary_images"] == stack.AUXILIARY_IMAGES
+
+
+@pytest.mark.parametrize("patch_id,ready", [
+    (stack.LEGACY_FIXTURE_CONFIG_PATCH, False), (stack.FIXTURE_CONFIG_PATCH, True),
+])
+def test_old_patch_metadata_remains_readable_but_requires_rebuild_for_cohort(
+        installed, monkeypatch, patch_id, ready):
+    directory, state = installed
+    state["fixture_config_patch"] = patch_id
+    stack._save(directory / "studio", state)
+    assert stack._load(directory / "studio")["fixture_config_patch"] == patch_id
+    monkeypatch.setattr(stack, "_endpoint", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
+    assert stack.status(directory)["fixture_config_patch"] is ready
 
 
 def test_generated_compose_is_isolated_bounded_and_has_only_owned_named_mounts(installed):
@@ -198,6 +246,40 @@ def test_owned_runtime_accepts_inspected_pins_ports_networks_and_limits(inspecte
     assert stack._verify_runtime("unix:///owned.sock", state, inventory)
 
 
+@pytest.mark.parametrize("declared,actual,accepted", [
+    (None, None, True),
+    (stack.FIXTURE_CONFIG_PATCH, stack.FIXTURE_CONFIG_PATCH, True),
+    (stack.LEGACY_FIXTURE_CONFIG_PATCH, stack.LEGACY_FIXTURE_CONFIG_PATCH, True),
+    (stack.FIXTURE_CONFIG_PATCH, stack.LEGACY_FIXTURE_CONFIG_PATCH, False),
+    (stack.LEGACY_FIXTURE_CONFIG_PATCH, stack.FIXTURE_CONFIG_PATCH, False),
+    (stack.FIXTURE_CONFIG_PATCH, None, False),
+    (stack.FIXTURE_CONFIG_PATCH, "unknown", False),
+    (None, stack.FIXTURE_CONFIG_PATCH, False),
+])
+def test_runtime_requires_image_patch_provenance_to_match_state(
+        inspected, monkeypatch, declared, actual, accepted):
+    _, state, inventory = inspected
+    if declared is not None:
+        state["fixture_config_patch"] = declared
+    original_command = stack._command
+
+    def command(endpoint, args, **kwargs):
+        result = original_command(endpoint, args, **kwargs)
+        if args[2] == IMAGE_ID:
+            image = json.loads(result.stdout)
+            if actual is not None:
+                image["Config"]["Labels"][stack.PATCH_LABEL] = actual
+            return CommandResult(0, json.dumps(image).encode(), b"")
+        return result
+
+    monkeypatch.setattr(stack, "_command", command)
+    diagnostic = {}
+    assert stack._verify_runtime("unix:///owned.sock", state, inventory,
+                                 diagnostic=diagnostic) is accepted
+    if not accepted:
+        assert diagnostic == {"code": "backend_fixture_patch_mismatch"}
+
+
 def test_shared_recovery_deadline_prevents_new_docker_inspections(inspected, monkeypatch):
     _, state, inventory = inspected
     monkeypatch.setattr(stack.time, "monotonic", lambda: 100.0)
@@ -312,11 +394,11 @@ def test_down_preserves_volumes_and_up_releases_lock_before_status(inspected, mo
     assert stack.up(directory) == {"ready": True}
 
 
-def make_archive(path, names, *, link=False):
+def make_archive(path, names, *, link=False, payloads=None):
     with tarfile.open(path, "w") as archive:
         for name in names:
             item = tarfile.TarInfo(name)
-            payload = b"committed source"
+            payload = (payloads or {}).get(name, b"committed source")
             item.size = len(payload)
             if link:
                 item.type = tarfile.SYMTYPE
@@ -367,12 +449,42 @@ def test_inventory_uses_project_filter_not_owner_only_and_bounds_calls(installed
                for _, options in calls)
 
 
-def test_build_archives_only_committed_allowlist_and_adds_license_to_temporary_context(tmp_path, monkeypatch):
+@pytest.mark.parametrize("image_patch", [stack.FIXTURE_CONFIG_PATCH,
+                                         stack.LEGACY_FIXTURE_CONFIG_PATCH, None, "unknown"])
+def test_build_archives_only_committed_allowlist_and_adds_license_to_temporary_context(
+        tmp_path, monkeypatch, image_patch):
     checkout = tmp_path / "checkout"
     checkout.mkdir()
     (checkout / "LICENSE").write_text("dirty local license")
     (checkout / ".env").write_text("MUST_NOT_BE_COPIED=secret")
     calls = []
+    wrapper = '''@rpc.method("sim_updateValidator")
+async def update_validator(
+    validator_address: str,
+    stake: int | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    plugin: str | None = None,
+    plugin_config: dict | None = None,
+    session: Session = Depends(get_db_session),
+    validators_manager=Depends(get_validators_manager),
+) -> dict:
+    return await impl.update_validator(
+        session=session,
+        validators_manager=validators_manager,
+        validator_address=validator_address,
+        stake=stake,
+        provider=provider,
+        model=model,
+        plugin=plugin,
+        plugin_config=plugin_config,
+    )
+
+
+@rpc.method("sim_deleteValidator")
+async def delete_validator():
+    pass
+'''
 
     def process(args, **kwargs):
         calls.append(args)
@@ -382,29 +494,50 @@ def test_build_archives_only_committed_allowlist_and_adds_license_to_temporary_c
         assert args[1:3] == ["-c", "core.autocrlf=false"]
         assert args[-len(stack.SOURCE_PATHS):] == stack.SOURCE_PATHS
         archive_path = next(item.removeprefix("--output=") for item in args if item.startswith("--output="))
-        make_archive(archive_path, ["docker/Dockerfile.backend", "LICENSE", "backend/example.py"])
+        rpc_path = "backend/protocol_rpc/rpc_methods.py"
+        worker_path = "backend/consensus/worker.py"
+        worker = (Path(__file__).parent / "fixtures/studio_0_121_6_appeal_claim.py.txt").read_bytes()
+        make_archive(archive_path,
+                     ["docker/Dockerfile.backend", "LICENSE", "backend/example.py", rpc_path, worker_path],
+                     payloads={rpc_path: wrapper.encode(), worker_path: worker})
         return CommandResult(0, b"", b"")
 
     def command(endpoint, args, **kwargs):
         if args[0] == "build":
-            from pathlib import Path
             context = Path(args[-1])
             assert not (context / ".env").exists()
             assert (context / "LICENSE").read_text() == "committed source"
             assert "COPY LICENSE /app/GENLAYER_STUDIO_LICENSE" in (context / "docker/Dockerfile.backend").read_text()
+            patched = (context / "backend/protocol_rpc/rpc_methods.py").read_text()
+            assert "    config: dict | None = None," in patched
+            assert "        config=config," in patched
+            patched_worker = (context / "backend/consensus/worker.py").read_text()
+            assert "                      transactions.contract_snapshot," in patched_worker
+            assert '                "contract_snapshot": result.contract_snapshot,' in patched_worker
+            assert f"{stack.PATCH_LABEL}={stack.FIXTURE_CONFIG_PATCH}" in args
             assert kwargs["timeout"] == 1200
             return CommandResult(0, b"", b"")
         assert args[:2] == ["image", "inspect"]
+        labels = {stack.COMMIT_LABEL: stack.STUDIO_COMMIT}
+        if image_patch is not None:
+            labels[stack.PATCH_LABEL] = image_patch
         return CommandResult(0, json.dumps({"Id": IMAGE_ID, "Os": "linux", "Config": {
-            "Labels": {stack.COMMIT_LABEL: stack.STUDIO_COMMIT}}}).encode(), b"")
+            "Labels": labels}}).encode(), b"")
 
     monkeypatch.setattr(stack, "_bounded_process", process)
     monkeypatch.setattr(stack, "_command", command)
     monkeypatch.setattr(stack, "_endpoint", lambda: "unix:///owned.sock")
     monkeypatch.setattr(stack, "_linux_info", lambda _: {})
     monkeypatch.setattr(stack, "status", lambda directory: stack._load(directory / "studio"))
-    result = stack.build(tmp_path / "lab", checkout=checkout)
-    assert result["image_id"] == IMAGE_ID
-    assert result["packaging_overlay"] == "upstream-license-notice-v1"
+    if image_patch != stack.FIXTURE_CONFIG_PATCH:
+        with pytest.raises(RuntimeError, match="fixture patch label"):
+            stack.build(tmp_path / "lab", checkout=checkout)
+        result = stack._load(tmp_path / "lab/studio")
+        assert "image_id" not in result and "fixture_config_patch" not in result
+    else:
+        result = stack.build(tmp_path / "lab", checkout=checkout)
+        assert result["image_id"] == IMAGE_ID
+        assert result["packaging_overlay"] == "upstream-license-notice-v1"
+        assert result["fixture_config_patch"] == stack.FIXTURE_CONFIG_PATCH
     assert (checkout / "LICENSE").read_text() == "dirty local license"
     assert len(calls) == 2

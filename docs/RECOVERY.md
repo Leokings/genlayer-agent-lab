@@ -18,6 +18,13 @@ included in a consistent, standalone database; copying `lab.sqlite3` by itself
 would not provide that guarantee. Backup does not initialize the source or
 upgrade its schema. This release supports recovery of schema 1 and schema 2.
 
+Schema 2 may also contain the explicit `workflow_runs` table. Its completed
+Studio workflow reports and immutable specifications are preserved. Restoration
+revokes workflow run credentials. A workflow that was preparing, running or
+closing becomes interrupted with unresolved cleanup; restoring the Lab database
+does not recover its memory-only signer or the Studio validator configuration.
+See [workflow boundaries](STUDIO_WORKFLOWS.md#backend-and-recovery-boundaries).
+
 Only the SQLite database is included. Recovery does **not** copy `admin.token`,
 environment files, build logs, service registrations, daemon configuration,
 exported files, container images, or the rest of the data directory.

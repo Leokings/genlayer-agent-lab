@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import secrets
 import sqlite3
 import stat
@@ -22,6 +23,7 @@ MAX_MANIFEST_BYTES = 64 * 1024
 MAX_ROW_BYTES = 16 * 1024 * 1024
 SCHEMAS = {1, 2}
 ARCHIVE_FORMAT = "genlayer-agent-lab-sqlite-backup"
+_WORKFLOW_TERMINAL = {"completed", "cancelled", "inconclusive", "interrupted"}
 
 
 def _path(value: Path) -> Path:
@@ -96,6 +98,17 @@ def _inspect_database(path: Path) -> dict:
             raise ValueError("Database schema is unsupported by this recovery release")
         tables = {"runs", "scenarios"} | ({"bindings"} if version == 2 else set())
         objects = db.execute("SELECT name, type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").fetchall()
+        if version == 2 and ("workflow_runs", "table") in objects:
+            tables.add("workflow_runs")
+            sql = db.execute("SELECT sql FROM sqlite_master WHERE name = 'workflow_runs'").fetchone()[0]
+            # This is one optional additive schema-2 table, not permission for
+            # arbitrary extensions, foreign keys, generated columns or checks.
+            if not re.fullmatch(
+                r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?workflow_runs\s*\(\s*"
+                r"id\s+TEXT\s+PRIMARY\s+KEY\s*,\s*body\s+TEXT\s+NOT\s+NULL\s*\)\s*",
+                sql or "", re.IGNORECASE,
+            ):
+                raise ValueError("Database workflow table layout is unsupported")
         if set(objects) != {(name, "table") for name in tables}:
             raise ValueError("Database contains unexpected tables, views, indexes or triggers")
         counts = {}
@@ -169,7 +182,8 @@ def backup(data_dir: Path, output: Path) -> dict:
             "database": {"file": "lab.sqlite3", "bytes": snapshot.stat().st_size,
                          "sha256": _sha256(snapshot), **inspected},
             "scope": "Lab SQLite only; Studio volumes, images, accounts, credentials and logs are excluded",
-            "restore_auth": "Fresh administrator token; saved per-run credential hashes revoked",
+            "restore_auth": ("Fresh administrator token; saved per-run credential hashes revoked; "
+                             "unfinished workflows interrupted without resuming Studio"),
         }
         encoded = json.dumps(manifest, indent=2).encode("utf-8")
         created = False
@@ -247,15 +261,27 @@ def _revoke_run_tokens(path: Path) -> int:
         db.execute("PRAGMA trusted_schema = OFF")
         db.execute("PRAGMA secure_delete = ON")
         with db:
-            for identifier, body in db.execute("SELECT id, body FROM runs").fetchall():
-                run = json.loads(body)
-                if "agent_hash" in run:
-                    # No corresponding token is retained, so historical agents
-                    # cannot authenticate after recovery, even for completed runs.
-                    run["agent_hash"] = hashlib.sha256(secrets.token_bytes(32)).hexdigest()
-                    db.execute("UPDATE runs SET body = ? WHERE id = ?",
-                               (json.dumps(run, ensure_ascii=True), identifier))
-                    revoked += 1
+            tables = ["runs"]
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name = 'workflow_runs' AND type = 'table'").fetchone():
+                tables.append("workflow_runs")
+            for table in tables:
+                for identifier, body in db.execute(f"SELECT id, body FROM {table}").fetchall():
+                    run = json.loads(body)
+                    fields = ("agent_hash", "token_sha256") if table == "workflow_runs" else ("agent_hash",)
+                    credentials = [field for field in fields if field in run]
+                    changed = bool(credentials)
+                    for field in credentials:
+                        # No corresponding token is retained, so even completed
+                        # historical agents cannot authenticate after recovery.
+                        run[field] = hashlib.sha256(secrets.token_bytes(32)).hexdigest()
+                    revoked += bool(credentials)
+                    if table == "workflow_runs" and run.get("status") not in _WORKFLOW_TERMINAL:
+                        run.update(status="interrupted", cleanup="unresolved",
+                                   error_code="interrupted_by_restore")
+                        changed = True
+                    if changed:
+                        db.execute(f"UPDATE {table} SET body = ? WHERE id = ?",
+                                   (json.dumps(run, ensure_ascii=True), identifier))
         db.execute("PRAGMA journal_mode = DELETE")
     except sqlite3.Error:
         raise ValueError("Recovery database could not revoke old run credentials") from None

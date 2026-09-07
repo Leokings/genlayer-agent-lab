@@ -303,7 +303,10 @@ def run_studio_recovery(data_dir, timeout=600, progress=None):
         if exc.code in OBSERVED_FAILURES:
             evidence["verification"] = "fail"
     except StudioError as exc:
-        evidence["error_code"] = exc.code if exc.code in SAFE_ERRORS else "studio_operation_failed"
+        if exc.code == "studio_fixture_busy" and evidence["stage"] == "studio_lock":
+            evidence["error_code"] = "studio_lifecycle_busy"
+        else:
+            evidence["error_code"] = exc.code if exc.code in SAFE_ERRORS else "studio_operation_failed"
     except (RuntimeError, ValueError, TypeError, KeyError, OSError):
         evidence["error_code"] = {"lab_lock": "lab_must_be_stopped",
             "studio_lock": "studio_lifecycle_busy"}.get(evidence["stage"], "studio_recovery_operation_failed")
