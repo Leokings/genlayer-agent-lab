@@ -6,14 +6,18 @@ Deferred expansion: [Job 1 — larger contract projects and protocol extensions]
 Revisit with the user after the current developer version is finished; it is
 outside the current build scope.
 
-Research review: [agent investigation, appeals and decision workflows](AGENT_WORKFLOW_RESEARCH.md).
-Its proposed coverage is not implemented and does not change Job 1's saved scope.
+Current improvement plan: [agents using GenLayer](DEVELOPMENT_ROADMAP.md).
+It consolidates the relevant Job 1 workflow improvements and uses owned local
+Studio as the primary backend for agent appeal and GenLayer-function tests.
+The plan is not implemented; the larger Job 1 remains deferred.
+Supporting research: [agent investigation, appeals and decision workflows](AGENT_WORKFLOW_RESEARCH.md).
 
-Scope clarification, September 7: developers supply possible contract outcomes
-and workflow rules; the Lab tests the agent's behavior. Evaluating the contract
-LLM's understanding of evidence is outside the product scope. The recommended
-next extension is the structured-response/workflow portion of Job 1, with tests
-built alongside it; larger contract-project support can follow later.
+Scope clarification, September 7: developers supply possible contract model
+responses and workflow rules; local Studio processes the actual supported
+operations, and the Lab tests the agent's behavior. Evaluating the contract LLM's
+understanding of evidence is outside scope. The next planned extension combines
+incremental Studio execution, structured responses and workflow bindings, with
+tests built alongside it. Larger contract-project support can follow later.
 
 Alpha 8 fixes the GenVM download's missing certificate issuer on fresh Windows
 installations by adding bundled public certificate roots to its downloader's

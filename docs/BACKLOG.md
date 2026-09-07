@@ -30,8 +30,14 @@ The user confirmed developer-controlled contract outcomes and simulated workflow
 as the product scope. Contract-LLM evidence interpretation or judgment quality is
 not a required capability.
 
-Recommended first slice: structured results, action/state rules and controlled
-branches from items 2–3 above, built and tested through one complete workflow.
+Selected runtime direction: local Studio processes actual supported transactions
+and appeals, with developer-supplied model responses. Scripted appeal outcomes do
+not replace observing Studio's real appeal lifecycle. See the consolidated
+[development roadmap](DEVELOPMENT_ROADMAP.md), which supersedes the earlier
+controlled-appeal-first recommendation.
+
+Recommended first slice: incremental Studio execution, structured results and
+action/state bindings from items 2–3 above, built and tested through one workflow.
 Multi-file projects, extra dependencies and deployed-state import can follow
 later. Existing-alpha installation trials can continue; each new capability needs
 its own verification and an agent integration trial. Completing all of Job 1 is

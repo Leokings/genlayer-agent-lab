@@ -6,6 +6,12 @@ This is a research and design review, not an implementation or a new completion
 claim. Job 1 remains deferred with its existing scope. No contracts, transactions,
 paid model calls, installations or CI runs were started for this review.
 
+**Current direction:** the user subsequently selected local Studio as the primary
+backend for testing agent use of GenLayer functions and appeals, while retaining
+developer-supplied model responses. The consolidated [development roadmap](DEVELOPMENT_ROADMAP.md)
+is the current plan. It supersedes this review's earlier suggestion of scripted
+appeal outcomes first and optional Studio integration later.
+
 ## Scope clarified after the review
 
 On September 7, 2026, the user confirmed that the product tests an agent's
@@ -174,12 +180,12 @@ finalize-then-return Studio path would not create a usable agent appeal test.
 | Investigation and challenge | Case evidence, available tools, rules, deadlines, budgets and an independent grading rubric | The tested agent gathers evidence and chooses a justified, authorized next step |
 | Contract judgment evaluation — outside the clarified product scope | Evidence inputs with actual supported leader/validator model execution | A separate form of testing of the contract's own judgments |
 
-The first mode describes the current product direction. The second expands that
-direction: the agent can perform genuine investigation while the contract's
-initial response and appeal outcome remain controlled. This allows repeatable
-tests of upheld, changed and unresolved outcomes without making the real network
-produce each one on demand. A scripted reference agent only verifies the harness;
-it does not establish how a developer's model-driven agent performs.
+Decision reaction and agent investigation remain within scope. Under the selected
+Studio approach, controlled model replies influence execution while actual local
+transaction and appeal observations determine what the agent sees. A scripted
+appeal result can exercise a unit test, but does not establish that an agent used
+Studio's appeal mechanism correctly. A scripted reference agent verifies the
+harness; it does not establish how a developer's model-driven agent performs.
 
 The third row describes a separate testing category, not proposed Lab work under
 the clarified scope. Valid output formatting or model agreement alone cannot
@@ -248,23 +254,22 @@ protocol-specific workflows.
    declared capabilities. Universal import from an arbitrary address is not a
    consequence of adding these interfaces.
 
-6. **Implement controlled branching and grading first.** Drive different appeal
-   outcomes from an explicit case specification and record their simulated
-   provenance. Grade evidence use, remedy choice, authorization, timing, duplicate
-   handling and confirmed final effects. Include an inconclusive outcome when
-   required infrastructure evidence is unavailable. Avoid requiring disclosure
-   of private chain-of-thought: record sources, concise justification and actions.
+6. **Observe Studio outcomes and grade agent behavior.** Use controlled replies
+   for the supported initial and appeal execution, then observe actual completed
+   rounds and recomputation. Grade evidence use, remedy choice, authorization,
+   timing, duplicate handling and confirmed effects. Missing backend evidence
+   requires an inconclusive result rather than a scripted replacement. Record
+   sources, concise justification and actions without private chain-of-thought.
 
 7. **Validate with a developer's agent, then expand.** Run the complete controlled
    example through the existing connection formats. Add a prediction-resolution
    case and another supported workflow after validating that integration. This
    does not require generic lending or DEX simulation.
 
-8. **Optional later real-backend verification.** This is not required for the
-   controlled workflow extension. Expose an actual prefinal decision to the agent,
-   exercise submission and observe a completed appeal. Demonstrate an actual
-   overturned/recomputed case separately before claiming it. Verify
-   timeout-after-inclusion recovery and profile-specific accounting.
+8. **Deepen backend verification.** The initial incremental Studio appeal proof
+   now comes first, as specified in the consolidated roadmap. Additional coverage
+   includes timeout-after-inclusion recovery and profile-specific accounting.
+   Demonstrate an actual overturned/recomputed case separately before claiming it.
 
 Controlled tests need no real funds or shared hosting. A developer can continue
 to run the Lab on their own laptop or VPS. Model-driven investigation may use
