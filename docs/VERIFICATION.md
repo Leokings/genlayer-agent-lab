@@ -4,6 +4,22 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
 
 ## Intel Mac virtualization feasibility — September 6–7
 
+- [Package trial 34082633291](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34082633291)
+  on source `851675e0fa1fe2c8dfd4bc58f0a089aa7ed13a55` downloaded the expected
+  12,409,187,001 bytes, verified the pinned compressed-TOC digest and all five
+  archived-content hashes (12,409,181,308 bytes). Apple's `pkgutil --check-signature`
+  returned exit code **0** and `Status: signed Apple Software`. The harness
+  incorrectly rejected that legitimate success wording because its parser only
+  recognized `signed by a certificate trusted by macOS` or `Mac OS X`.
+  The reported `package_signature_not_trusted` was therefore a harness parser
+  failure, not a native Apple signature rejection. The recorded three-certificate
+  chain and leaf fingerprint match the pinned values; subsequent package-policy
+  assessment was not reached. No installer package was installed, no media was
+  created and no guest boot or reboot was tested. Private cleanup completed.
+  The correction accepts the exact Apple status as an alternative, retaining
+  native command success, the exact certificate chain and leaf fingerprint,
+  and the mandatory package-policy assessment. Regression coverage uses the
+  captured multiline output, including its wrapped fingerprints.
 - [Package trial 34058525144](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34058525144)
   on source `c8fe857129180ea091168bd745eb038a79926b7f` stopped at
   `package_catalog_digest_mismatch` after receiving the expected download size.
@@ -92,11 +108,11 @@ Verified on 2026-09-05 and 2026-09-06, native Windows x64, isolated Python 3.12.
   The probe stopped before creating installation media or booting a macOS guest;
   its private files and Oracle mount were cleaned up. No Lab execution or reboot
   was tested in this attempt, and no policy bypass or re-signing was performed.
-- The current Catalina/Monterey-on-hosted-Intel installer route is blocked at that
-  verification gate. Repeating the same download has no established benefit.
+- At that stage, the softwareupdate/app-assessment route was blocked at that
+  verification gate. Repeating that unchanged route has no established benefit.
   Apple documents [creating bootable media with its command-line tool](https://support.apple.com/en-us/101578),
-  but a separately accepted tool plus validated dependencies/media has not been
-  established here. Its [code-signing note](https://developer.apple.com/library/archive/technotes/tn2206/_index.html)
+  and the later component audit and package route above examine the appropriate
+  verification targets. Its [code-signing note](https://developer.apple.com/library/archive/technotes/tn2206/_index.html)
   explains rejection of custom resource rules and distinguishes signature
   metadata from validation. The macOS reboot gate remains open; this result
   neither invalidates the passed native macOS service checks nor establishes

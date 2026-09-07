@@ -38,6 +38,61 @@ def trusted_signature(subjects=None, fingerprint=None):
             f"  2. {subjects[1]}\n  3. {subjects[2]}\n").encode()
 
 
+# Sanitized pkgutil stdout observed in run 34082633291, including its native
+# Apple-package status, certificate expiry lines and wrapped fingerprints.
+APPLE_PACKAGE_SIGNATURE = b'''Package "InstallAssistant.pkg":
+   Status: signed Apple Software
+   Certificate Chain:
+    1. Software Update
+       Expires: 2029-04-14 21:28:23 +0000
+       SHA256 Fingerprint:
+           E0 74 D2 04 AC 24 98 E9 DC 90 4A 7B C7 CE D8 46 41 19 B7 9D 05 66
+           80 28 92 05 83 B1 E8 96 EB B4
+       ------------------------------------------------------------------------
+    2. Apple Software Update Certification Authority
+       Expires: 2031-10-15 00:00:00 +0000
+       SHA256 Fingerprint:
+           12 99 E9 BF E7 76 A2 9F F4 52 F8 C4 F5 E5 5F 3B 4D FD 29 34 34 9D
+           D1 85 0B 82 74 F3 5C 71 74 5C
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+'''
+
+
+@pytest.mark.parametrize("status", [
+    b"signed Apple Software",
+    b"signed by a certificate trusted by macOS",
+    b"signed by a certificate trusted by Mac OS X",
+])
+def test_real_apple_multiline_chain_accepts_only_recognized_success_statuses(status):
+    signature = APPLE_PACKAGE_SIGNATURE.replace(b"signed Apple Software", status)
+    assert package._trusted_apple_chain(signature) is None
+
+
+@pytest.mark.parametrize("status", [
+    b"unsigned Apple Software",
+    b"signed Apple Software (expired)",
+    b"signed by a certificate that has since expired",
+    b"signed by a certificate not trusted by macOS",
+    b"signed Developer ID Software",
+])
+def test_real_apple_chain_does_not_rescue_wrong_expired_or_untrusted_status(status):
+    signature = APPLE_PACKAGE_SIGNATURE.replace(b"signed Apple Software", status)
+    with pytest.raises(package.PackageError, match="package_signature_not_trusted"):
+        package._trusted_apple_chain(signature)
+
+
+def test_real_apple_status_still_requires_the_exact_wrapped_leaf_fingerprint():
+    signature = APPLE_PACKAGE_SIGNATURE.replace(b"E0 74 D2 04", b"E1 74 D2 04", 1)
+    with pytest.raises(package.PackageError, match="package_leaf_fingerprint_rejected"):
+        package._trusted_apple_chain(signature)
+
+
 def synthetic_xar():
     items = [(name, ("synthetic " + name).encode())
              for name in ("Bom", "Payload", "Scripts", "PackageInfo", "SharedSupport.dmg")]
@@ -212,6 +267,29 @@ def test_trust_failures_cannot_invoke_sudo_installer(trial, monkeypatch, failure
     assert calls and trial.target.read_bytes() == trial.body
     assert not trial.installer.exists()
     assert state["apple_package"]["package_signature_and_policy_verified"] is False
+
+
+@pytest.mark.parametrize(("failing_command", "code"), [
+    ("/usr/sbin/pkgutil", "package_signature_rejected"),
+    ("/usr/sbin/spctl", "package_policy_rejected"),
+])
+def test_real_apple_success_text_cannot_override_native_signature_or_policy_failure(
+        trial, monkeypatch, failing_command, code):
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args[0])
+        assert args[0] in {"/usr/sbin/pkgutil", "/usr/sbin/spctl"}
+        return SimpleNamespace(returncode=int(args[0] == failing_command),
+                               stdout=APPLE_PACKAGE_SIGNATURE, stderr=b"native gate rejected")
+
+    monkeypatch.setattr(package.subprocess, "run", fake_run)
+    state = {}
+    with pytest.raises(package.PackageError, match=code):
+        package.download_and_install(trial.private, trial.installer, state)
+    assert calls[-1] == failing_command
+    assert state["apple_package"]["package_signature_and_policy_verified"] is False
+    assert not trial.installer.exists()
 
 
 @pytest.mark.parametrize("mutation", ["none", "during_policy", "during_install", "hardlink", "root_hardlink"])

@@ -246,7 +246,8 @@ def _run(args, code, package, record, *, timeout, diagnostic=False):
 def _trusted_apple_chain(raw):
     require(len(raw) <= 65536, "package_signature_output_invalid")
     text = raw.decode("utf-8", errors="replace")
-    require(re.search(r"(?m)^\s*Status: signed by a certificate trusted by (?:macOS|Mac OS X)\s*$", text),
+    require(re.search(r"(?m)^\s*Status: (?:signed Apple Software|"
+                      r"signed by a certificate trusted by (?:macOS|Mac OS X))\s*$", text),
             "package_signature_not_trusted")
     sections = re.split(r"(?m)^\s*Certificate Chain:\s*$", text)
     require(len(sections) == 2, "package_certificate_chain_rejected")
