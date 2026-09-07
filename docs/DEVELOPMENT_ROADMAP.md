@@ -5,6 +5,12 @@ This is the current improvement plan. It supersedes the research document's
 earlier proposal to implement scripted appeal outcomes first and add Studio
 integration later. It records planned work, not completed features.
 
+The immediate validation target is an expanded Studio workflow installed on the
+user's Windows laptop, followed by a Linux VPS. These are two pilot environments;
+if the user operates both, they are one participating developer. See the
+[pilot checklist](PILOT_TESTING.md). Independent external onboarding remains a
+separate later validation activity.
+
 ## Product purpose and selected approach
 
 GenLayer Agent Lab is a self-hosted developer tool for testing how an agent reads
@@ -229,20 +235,68 @@ agent failure. A pass applies to the recorded cases and profile.
 ## Implementation order and acceptance gates
 
 Testing accompanies each step; it is not postponed until all expansion is done.
+Complete phases 1–6 below before beginning the full expanded-workflow pilot.
+Existing alpha installation checks may continue while that work is in progress.
 
 | Phase | Deliverable | Completion evidence |
 |---|---|---|
 | 1. Backend proof | Compatible Studio/GenVM/SDK profile, controlled appeal fixtures and incremental transaction driver | A client observes a prefinal decision, submits an eligible appeal and records the actual completed round; upheld and changed/recomputed cases are demonstrated separately |
-| 2. Shared data and bindings | Structured results, several allowed contract operations and persistent run identity | One contract workflow preserves output fields and performs only its declared operations |
-| 3. Agent connection | The incremental session and scoped GenLayer functions through HTTP, language clients and MCP | An externally connected agent can perform the workflow before deadlines; it cannot access unrelated targets or keys |
-| 4. Behavioral coverage | Appeal and no-appeal controls; stale state, missed windows, lost replies, partial outcomes and completion rules | Correct and deliberately faulty reference agents produce the intended distinct results using observed Studio evidence |
-| 5. Developer experience | Input validation, examples, setup guidance, dashboard timeline and reports | A developer can configure, connect, run, diagnose and repeat the test without undocumented changes |
-| 6. External validation | A developer's agent and contract integration; another relevant workflow | Real integration feedback verifies the reusable boundary rather than just our reference scripts |
+| 2. Complete reference workflow | One supported single-file contract with structured decisions and an actual state-changing operation, plus its binding | The contract can authorize 40 test units, the client invokes its permitted release operation, and a Studio state read verifies the expected balances or allocation |
+| 3. Agent connection | Run-scoped operations and persistent identity through HTTP, Python, TypeScript and MCP | An independently connected agent client performs the workflow before deadlines; it cannot access unrelated targets or keys; a lost response can be reconciled without a duplicate effect |
+| 4. Behavioral coverage | Small required set covering approval, valid denial, partial amounts, appeals, stale state, deadlines and duplicate attempts | Correct and deliberately faulty reference agents produce the intended distinct results using observed Studio evidence; unsupported/setup failures are classified separately |
+| 5. Developer experience | Input validation, examples, setup guidance, dashboard timeline and reports | The complete workflow can be configured, connected, diagnosed and repeated; reports distinguish controlled replies, observed Studio events and effects |
+| 6. Installable candidate | Versioned wheel, checksums, pinned backend, exported setup kit and a clean-install verification | The candidate runs outside the source checkout in a fresh environment; normal process restart preserves history and permits another run |
+| 7. Laptop pilot | Install that candidate on the user's Windows laptop and connect a tool-using agent | Record install/integration effort and observed agent outcomes using the pilot checklist; preserve the existing alpha installation |
+| 8. VPS pilot | Install the same candidate on a fresh Linux VPS with Docker and sufficient resources | Verify remote setup, dashboard access, agent connection, reports and ordinary process restart; identify host-specific differences |
+| 9. Independent feedback | Another human developer integrates their own agent or supported contract workflow | Record fresh-user feedback and actual integration changes separately from the two same-owner pilots |
+
+Phase 2 is a real change from the current alpha. Its `act` handler changes the
+Lab's own simulated balances, including when Studio produced the decision. The
+new reference workflow must invoke the contract method and verify state through
+Studio. A contract ledger of test units is acceptable for this pilot; it must be
+labeled as test accounting rather than a native-token or production payment.
+
+## What to build, reuse and defer
+
+**Build before the expanded pilot:** the incremental Studio lifecycle, richer
+results, multi-operation bindings, scoped agent functions, suitable controlled
+validator replies, the reference contract workflow, a small meaningful behavior
+suite, actionable reports and an installed candidate package.
+
+**Extend the existing foundation:** the HTTP service, Python/TypeScript clients,
+MCP bridge, dashboard, database, setup kit, packaging and existing verification
+tools. Their present existence does not mean they already expose the new
+workflow. GLSim stays available for fast existing checks; both backends need not
+be run for every pilot case.
+
+**Do not build for this scope:** contract-LLM judgment evaluation, a second
+scripted appeal engine presented as GenLayer appeal processing, a shared hosted
+Lab service with accounts/billing, a public MCP hosting service, or an
+OpenClaw-only integration. Public Studionet access and real funds are not needed
+for the local Studio pilot.
+
+**Defer until a concrete integration needs them:** multi-file contract loading,
+additional dependencies, deployed-state import, broad multi-contract orchestration,
+exhaustive scenario generation and public-network compatibility. Modern bond and
+fee accounting is a separate backend capability: if unsupported in the chosen
+profile, report that limit and omit the corresponding coverage claim. A locally
+enforced agent budget is not proof of protocol bond settlement.
+
+Broad evidence-investigation libraries and every possible decision shape are
+also unnecessary before the first pilot. Include a small supplied-evidence case
+if needed to exercise the agent's remedy choice. Expand after observing real
+integration needs. Full OS reboot and disaster-recovery testing are separate
+checks, not prerequisites for this focused functional pilot.
 
 First backend work should be headless and small, so compatibility problems are
 resolved before UI expansion. Existing GLSim cases remain regression checks.
 Existing installation trials can proceed concurrently, but do not validate new
 features that have not been implemented.
+
+Do not rent the VPS before the candidate is ready. Measure the chosen Studio
+profile's resource use and confirm the required Docker environment first. The
+first-run dependency downloads and any model used by the tested agent are
+separate from the supplied contract-model responses.
 
 The current profile pins Studio v0.121.6, GenVM v0.2.16 and Python SDK 0.16.3. Newer
 protocol documentation describes a coordinated release-candidate family. Choose

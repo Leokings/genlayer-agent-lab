@@ -19,6 +19,13 @@ understanding of evidence is outside scope. The next planned extension combines
 incremental Studio execution, structured responses and workflow bindings, with
 tests built alongside it. Larger contract-project support can follow later.
 
+Next planned functional validation: [Windows laptop and Linux VPS pilots](PILOT_TESTING.md)
+after the roadmap's backend, workflow, integration, reporting and installed-candidate
+gates pass. Both may be operated by the project owner; that is two environments
+and one developer. Independent external onboarding remains separate and pending.
+Current payment actions update the Lab's test ledger. The expanded pilot requires
+a contract method and Studio state read for its contract-effect coverage.
+
 Alpha 8 fixes the GenVM download's missing certificate issuer on fresh Windows
 installations by adding bundled public certificate roots to its downloader's
 default SSL context. System roots, certificate verification and pinned artifact

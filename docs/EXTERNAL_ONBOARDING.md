@@ -5,6 +5,12 @@ Automated CI and agent-assisted rehearsals are separate evidence. A developer
 can use a coding agent to help, but should record where the instructions needed
 clarification and whether they could integrate their own test agent.
 
+This checklist describes the existing alpha's baseline onboarding. For the
+planned expanded Studio workflow, use the [laptop/VPS pilot checklist](PILOT_TESTING.md)
+after its readiness gates pass. Same-owner laptop and VPS trials count as two
+environments, not two independent human developers. Their results do not close
+this independent-onboarding requirement.
+
 ## Prepare a fresh installation
 
 Choose Windows, Linux or macOS on a machine you control. Record the OS version,
