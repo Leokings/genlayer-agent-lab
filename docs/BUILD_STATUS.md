@@ -23,9 +23,9 @@ understanding of evidence is outside scope. The new workflow extension combines
 incremental Studio execution, structured responses and workflow bindings, with
 tests built alongside it. Larger contract-project support can follow later.
 
-Next planned functional validation: [Windows laptop and Linux VPS pilots](PILOT_TESTING.md)
-after the roadmap's backend, workflow, integration, reporting and installed-candidate
-gates pass. Both may be operated by the project owner; that is two environments
+Next planned functional validation: [Windows laptop and Linux VPS pilots](PILOT_TESTING.md).
+The first profile's backend, integration, reporting and Windows installed-candidate
+engineering gates have passed. Both pilots may be operated by the project owner; that is two environments
 and one developer. Independent external onboarding remains separate and pending.
 The original scenario payment actions update the Lab's test ledger. The new
 Studio workflow calls the contract's release method and verifies its test-unit
@@ -36,6 +36,11 @@ The alpha 9 candidate is installed as the laptop's user-login service. Its
 exported TypeScript and MCP examples have also passed actual Studio workflows.
 The final non-runtime/non-container regression run passed 1,006 tests; explicit
 runtime checks and live Studio evidence are recorded separately.
+The cache-empty Windows wheel installation also passed, including a real GLSim
+readiness execution and exported integration kit checks. A model-driven agent
+smoke test also passed a 73-of-200-unit appeal workflow through the public API.
+The full isolated laptop pilot, a separate VPS environment and independent
+human developer feedback remain distinct validation steps.
 
 Alpha 8 fixes the GenVM download's missing certificate issuer on fresh Windows
 installations by adding bundled public certificate roots to its downloader's

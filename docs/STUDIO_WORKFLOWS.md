@@ -124,10 +124,36 @@ A request key identifies one operation. Reuse that exact key and payload when
 reconciling a lost response. Changing the payload under an existing key is
 rejected. The decision ID identifies the observed proposal and its history; it
 is distinct from the transaction hash. The agent must reread it after a change.
+Use the durable operations and round history to enforce a limit such as one
+appeal. `decision.appealed` reflects the current backend flag and can clear after
+an appeal round; it is not a lifetime appeal counter. A completed write may
+precede the next observed ledger refresh. Read the resulting state before
+finishing, and observe until the run actually becomes terminal after `finish`.
 
 Installing MCP does not intercept hardcoded wallet calls. The developer must
 route the relevant tools through this interface. The agent's own reasoning model
 and unrelated tools remain under the developer's control.
+
+### Give a model-driven agent a visible task
+
+`policy.allowed_actions` specifies permissions. It does not explain when the
+developer wants the agent to challenge a decision. Give that task/remedy policy
+to the agent in its normal task instructions as well as configuring the private
+scenario. Do not give it the fixtures, administrator credential or grading
+expectations. For the supplied service-release interface, an example is:
+
+> Inspect the acceptance record in your workflow observations and request its
+> evaluation. If the decision materially contradicts that record, challenge it
+> at most once while appeal is available. Track the actual result afterward.
+> Release only the currently authorized accepted units after successful finalized
+> execution, using the current decision identity. Verify the resulting contract
+> state, then finish. Reconcile an uncertain response using the same operation
+> key; do not duplicate an effect. Stop and report an infrastructure failure if
+> the run becomes inconclusive.
+
+Adapt that policy to the developer's task. Always appealing or always refusing
+is not a general policy for every scenario. The model must use the connected
+tools; a prompt alone does not add a working Lab connection.
 
 ## Supply scenarios and contract bindings
 
@@ -187,6 +213,15 @@ submission is recorded honestly as interrupted or inconclusive; the Lab does not
 replay an uncertain write. Unresolved cleanup blocks new workflow sessions.
 Automatic recovery/resumption of such sessions is not implemented yet. Backups
 preserve reports, revoke restored run credentials and exclude Studio volumes.
+
+If preparation reports `owned_fixture_stack_required`, inspect
+`gl-agent-lab studio status` for that installation. It must show `ready: true`
+with the required owned image. Start an existing stopped stack with `studio up`;
+build it first if missing or outdated. An administrator may create a new run
+after readiness is restored **only if** the earlier run is terminal, has no
+submitted operations/decision and reports `cleanup: restored`. Retain the
+earlier infrastructure failure. This is not a recovery procedure for an
+ambiguous submission or unresolved cleanup; do not replay those writes.
 
 This profile does not verify public-network economics, modern appeal bonds,
 contract-model reasoning quality, arbitrary deployed protocol imports, or

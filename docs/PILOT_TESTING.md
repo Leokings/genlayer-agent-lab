@@ -39,14 +39,22 @@ distinguishes actual Studio trials from automated fault-injection checks.
   workflow execution is not implemented.
 - [x] Dashboard and exported reports show actions, actual Studio observations,
   grades, fixture provenance and the exact backend/scenario/binding versions.
-- [ ] The candidate wheel installs outside the source checkout in a fresh
+- [x] The candidate wheel installs outside the source checkout in a fresh
   environment; checksums, setup instructions and examples match that artifact.
+  The Windows check used an empty runtime cache and an isolated environment;
+  its 18-case suite used the fixture backend, while `doctor` actually executed
+  the pinned GLSim contract. Installed Studio client evidence is separate.
 - [x] A normal Lab stop/start preserves historical reports and allows a fresh
   run. This is distinct from stopping Studio mid-consensus or rebooting the OS.
 
 If a required backend capability cannot be demonstrated, resolve that capability
 or explicitly narrow the pilot's claims before scheduling it. Do not fabricate
 an outcome to make the checklist pass.
+
+The existing Windows installation has now also passed a model-driven agent
+smoke test (73 of 200 test units, one actual appeal), separately from the scripted
+controls. This validates that task/API interaction on the existing installation;
+the fresh-data, separately owned Studio setup below still needs its own evidence.
 
 ## Small required behavior set
 

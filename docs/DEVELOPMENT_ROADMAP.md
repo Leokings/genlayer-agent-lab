@@ -255,9 +255,9 @@ Existing alpha installation checks may continue while that work is in progress.
 | 8. VPS pilot | Install the same candidate on a fresh Linux VPS with Docker and sufficient resources | Verify remote setup, dashboard access, agent connection, reports and ordinary process restart; identify host-specific differences |
 | 9. Independent feedback | Another human developer integrates their own agent or supported contract workflow | Record fresh-user feedback and actual integration changes separately from the two same-owner pilots |
 
-Phase 2 is a real change from the current alpha. Its `act` handler changes the
+Phase 2 changes the alpha 8 baseline. Its `act` handler changes the
 Lab's own simulated balances, including when Studio produced the decision. The
-new reference workflow must invoke the contract method and verify state through
+alpha 9 reference workflow invokes the contract method and verifies state through
 Studio. A contract ledger of test units is acceptable for this pilot; it must be
 labeled as test accounting rather than a native-token or production payment.
 
@@ -318,8 +318,8 @@ workflow above. Multi-file packaging and additional dependencies follow when a
 concrete developer integration needs them; they are not prerequisites for the
 first complete single-file example.
 
-The larger deferred job remains recorded in [BACKLOG.md](BACKLOG.md). This roadmap
-does not mark it complete or claim that implementation has begun. Work requiring
+The larger deferred job remains recorded in [BACKLOG.md](BACKLOG.md). The first
+single-file workflow slice is implemented; the larger job is not complete. Work requiring
 a developer's actual interface can use a reference example initially; external
 validation must still involve a real developer integration before that claim is
 made.

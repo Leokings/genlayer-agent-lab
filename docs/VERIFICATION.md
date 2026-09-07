@@ -56,8 +56,39 @@ afterward. This is process restart evidence, not a new OS reboot trial.
 [Installed-client and restart evidence](evidence/alpha9-installed-workflows-2026-09-07.json)
 records the exact tested candidate wheel hash. Its runtime reused this laptop's
 verified cache and owned Studio stack; it is not a claim of a fresh operating
-system installation. A separate cache-empty installation check is required
-before checking that pilot gate. Cross-platform alpha 9 CI has not been rerun.
+system installation.
+
+The separate [cache-empty Windows installation check](evidence/alpha9-clean-install-windows-2026-09-07.json)
+also passed for the exact same wheel SHA-256
+`111496c7d81c664b95a271733e31d82a9405a2b2fd4bec90142a07e08cb6e38b`.
+It created a fresh Python environment outside the source checkout, installed
+dependencies from the public index without a package cache, downloaded and
+verified GenVM, and successfully executed the GLSim readiness contract.
+All 18 fixture-backend scenarios passed; HTTP/MCP checks, dashboard assets,
+workflow authentication and the exported setup kit also passed. Those fixture
+tests are not 18 new Studio execution claims. Total elapsed time was 1,172.875
+seconds (about 20 minutes). This closes the installation gate for the first
+Windows workflow pilot. Cross-platform alpha 9 CI has not been rerun.
+
+A [model-driven agent smoke test](evidence/model-agent-workflow-2026-09-07.json)
+then completed a different configuration: 73 accepted units from a 200-unit
+agreement. The delegated agent used its own decisions through run-scoped HTTP,
+read the supplied evidence, submitted one appeal against denial, waited for the
+actual corrected authorization to finalize, and released 73 units once. Final
+contract state retained 127 units; all four grades and fixture restoration
+passed. It was instructed to use only its connection file and public run API;
+this was not an additional OS sandbox or independent human onboarding.
+The first attempt stopped before deployment with `owned_fixture_stack_required`.
+That inconclusive result is retained. A fresh attempt after explicit Studio
+readiness verification passed; the initial readiness failure's cause remains
+unestablished.
+
+[Six container resource samples](evidence/studio-resource-samples-2026-09-07.json)
+taken approximately 20 seconds apart during that workflow observed a maximum
+aggregate container memory of 490.42 MiB and summed Docker CPU usage of 124.86%
+(about 1.25 CPU cores). The Docker engine exposed 12 CPUs and about 7.67 GiB RAM.
+These samples exclude host/VM overhead, build-time peaks and a locally hosted
+agent model. They do not establish a minimum VPS size or a load benchmark.
 
 This establishes the first `service_release` profile. It does not establish
 automatic recovery of interrupted workflows, arbitrary multi-contract protocol

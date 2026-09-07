@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "scope": "Six 20-second-spaced Docker container samples during one local agent workflow; not peak-load or minimum-host sizing.",
+  "samples": [
+    {
+      "time_utc": "2026-09-07T14:03:37.481322+00:00",
+      "services": [
+        {
+          "service": "worker-1",
+          "memory_mib": 282.8,
+          "cpu_percent": 32.16
+        },
+        {
+          "service": "relay-1",
+          "memory_mib": 10.74,
+          "cpu_percent": 0.77
+        },
+        {
+          "service": "jsonrpc-1",
+          "memory_mib": 137.6,
+          "cpu_percent": 20.39
+        },
+        {
+          "service": "postgres-1",
+          "memory_mib": 34.47,
+          "cpu_percent": 0.48
+        },
+        {
+          "service": "redis-1",
+          "memory_mib": 11.05,
+          "cpu_percent": 0.14
+        }
+      ],
+      "total_container_memory_mib": 476.66,
+      "sum_cpu_percent": 53.94
+    },
+    {
+      "time_utc": "2026-09-07T14:03:59.811917+00:00",
+      "services": [
+        {
+          "service": "worker-1",
+          "memory_mib": 150.4,
+          "cpu_percent": 8.18
+        },
+        {
+          "service": "relay-1",
+          "memory_mib": 10.73,
+          "cpu_percent": 0.91
+        },
+        {
+          "service": "jsonrpc-1",
+          "memory_mib": 138.9,
+          "cpu_percent": 12.58
+        },
+        {
+          "service": "postgres-1",
+          "memory_mib": 34.4,
+          "cpu_percent": 0.63
+        },
+        {
+          "service": "redis-1",
+          "memory_mib": 10.95,
+          "cpu_percent": 3.61
+        }
+      ],
+      "total_container_memory_mib": 345.38,
+      "sum_cpu_percent": 25.91
+    },
+    {
+      "time_utc": "2026-09-07T14:04:21.688908+00:00",
+      "services": [
+        {
+          "service": "worker-1",
+          "memory_mib": 290.6,
+          "cpu_percent": 99.82
+        },
+        {
+          "service": "relay-1",
+          "memory_mib": 11.05,
+          "cpu_percent": 10.75
+        },
+        {
+          "service": "jsonrpc-1",
+          "memory_mib": 142.7,
+          "cpu_percent": 7.8
+        },
+        {
+          "service": "postgres-1",
+          "memory_mib": 34.98,
+          "cpu_percent": 3.75
+        },
+        {
+          "service": "redis-1",
+          "memory_mib": 11.09,
+          "cpu_percent": 2.74
+        }
+      ],
+      "total_container_memory_mib": 490.42,
+      "sum_cpu_percent": 124.86
+    },
+    {
+      "time_utc": "2026-09-07T14:04:43.735786+00:00",
+      "services": [
+        {
+          "service": "worker-1",
+          "memory_mib": 146.8,
+          "cpu_percent": 0.14
+        },
+        {
+          "service": "relay-1",
+          "memory_mib": 10.85,
+          "cpu_percent": 0.72
+        },
+        {
+          "service": "jsonrpc-1",
+          "memory_mib": 138.0,
+          "cpu_percent": 20.63
+        },
+        {
+          "service": "postgres-1",
+          "memory_mib": 36.37,
+          "cpu_percent": 4.13
+        },
+        {
+          "service": "redis-1",
+          "memory_mib": 11.09,
+          "cpu_percent": 2.57
+        }
+      ],
+      "total_container_memory_mib": 343.11,
+      "sum_cpu_percent": 28.19
+    },
+    {
+      "time_utc": "2026-09-07T14:05:05.975692+00:00",
+      "services": [
+        {
+          "service": "worker-1",
+          "memory_mib": 146.8,
+          "cpu_percent": 0.14
+        },
+        {
+          "service": "relay-1",
+          "memory_mib": 10.77,
+          "cpu_percent": 0.02
+        },
+        {
+          "service": "jsonrpc-1",
+          "memory_mib": 147.6,
+          "cpu_percent": 7.08
+        },
+        {
+          "service": "postgres-1",
+          "memory_mib": 36.87,
+          "cpu_percent": 3.52
+        },
+        {
+          "service": "redis-1",
+          "memory_mib": 10.99,
+          "cpu_percent": 2.78
+        }
+      ],
+      "total_container_memory_mib": 353.03,
+      "sum_cpu_percent": 13.54
+    },
+    {
+      "time_utc": "2026-09-07T14:05:28.207124+00:00",
+      "services": [
+        {
+          "service": "worker-1",
+          "memory_mib": 147.0,
+          "cpu_percent": 70.58
+        },
+        {
+          "service": "relay-1",
+          "memory_mib": 10.74,
+          "cpu_percent": 0.81
+        },
+        {
+          "service": "jsonrpc-1",
+          "memory_mib": 137.8,
+          "cpu_percent": 18.86
+        },
+        {
+          "service": "postgres-1",
+          "memory_mib": 36.45,
+          "cpu_percent": 1.84
+        },
+        {
+          "service": "redis-1",
+          "memory_mib": 11.08,
+          "cpu_percent": 3.4
+        }
+      ],
+      "total_container_memory_mib": 343.07,
+      "sum_cpu_percent": 95.49
+    }
+  ],
+  "docker_engine": "12 CPUs; 8236761088 bytes memory; linux; x86_64"
+}
