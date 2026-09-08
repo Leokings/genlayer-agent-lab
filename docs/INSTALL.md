@@ -10,7 +10,7 @@ its [release artifacts](https://github.com/Leokings/genlayer-agent-lab/releases)
 This alpha is not published on PyPI. Do not install a similarly named package
 from a registry. A supplied source archive or wheel also works.
 
-The expanded project workflows require the alpha 10 candidate. Use the supplied
+The combined project and investigation workflows require alpha 11. Use the supplied
 candidate wheel or source's actual version; earlier artifacts do not include
 these project interfaces. For the combined build's terminal setup, Studio
 startup and VPS dashboard tunnel, follow [project workflows](PROJECT_WORKFLOWS.md).

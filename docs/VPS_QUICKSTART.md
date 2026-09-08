@@ -12,7 +12,15 @@ If dependencies are missing, the [setup skill](../skills/setup-genlayer-agent-la
 can guide a coding agent through installing them. A supplied wheel can be used
 instead of source; see [installation](INSTALL.md).
 
-In the candidate source directory on the VPS:
+For a first installation, download the source in your VPS terminal:
+
+```sh
+git clone https://github.com/Leokings/genlayer-agent-lab.git
+cd genlayer-agent-lab
+```
+
+If you already cloned it, enter that directory. The following commands use the
+alpha 11 candidate from the current main branch:
 
 ```sh
 uv sync --locked --python 3.12

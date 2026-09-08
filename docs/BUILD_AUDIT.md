@@ -6,6 +6,27 @@ investigation addition. The test target is the agent's use of GenLayer and
 reaction to its decisions. Developers supply possible contract model responses
 and independently reviewed behavior expectations.
 
+## Consolidated results
+
+The audit is complete for this candidate's documented scope. All seven findings
+below were corrected. The local regression passed **1,306 tests**, with ten
+explicit environment skips. [Eight actual Studio investigation trials](evidence/investigation-workflows-2026-09-08.json)
+produced the expected outcomes: six safe policies passed, and both deliberately
+faulty policies failed for the intended findings. The appeal trial verified its
+real submission, completed round, changed outcome and ordering.
+
+The actual desktop/mobile dashboard and report export passed. [Package CI](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34195400993)
+passed on Linux, Windows and macOS, including fresh virtual-environment
+installations, HTTP/MCP probes, scenario authoring and all eight packaged
+investigation recipes. The Linux custom-contract worker also passed.
+[Saved installation evidence](evidence/alpha11-ci-2026-09-08.json) identifies the
+exact artifacts. The tested implementation commit is
+`9b2585b8c8ed936a02232470bffa315c29761f85`; later documentation records these results.
+
+Native Linux/macOS user-service checks and the existing Linux guest reboot
+workflow also passed. These do not establish whole-machine reboot recovery for
+the new modern Studio stack. The user VPS/selected-agent trial remains open.
+
 ## Requirements and implementation
 
 | Area | Implemented behavior | Evidence and boundary |

@@ -6,15 +6,20 @@ Its project interfaces, authoring, clients and durable journal are implemented.
 The [full build audit](BUILD_AUDIT.md) records the investigation addition and
 the integration, cleanup, ordering and reporting defects found and corrected.
 The expanded Python regression passed 1,306 tests (10 explicit environment
-skips); live investigation and installed-candidate results have separate records.
+skips). [Eight actual investigation trials](evidence/investigation-workflows-2026-09-08.json)
+passed their expected outcomes through HTTP/MCP, including both detected faulty
+agents. Desktop/mobile report checks passed, and
+[fresh package installations](evidence/alpha11-ci-2026-09-08.json) passed on Linux,
+Windows and macOS. The full audit has no unresolved finding within this candidate's
+documented scope; the user VPS/selected-agent pilot is the next validation step.
 The earlier alpha 10 source/runtime checks passed: 1,194 Python tests, seven actual
 Studio reference cases with the expected results, MCP and TypeScript appeals,
 desktop/mobile report inspection, and forced Lab interruption during a pending
 three-contract workflow. [The evidence](evidence/project-workflows-2026-09-08.json)
 retains run identities, actual fees, child outcomes and recovery checks.
 
-Installed-wheel verification and the OS package matrix are separate artifact
-gates recorded with the candidate release. The user's short
+Installed-wheel verification and the OS package matrix are passed artifact
+gates recorded with the candidate. The user's short
 [VPS onboarding trial](VPS_QUICKSTART.md) and independent external developer
 validation remain unverified; source checks do not substitute for those trials.
 

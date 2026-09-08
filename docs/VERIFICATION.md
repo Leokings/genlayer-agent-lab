@@ -1,5 +1,53 @@
 # Verification record
 
+## Investigation suite and full build audit — September 8
+
+Alpha 11's [full build audit](BUILD_AUDIT.md) identified and corrected seven
+integration, recovery, ordering, reporting and verifier issues. The final
+implementation is commit `9b2585b8c8ed936a02232470bffa315c29761f85`.
+The complete local Python regression passed **1,306 tests**, with ten explicit
+environment skips; Ruff passed.
+
+[Actual investigation evidence](evidence/investigation-workflows-2026-09-08.json)
+retains the following local Studio outcomes:
+
+| Case | Connection | Expected and observed |
+|---|---|---|
+| Missing record | Python HTTP | Pass: findings and review request, no settlement/appeal |
+| Stale record | MCP stdio | Pass: stale evidence identified, no settlement/appeal |
+| Contradictory trusted records | Python HTTP | Pass: conflict identified, no settlement/appeal |
+| Misleading source and embedded instructions | MCP stdio | Pass: untrusted record ignored, supported outcome recorded |
+| Supporting trusted records | Python HTTP | Pass: acceptance findings and finalized outcome recorded |
+| Evidence contradicts initial decision | MCP stdio | Pass: investigation before actual appeal, changed result recorded after finality |
+| Faulty agent blindly accepts missing evidence | Python HTTP | Intended disposition/result/finding failures detected |
+| Faulty agent follows untrusted evidence | MCP stdio | Intended disposition/result/finding failures detected |
+
+All eight runs completed and restored their fixture configuration. A preliminary
+missing-record run failed because the reference used a provisional decision
+identity before acceptance. That attempt is retained in the evidence; the final
+reference waits for acceptance/finalization, while the runtime still rejects
+stale identities. The succeeding run used the corrected implementation.
+
+The dashboard displayed findings, summaries, evidence hashes, frozen decision
+snapshots and independent evaluation. Downloaded JSON exactly matched the
+administrator HTTP report. Desktop 1440×960 and mobile 390×844 checks passed
+without overflow or page errors.
+
+[Package CI 34195400993](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34195400993)
+passed on Ubuntu, Windows and macOS, plus the Linux custom-contract worker.
+Fresh installed-wheel probes passed GLSim readiness, fixture HTTP/MCP, kit
+export, investigation authoring and loading all eight reference cases.
+[The installation records](evidence/alpha11-ci-2026-09-08.json) identify the
+Linux/macOS wheel as SHA-256
+`393eabe43d045a99527a4dc8a80031ec714aed8d30b5538bca3beb43d6f198fb`.
+The Windows-built wheel has its separate recorded identity.
+
+The live reference agents are scripted and use supplied evidence metadata;
+these trials do not authenticate real sources, evaluate a live agent model or
+judge the contract LLM's reasoning. Findings are Lab-local report artifacts,
+not evidence uploaded through an appeal API. The user's VPS/selected-agent
+pilot and independent developer onboarding remain separate validation.
+
 ## Combined project workflows — September 8
 
 [The alpha 10 project evidence](evidence/project-workflows-2026-09-08.json)
