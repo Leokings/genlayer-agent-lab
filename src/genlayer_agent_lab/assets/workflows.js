@@ -66,127 +66,436 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
 
   const $ = id => document.getElementById(id);
   const key = "genlayer-agent-lab-admin-token";
-  let token = sessionStorage.getItem(key) || "", selected = null, report = null, busy = false;
-  const terminal = new Set(["completed", "cancelled", "interrupted", "inconclusive"]);
-  const fail = error => { $("notice").textContent = String(error.message || error).replaceAll(token || "\0", "[redacted]"); $("notice").hidden = false; };
-  async function request(path, method = "GET", body) {
-    const response = await fetch(`/v1/workflows${path}`, {method, redirect:"error", signal:AbortSignal.timeout(30000), headers:{Authorization:`Bearer ${token}`, ...(body === undefined ? {} : {"Content-Type":"application/json"})}, body:body === undefined ? undefined : stringifyProjectJson(body)});
-    const result = parseProjectJson(await response.text());
-    if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : `Request failed (${response.status})`);
+  // Consume the local setup handoff before any request or external navigation.
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  let token = fragment.get("token") || "";
+  if (fragment.has("token")) history.replaceState(null, "", location.pathname + location.search);
+  try { token ||= sessionStorage.getItem(key) || ""; } catch { /* Private browser sessions may disable storage. */ }
+  let selected = null, report = null, templates = [], chosen = null, preview = null;
+  let environment = null, refreshing = false, creating = false, revision = 0, detailRevision = 0;
+  let environmentCheck = null;
+  let connectionRun = null, connectionRevision = 0;
+  const credentials = new Map(), names = new Map(); // Run secrets live only in this page's memory.
+  const terminal = new Set(["completed", "cancelled", "interrupted", "inconclusive", "failed"]);
+  const pretty = value => stringifyProjectJson(value ?? null, 2);
+  const text = value => typeof value === "string" ? value : typeof value === "bigint" ? String(value) : pretty(value);
+  const words = value => String(value ?? "").replaceAll("_", " ");
+  function node(tag, value = "", className = "") {
+    const element = document.createElement(tag); element.textContent = value;
+    if (className) element.className = className;
+    return element;
+  }
+  function fail(error) {
+    if (error?.message === "Workspace changed") return;
+    let message = String(error?.message || error);
+    for (const secret of [token, ...Array.from(credentials.values(), value => value.token)]) {
+      if (secret) message = message.replaceAll(secret, "[redacted]");
+    }
+    $("notice").textContent = message; $("notice").hidden = false;
+  }
+  function feedback(message) { $("feedback").textContent = message; $("feedback").hidden = false; }
+  function clearNotice() { $("notice").hidden = true; $("feedback").hidden = true; }
+  async function request(path, method = "GET", body, timeoutMs = 30000) {
+    const authorization = token;
+    let response;
+    try {
+      response = await fetch(path, {method, redirect:"error", cache:"no-store", signal:AbortSignal.timeout(timeoutMs),
+        headers:{Authorization:`Bearer ${authorization}`, ...(body === undefined ? {} : {"Content-Type":"application/json"})},
+        body:body === undefined ? undefined : stringifyProjectJson(body)});
+    } catch { const error = new Error("The Lab did not respond. Check the setup terminal and your SSH tunnel, then try again."); error.uncertain = true; throw error; }
+    if (authorization !== token) throw new Error("Workspace changed");
+    let result;
+    try { result = parseProjectJson(await response.text()); }
+    catch { const error = new Error(`The Lab returned an unreadable response (${response.status}). Check its diagnostics.`); error.uncertain = response.ok; throw error; }
+    if (!response.ok) {
+      const error = new Error(response.status === 401 ? "The workspace key was not accepted. Unlock this installation with its administrator key."
+        : typeof result.detail === "string" ? result.detail : `The request could not be validated (${response.status}). Check the entered fields.`);
+      error.uncertain = response.status >= 500; throw error;
+    }
     return result;
   }
-  function node(tag, value) { const element = document.createElement(tag); element.textContent = value; return element; }
-  function renderInvestigations(run, evidence) {
-    const submissions = evidence.investigations ?? run.investigations ?? [];
-    const investigations = Array.isArray(submissions) ? submissions : [];
-    $("investigation-detail").hidden = run.profile !== "project" && !investigations.length;
-    const container = $("investigations");
-    container.replaceChildren();
-    if (!investigations.length) {
-      container.append(node("p", "No investigation has been submitted."));
-      return;
+  function step(name) {
+    for (const item of ["choose", "review", "connect", "results"]) $("step-" + item).classList.toggle("current", item === name);
+  }
+  function invalidate() {
+    revision++; preview = null; $("review-confirmed").checked = false; $("review-panel").hidden = true;
+    if (!creating) step("choose");
+    updateCreate();
+  }
+  function updateCreate() { $("create").disabled = creating || !preview || !environment?.ready || !$("review-confirmed").checked; }
+  function renderEnvironment(pending = false, timedOut = false) {
+    const ready = environment?.ready === true;
+    $("environment-badge").textContent = ready ? "Environment ready" : pending ? "Checking environment…" : "Environment needs attention";
+    $("environment-badge").className = "environment-badge " + (ready ? "ready" : pending ? "" : "attention");
+    $("environment-summary").textContent = ready ? "The Lab and owned Studio are ready for your test."
+      : pending ? "Checking the owned Studio runtime. You can prepare and review your test while this finishes."
+      : timedOut ? "The Studio check is taking longer than expected. Your draft is kept; use Check again or inspect the setup terminal."
+      : "You can prepare and review a test now. Check the environment details before creating it.";
+    $("environment-checks").replaceChildren();
+    for (const check of environment?.checks || []) {
+      const card = node("div", "", "environment-check " + (check.status === "fail" ? "fail" : ""));
+      card.append(node("strong", check.label), node("p", check.detail));
+      if (check.command) card.append(node("code", check.command));
+      $("environment-checks").append(card);
     }
-    const labels = {accept:"Accept the observed decision", appeal:"Appeal the observed decision", request_review:"Request developer review"};
-    investigations.forEach((submission, index) => {
-      const card = node("article", "");
-      card.className = "investigation-card";
-      card.append(node("h4", `${index + 1}. ${labels[submission.disposition] || "Submitted investigation"}`));
-      const identity = node("p", `Submission: ${submission.submission_id ?? "Not recorded"} · Decision: ${submission.decision_id ?? "Not recorded"}`);
-      identity.className = "helper";
-      card.append(identity);
-      const summary = node("p", submission.summary || "No summary recorded.");
-      summary.className = "investigation-summary";
-      card.append(summary);
-      card.append(node("h5", "Proposed result"), node("pre", stringifyProjectJson(submission.proposed_result ?? null, null, 2)));
-      const findings = node("ul", "");
-      findings.className = "investigation-findings";
-      for (const finding of submission.findings || []) {
-        const item = node("li", "");
-        item.append(node("strong", `${finding.evidence_id}: ${finding.assessment}`), node("p", finding.note || "No note recorded."));
-        findings.append(item);
+    $("environment-help").open = !ready; updateCreate(); renderConnection();
+  }
+  function checkEnvironment() {
+    if (environmentCheck) return environmentCheck;
+    $("check-environment").disabled = true;
+    environment = environment ? {...environment, ready:false, checks:[]} : null;
+    renderEnvironment(true);
+    const authorization = token, deadline = Date.now() + 45000;
+    environmentCheck = (async () => {
+      try {
+        for (;;) {
+          if (authorization !== token) throw new Error("Workspace changed");
+          const remaining = deadline - Date.now();
+          if (remaining <= 0) { renderEnvironment(false, true); return environment; }
+          environment = await request("/v1/onboarding/status", "GET", undefined, Math.min(30000, remaining));
+          const pending = !environment.ready && (environment.checks || []).some(check => check.status === "pending")
+            && !(environment.checks || []).some(check => check.status === "fail");
+          renderEnvironment(pending);
+          if (!pending) return environment;
+          const delay = Math.min(2000, Math.max(0, deadline - Date.now()));
+          if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error) {
+        environment = null; renderEnvironment();
+        $("environment-summary").textContent = "The environment check could not finish. Check the Lab connection or setup terminal, then try again.";
+        throw error;
       }
-      card.append(node("h5", "Evidence findings"));
-      card.append(findings.children.length ? findings : node("p", "No findings recorded."));
-      const provenance = node("details", "");
-      provenance.append(node("summary", "Cited evidence and decision snapshot"));
-      provenance.append(node("pre", stringifyProjectJson({citations:submission.citations ?? [], decision_snapshot:submission.decision_snapshot ?? null}, null, 2)));
-      card.append(provenance);
-      container.append(card);
-    });
+    })().finally(() => { environmentCheck = null; $("check-environment").disabled = false; updateCreate(); });
+    return environmentCheck;
+  }
+  function category(template) { return template.id.startsWith("investigation-") ? "investigation" : template.id.includes("-messages-") ? "messages" : "decision"; }
+  function renderTemplates() {
+    $("templates").replaceChildren();
+    const filter = $("template-filter").value;
+    for (const template of templates.filter(item => filter === "all" || category(item) === filter)) {
+      const button = node("button", "", "template-card"); button.type = "button"; button.disabled = creating;
+      button.dataset.template = template.id;
+      button.setAttribute("aria-pressed", String(chosen?.id === template.id));
+      button.append(node("span", {decision:"Decisions & appeals", investigation:"Evidence & investigation", messages:"Actions across contracts"}[category(template)], "template-category"),
+        node("strong", template.title), node("p", template.description));
+      button.addEventListener("click", () => choose(template)); $("templates").append(button);
+    }
+  }
+  function choose(template) {
+    if (creating) return;
+    invalidate(); chosen = template; renderTemplates(); $("template-form").hidden = false;
+    $("chosen-title").textContent = template.title; $("chosen-description").textContent = template.description;
+    $("template-fields").replaceChildren();
+    for (const field of template.fields.slice(0, 5)) {
+      const wrapper = node("div", "", field.type === "textarea" ? "wide" : "");
+      const input = document.createElement(field.type === "textarea" ? "textarea" : field.type === "select" ? "select" : "input");
+      input.id = "field-" + field.name; input.name = field.name; input.required = true;
+      if (field.type === "select") for (const option of field.options || []) { const item = node("option", option.label); item.value = option.value; input.append(item); }
+      else if (field.type !== "textarea") input.type = field.type === "number" ? "number" : "text";
+      if (field.type === "number") { input.step = field.name === "initial_confidence_bps" ? "0.01" : "1"; input.min = field.name === "timeout_seconds" ? "1" : "0"; input.max = field.name === "timeout_seconds" ? "30" : "100"; }
+      else if (field.type !== "select") input.maxLength = field.name === "title" ? 160 : 4000;
+      input.value = field.name === "timeout_seconds" ? "30" : field.name === "initial_confidence_bps" ? String(field.default / 100) : String(field.default ?? "");
+      const label = node("label", field.name === "initial_confidence_bps" ? "Initial model confidence (%)" : field.name === "timeout_seconds" ? "Time to complete the test (minutes)" : field.label); label.htmlFor = input.id;
+      const help = node("p", field.name === "timeout_seconds" ? "Up to 30 minutes, including time to connect your agent." : field.name === "initial_confidence_bps" ? "0–100%. An upheld appeal keeps the same response." : field.help || "", "helper");
+      help.id = input.id + "-help"; input.setAttribute("aria-describedby", help.id);
+      input.addEventListener("input", invalidate); input.addEventListener("change", invalidate);
+      wrapper.append(label, input, help); $("template-fields").append(wrapper);
+    }
+  }
+  const relation = {eq:"equals", ne:"differs from", lt:"is less than", lte:"is at most", gt:"is greater than", gte:"is at least", in:"is one of", contains:"contains"};
+  function ruleDescription(rule) {
+    if (rule.op === "exists") return rule.label + " — must be present.";
+    const right = rule.right;
+    const value = right && Object.hasOwn(right, "literal") ? text(right.literal)
+      : right ? words(right.path).replaceAll(".", " → ") + " from " + right.source : "the reviewed value";
+    return `${rule.label} — ${relation[rule.op] || rule.op} ${value}.`;
+  }
+  function renderReview(value) {
+    preview = value; const spec = value.spec; $("review-confirmed").checked = false;
+    $("spec").value = pretty(spec);
+    $("review-summary").replaceChildren(node("li", spec.title), node("li", spec.task),
+      node("li", `Contracts: ${Object.keys(spec.project_snapshot.definition.contracts).map(words).join(", ")}.`),
+      node("li", `Time limit: ${Math.round(spec.timeout_seconds / 60)} minutes (${spec.timeout_seconds} seconds).`));
+    if (Object.keys(spec.context || {}).length) {
+      const item = node("li", "Public context"); item.append(node("pre", pretty(spec.context))); $("review-summary").append(item);
+    }
+    for (const evidence of spec.evidence || []) {
+      const item = node("li", ""); item.append(node("strong", evidence.title), node("p", evidence.content));
+      if (evidence.provenance) item.append(node("p", evidence.provenance, "helper"));
+      if (evidence.data) item.append(node("pre", pretty(evidence.data)));
+      $("review-summary").append(item);
+    }
+    $("review-responses").replaceChildren();
+    for (const [phase, responses] of Object.entries(spec.fixtures || {})) for (const response of responses) {
+      const card = node("div", "", "response-card"); card.append(node("h4", words(phase) + " response"));
+      if (response.response && typeof response.response === "object" && !Array.isArray(response.response)) {
+        const list = node("dl"); for (const [name, value] of Object.entries(response.response)) list.append(node("dt", name === "confidence_bps" ? "Confidence" : words(name)), node("dd", name === "confidence_bps" && typeof value === "number" ? `${value / 100}%` : text(value))); card.append(list);
+      } else card.append(node("p", text(response.response)));
+      $("review-responses").append(card);
+    }
+    if (!$("review-responses").children.length) $("review-responses").append(node("p", "No supplied contract response override."));
+    const rules = $("review-rules"); rules.replaceChildren();
+    for (const rule of spec.expectations.rules) rules.append(node("li", ruleDescription(rule)));
+    for (const action of spec.expectations.required_actions || []) rules.append(node("li", `${words(action.operation)}: ${action.min_count} to ${action.max_count ?? "any number of"} ${action.successful ? "successful calls" : "attempts"}.`));
+    for (const action of spec.expectations.forbidden_actions || []) rules.append(node("li", `Must not attempt ${words(action)}.`));
+    if (spec.expectations.require_finalized) rules.append(node("li", "Submitted transactions must finalize before completion."));
+    rules.append(node("li", spec.policy.allow_appeal ? `Appeals permitted: at most ${spec.policy.max_appeals}.` : "Appeals are not permitted."));
+    for (const [name, policy] of Object.entries(spec.policy.operations)) {
+      rules.append(node("li", `${words(name)}: at most ${policy.max_calls} calls${policy.require_finalized.length ? "; wait for finalized " + policy.require_finalized.map(words).join(", ") : ""}.`));
+      for (const rule of policy.constraints) rules.append(node("li", `${words(name)}: ${ruleDescription(rule)}`));
+      if (policy.max_fee !== null) rules.append(node("li", `${words(name)} fee limit: ${text(policy.max_fee)} local GEN base units.`));
+    }
+    for (const rule of spec.policy.appeal_constraints || []) rules.append(node("li", "Before an appeal: " + ruleDescription(rule)));
+    for (const field of ["max_fee", "max_total_fee"]) if (spec.policy[field] !== null) rules.append(node("li", `${words(field)}: ${text(spec.policy[field])} local GEN base units.`));
+    $("review-warnings").replaceChildren(...(value.warnings || []).map(item => node("p", item, "helper")));
+    $("review-spec").textContent = pretty({digest:value.digest, spec, explanation:value.summary, rules:value.rules});
+    $("review-duration").textContent = "The time limit starts when the test is created. Connect your agent promptly; use a fresh test if it expires.";
+    $("review-panel").hidden = false; step("review"); updateCreate(); $("review-panel").scrollIntoView({behavior:"smooth", block:"start"});
+  }
+  async function prepare(kind) {
+    if (creating) return;
+    clearNotice(); const current = ++revision; preview = null; $("review-panel").hidden = true; $("review-confirmed").checked = false; updateCreate(); $("prepare-review").disabled = true;
+    try {
+      let result;
+      if (kind === "template") {
+        const values = Object.fromEntries(chosen.fields.map(field => {
+          const input = $("field-" + field.name);
+          return [field.name, field.name === "timeout_seconds" ? Number(input.value) * 60
+            : field.name === "initial_confidence_bps" ? Math.round(Number(input.value) * 100)
+            : field.type === "number" ? Number(input.value) : input.value];
+        }));
+        result = await request("/v1/onboarding/draft", "POST", {template_id:chosen.id, values});
+      } else {
+        if (new TextEncoder().encode($("spec").value).length > 2400000) throw new Error("The scenario exceeds the supported file size.");
+        const spec = parseProjectJson($("spec").value);
+        if (spec.integer_encoding === "lab-tagged-decimal-v1") delete spec.integer_encoding;
+        result = await request("/v1/onboarding/preview", "POST", {spec});
+      }
+      if (current === revision) renderReview(result);
+    } finally { $("prepare-review").disabled = false; }
+  }
+  function editable(disabled) {
+    for (const input of document.querySelectorAll("#builder input,#builder textarea,#builder select,#builder button,#edit-test,#new-test")) input.disabled = disabled;
+    $("reviewer").disabled = disabled; $("review-confirmed").disabled = disabled;
+  }
+  async function createRun() {
+    if (creating || !preview || !$("review-confirmed").checked) return;
+    clearNotice(); creating = true; editable(true); updateCreate();
+    const current = revision, reviewed = preview;
+    let creationAttempted = false, createdResponseReceived = false;
+    try {
+      await checkEnvironment();
+      if (!environment?.ready) throw new Error("The environment is not ready yet. Your reviewed draft is kept here; check the environment details and try again.");
+      const approved = await request("/v1/onboarding/review", "POST", {spec:reviewed.spec, expected_sha256:reviewed.digest, reviewer:$("reviewer").value.trim()});
+      if (current !== revision) throw new Error("The test changed. Review its current content before creating it.");
+      creationAttempted = true;
+      const created = await request("/v1/workflows", "POST", {spec:approved.spec});
+      createdResponseReceived = true;
+      selected = created.run_id; names.set(selected, approved.spec.title);
+      credentials.set(selected, {token:created.agent_token, task:approved.spec.task});
+      preview = null; $("review-panel").hidden = true; $("builder").hidden = true;
+      step("connect"); renderConnection(); await refresh();
+      $("connection").scrollIntoView({behavior:"smooth", block:"start"});
+    } catch (error) {
+      if (createdResponseReceived) { renderConnection(); feedback("Your test was created and its connection settings are available. Refresh failed; use Check connection or Refresh to try again."); }
+      else if (creationAttempted && error.uncertain) { preview = null; $("review-confirmed").checked = false; feedback("Check Your tests before creating another run: a lost creation response may still have created the test. Its key cannot be recovered here."); await refresh().catch(() => {}); }
+      throw error;
+    } finally { creating = false; editable(false); updateCreate(); }
+  }
+  function agentUrl() {
+    const supplied = $("agent-location").value === "tunnel" ? $("agent-url").value : environment?.server_url;
+    const url = new URL(supplied || "");
+    if (!["http:", "https:"].includes(url.protocol) || !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      || url.username || url.password || url.search || url.hash || url.pathname !== "/") throw new Error("Enter the loopback Lab address reachable by your agent, including the correct port.");
+    return url.origin;
+  }
+  function renderConnection() {
+    if (connectionRun !== selected) {
+      connectionRun = selected; connectionRevision++;
+      $("connection-badge").textContent = "Waiting for agent";
+      $("connection-badge").className = "environment-badge";
+      $("connection-status").textContent = "Connection has not been checked for this test yet.";
+      $("check-connection").disabled = false;
+    }
+    const saved = credentials.get(selected); $("connection").hidden = !saved;
+    if (!saved) { $("credential").value = ""; return; }
+    $("connection-run").textContent = `${names.get(selected) || "Agent test"} · ${selected}`;
+    const client = $("agent-client").value, remote = $("agent-location").value === "tunnel";
+    $("remote-settings").hidden = !remote; $("remote-mcp").hidden = !remote || client !== "mcp";
+    $("copy-config").disabled = true;
+    try {
+      const url = agentUrl(), run = selected, secret = saved.token;
+      let content;
+      if (client === "mcp") {
+        const command = remote ? $("mcp-path").value.trim() : environment?.mcp_command;
+        if (!command) throw new Error("Enter the installed MCP executable path on the computer where your agent runs.");
+        content = JSON.stringify({mcpServers:{"genlayer-lab":{command, args:[], env:{LAB_URL:url, LAB_MODE:"workflow", LAB_ROLE:"agent", LAB_RUN_ID:run, LAB_TOKEN:secret}}}}, null, 2);
+        $("connection-instructions").textContent = "Add this connector in your agent host's MCP settings, reload its tools, and use Copy start prompt. The connector runs beside your agent.";
+      } else if (client === "python") {
+        content = `from genlayer_agent_lab.client import LabClient\n\nwith LabClient(${JSON.stringify(url)}, ${JSON.stringify(secret)}) as lab:\n    run_id = ${JSON.stringify(run)}\n    observation = lab.workflow_observe(run_id)\n    print(observation)\n    # Supply observation to your agent. Let its policy invoke declared\n    # operations, appeal when permitted, and finish when work is complete.\n    # lab.workflow_invoke(run_id, operation, arguments, idempotency_key, decision_id)\n    # lab.workflow_appeal(run_id, idempotency_key, decision_id)\n    # lab.workflow_finish(run_id)\n`;
+        $("connection-instructions").textContent = "Use the installed Python client in your agent's environment. This connection example reads the task; add your agent's policy loop to complete it.";
+      } else if (client === "typescript") {
+        content = `// Use client.ts from the exported Lab kit's examples/typescript directory.\nimport {LabClient} from './client.ts';\nconst lab = new LabClient(${JSON.stringify(url)}, ${JSON.stringify(secret)});\nconst runId = ${JSON.stringify(run)};\nconst observation = await lab.workflowObserve(runId);\nconsole.log(observation);\n// Pass observation to your agent's policy. The supplied client preserves\n// exact integer values for workflowInvoke, workflowAppeal and workflowFinish.\n`;
+        $("connection-instructions").textContent = "Use the supplied TypeScript client (Node.js 24 or newer). This reads the task and preserves exact project integers; connect your policy to its workflow methods.";
+      } else {
+        content = `Lab URL: ${url}\nRun ID: ${run}\nAuthorization: Bearer ${secret}\nContent-Type: application/json\n\nPOST /v1/workflows/${run}/observe\nPOST /v1/workflows/${run}/operations\n  {"operation":"<declared operation>","arguments":{},"idempotency_key":"<stable key>","expected_decision_id":"<observed decision>"}\nPOST /v1/workflows/${run}/appeals\n  {"idempotency_key":"<stable key>","expected_decision_id":"<observed decision>"}\nPOST /v1/workflows/${run}/finish\n\nProject integers outside the safe JSON number range use {"$lab_integer":"<decimal>"}.\nUse the supplied clients for exact encoding and reserved-object escaping.\n`;
+        $("connection-instructions").textContent = "Send a run-authenticated observe request first. Use the returned task and method schemas, preserve retry keys, and follow the project's exact-integer wire format.";
+      }
+      $("credential").value = content; $("copy-config").disabled = false;
+    } catch (error) { $("credential").value = ""; $("connection-instructions").textContent = error.message; }
+  }
+  async function checkConnection() {
+    if (!selected) return;
+    const id = selected, serial = ++connectionRevision; $("check-connection").disabled = true;
+    try {
+      const result = await request("/v1/onboarding/connection/" + encodeURIComponent(id));
+      if (selected !== id || serial !== connectionRevision) return;
+      $("connection-badge").textContent = result.connected ? "Agent activity observed" : "Waiting for agent";
+      $("connection-badge").className = "environment-badge " + (result.connected ? "ready" : "");
+      $("connection-status").textContent = result.detail + (result.last_seen ? ` Last request: ${new Date(result.last_seen).toLocaleString()}. This does not indicate a live agent process.` : " Start your agent with the copied settings.");
+    } finally { if (selected === id && serial === connectionRevision) $("check-connection").disabled = false; }
+  }
+  async function copy(value) {
+    if (!value) throw new Error("Complete the connection settings first.");
+    try { await navigator.clipboard.writeText(value); feedback("Copied. Paste it into your agent's test configuration."); }
+    catch {
+      if (value !== $("credential").value) { feedback("Copy this start prompt manually: " + value); return; }
+      $("credential").closest("details").open = true; $("credential").focus(); $("credential").select();
+      throw new Error("Clipboard access is unavailable. Select and copy the displayed connection settings manually.");
+    }
+  }
+  function renderInvestigations(value) {
+    const investigations = value.investigations || []; $("investigation-detail").hidden = !investigations.length;
+    $("investigations").replaceChildren();
+    for (const submission of investigations) {
+      const card = node("article", "", "investigation-card");
+      card.append(node("h4", {accept:"Accept the decision", appeal:"Challenge the decision", request_review:"Request review"}[submission.disposition] || "Submitted findings"), node("p", submission.summary), node("p", "Proposed result: " + text(submission.proposed_result)));
+      const list = node("ul", "", "investigation-findings");
+      for (const finding of submission.findings || []) { const item = node("li"); item.append(node("strong", `${words(finding.evidence_id)}: ${words(finding.assessment)}`), node("p", finding.note)); list.append(item); }
+      card.append(list);
+      const detail = node("details"); detail.append(node("summary", "Decision and evidence references"), node("pre", pretty({decision_id:submission.decision_id ?? null, citations:submission.citations || [], decision_snapshot:submission.decision_snapshot ?? null})));
+      card.append(detail); $("investigations").append(card);
+    }
+  }
+  function reportChecks(value) {
+    if (Array.isArray(value.checks)) return value.checks;
+    const labels = {decision:"Decision and finality", behavior:"Agent respected the permitted actions", outcome:"Final application outcome", completion:"Required work completed"};
+    const details = {decision:"Checks the finalized, successfully executed decision against the reviewed expected values.",
+      behavior:value.behavior_failures?.length ? "Recorded issues: " + value.behavior_failures.map(words).join(", ") : "No action-policy failure was recorded.",
+      outcome:"Compares the observed application state with the reviewed final state.",
+      completion:"Required actions: " + (value.expectations?.required_actions || []).map(words).join(", ") + ". The agent must also finish the run."};
+    return Object.entries(value.grades || {}).map(([id, grade]) => ({id, label:labels[id] || words(id), outcome:grade.status, detail:grade.detail || details[id] || "See the recorded evidence for this check."}));
+  }
+  function renderReport(run, result) {
+    const ended = terminal.has(run.status); report = ended ? result : null;
+    const grade = ended ? result.verification || "inconclusive" : "running";
+    names.set(run.run_id, run.title || names.get(run.run_id) || run.run_id);
+    $("detail").hidden = false; $("title").textContent = names.get(run.run_id);
+    $("status").textContent = `${words(run.status)} · ${run.run_id}`; $("cancel").hidden = ended;
+    $("download-readable").disabled = $("download").disabled = !ended;
+    const labels = {pass:["Your agent met the expected behavior", "The recorded actions and results passed this test's reviewed checks."], fail:["This test found a behavior to investigate", "Read the failed checks and the actions below to see what differed from your expectations."], inconclusive:["This test could not establish a complete result", "Inspect the environment and execution details before judging the agent."], running:["Your test is in progress", "Connect your agent if you have not already. Results appear after the run has finished and Studio observations are settled."]};
+    const explanation = labels[grade] || labels.inconclusive;
+    $("result-summary").className = "result-summary " + (Object.hasOwn(labels, grade) ? grade : "inconclusive");
+    $("result-summary").replaceChildren(node("h3", explanation[0]), node("p", explanation[1]));
+    if (run.error_code) $("result-summary").append(node("p", "Diagnostic: " + run.error_code));
+    $("evaluation-cards").replaceChildren();
+    if (ended) for (const check of reportChecks(result)) {
+      const card = node("article", "", "check-card " + (check.outcome === "fail" ? "fail" : ""));
+      const heading = node("div", "", "check-heading"); heading.append(node("strong", check.label || words(check.id)), node("span", words(check.outcome), "pill"));
+      card.append(heading, node("p", text(check.detail ?? ""))); $("evaluation-cards").append(card);
+    }
+    $("operations").replaceChildren();
+    for (const operation of run.operations || []) {
+      const item = node("li"); item.append(node("strong", `${words(operation.operation)} · ${words(operation.status)}`));
+      if (operation.error_code) item.append(node("p", "Diagnostic: " + operation.error_code));
+      else item.append(node("p", operation.tx_id ? `Studio transaction ${operation.tx_id}` : "Recorded Lab tool request."));
+      const detail = node("details"); detail.append(node("summary", "Operation details"), node("pre", pretty(operation))); item.append(detail); $("operations").append(item);
+    }
+    if (!$("operations").children.length) $("operations").append(node("li", "No agent operation has been recorded yet."));
+    renderInvestigations(result);
+    $("project-detail").hidden = run.profile !== "project";
+    $("contracts").textContent = pretty(run.contracts || {});
+    $("accounting").textContent = pretty({reserved_deposits:run.fee_reserved ?? null, setup_deposits:result.setup_fee_reserved ?? null, final_balance:result.final_balance ?? null, unit:run.fee_unit ?? null, note:result.fee_accounting_note ?? null});
+    $("recovery").textContent = pretty({cleanup:result.cleanup ?? null, scope:result.recovery_scope ?? null});
+    $("decision").textContent = pretty(run.transactions || run.decision || {}); $("state").textContent = pretty(run.state || {});
+    $("evaluation").textContent = ended ? pretty({verification:result.verification ?? null, checks:reportChecks(result), cleanup:result.cleanup ?? null}) : "Evaluation will be available after completion.";
+    $("evidence").textContent = pretty(result);
+    if (ended) step("results");
+  }
+  async function loadSelected() {
+    if (!selected) return;
+    const id = selected, serial = ++detailRevision;
+    const run = await request("/v1/workflows/" + encodeURIComponent(id));
+    const result = terminal.has(run.status) ? await request(`/v1/workflows/${encodeURIComponent(id)}/report`) : run;
+    if (selected !== id || serial !== detailRevision) return;
+    renderReport(run, result); renderConnection(); await checkConnection();
   }
   async function refresh() {
-    if (busy) return;
-    busy = true;
+    if (refreshing) return;
+    refreshing = true;
     try {
-      const runs = await request("");
-      $("runs").replaceChildren();
+      const runs = await request("/v1/workflows"); $("runs").replaceChildren();
       for (const run of runs) {
-        const button = node("button", `${run.run_id} · ${run.status}`);
-        button.className = "secondary";
-        button.addEventListener("click", () => { selected = run.run_id; refresh().catch(fail); });
-        $("runs").append(button);
+        const button = node("button", "", "run-card secondary" + (selected === run.run_id ? " selected" : ""));
+        const label = node("span"); label.append(node("strong", names.get(run.run_id) || run.title || "Agent test"), node("small", run.run_id));
+        button.append(label, node("span", words(run.status), "pill"));
+        button.addEventListener("click", () => {
+          selected = run.run_id; report = null; renderConnection();
+          loadSelected().then(() => {
+            if (selected === run.run_id) $("detail").scrollIntoView({behavior:"smooth", block:"start"});
+          }).catch(fail);
+        }); $("runs").append(button);
       }
-      if (!runs.length) $("runs").append(node("p", "No workflow runs yet."));
-      if (selected) {
-        const prefix = `/${encodeURIComponent(selected)}`;
-        const [run, evidence] = await Promise.all([request(prefix), request(`${prefix}/report`)]);
-        report = evidence;
-        $("detail").hidden = false;
-        $("title").textContent = selected;
-        const project = run.profile === "project";
-        $("status").textContent = `${run.status} · local Studio · ${project ? "project workflow / local test balances" : "test units"}`;
-        $("cancel").hidden = terminal.has(run.status);
-        $("decision").textContent = stringifyProjectJson(project ? (run.transactions || {}) : (run.decision || "Waiting for an agent decision request"), null, 2);
-        $("project-detail").hidden = !project;
-        if (project) {
-          $("contracts").textContent = stringifyProjectJson(run.contracts || {}, null, 2);
-          $("accounting").textContent = stringifyProjectJson({account:run.account_address, reserved_deposits:run.fee_reserved, setup_deposits:evidence.setup_fee_reserved, final_balance:evidence.final_balance, unit:run.fee_unit, note:evidence.fee_accounting_note}, null, 2);
-          $("recovery").textContent = stringifyProjectJson({cleanup:evidence.cleanup, scope:evidence.recovery_scope, journal:evidence.signer_persistence}, null, 2);
-        }
-        $("state").textContent = stringifyProjectJson(run.state || "Waiting for deployment", null, 2);
-        $("operations").replaceChildren();
-        for (const operation of run.operations || []) $("operations").append(node("pre", stringifyProjectJson(operation, null, 2)));
-        renderInvestigations(run, evidence);
-        $("evaluation").textContent = stringifyProjectJson({verification:evidence.verification, checks:evidence.checks ?? null, grades:evidence.grades ?? null, cleanup:evidence.cleanup ?? null, error_code:evidence.error_code ?? null}, null, 2);
-        $("evidence").textContent = stringifyProjectJson(evidence, null, 2);
-      }
-    } finally { busy = false; }
+      if (!runs.length) $("runs").append(node("p", "Your first test will appear here. Choose a situation above to begin.", "empty"));
+      await loadSelected();
+    } finally { refreshing = false; }
   }
   async function connect() {
-    await refresh(); sessionStorage.setItem(key, token); $("auth").hidden = true; $("workspace").hidden = false; $("token").value = "";
+    const catalog = await request("/v1/onboarding/templates"); templates = catalog.templates;
+    try { sessionStorage.setItem(key, token); } catch { /* Keep an in-memory session. */ }
+    $("auth").hidden = true; $("workspace").hidden = false; $("disconnect").hidden = false; $("token").value = "";
+    renderTemplates(); await Promise.all([checkEnvironment(), refresh()]);
   }
-  $("spec").value = stringifyProjectJson({schema_version:1, profile:"service_release", context:{resource_id:"service-001",policy_version:"v1",amount:100,evidence:"The service delivered forty of one hundred agreed test units."},initial_fixture:{decision:"partial",authorized_amount:40},expectations:{final_state:{decision:"partial",authorized_amount:40,released_amount:40,remaining_amount:60},required_actions:["evaluate","release"]},timeout_seconds:600}, null, 2);
-  $("auth-form").addEventListener("submit", event => { event.preventDefault(); token = $("token").value.trim(); connect().catch(fail); });
-  $("disconnect").addEventListener("click", () => { sessionStorage.removeItem(key); location.reload(); });
+  function download(content, type, suffix) {
+    const url = URL.createObjectURL(new Blob([content], {type})); const link = node("a"); link.href = url;
+    link.download = `agent-test-${selected}.${suffix}`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function readableReport(value) {
+    const escape = value => String(value ?? "").replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[character]));
+    const checks = reportChecks(value).map(check => `<li><strong>${escape(check.label)} — ${escape(check.outcome)}</strong><p>${escape(text(check.detail ?? ""))}</p></li>`).join("");
+    const operations = (value.operations || []).map(item => `<li><strong>${escape(words(item.operation))} — ${escape(item.status)}</strong><p>${escape(item.error_code || item.tx_id || "Lab tool request")}</p></li>`).join("");
+    const findings = (value.investigations || []).map(item => `<article><h3>${escape(words(item.disposition))}</h3><p>${escape(item.summary)}</p><p>Proposed result: ${escape(text(item.proposed_result))}</p><ul>${(item.findings || []).map(finding => `<li><b>${escape(finding.evidence_id)}: ${escape(finding.assessment)}</b> ${escape(finding.note)}</li>`).join("")}</ul></article>`).join("");
+    return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(value.title || "Agent test report")}</title><style>body{font:16px/1.6 system-ui,sans-serif;color:#243c3a;max-width:960px;margin:40px auto;padding:0 24px}h1,h2{line-height:1.2}li,article{padding:10px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5f1;padding:18px}p{overflow-wrap:anywhere}@media print{details{display:none}}</style><h1>${escape(value.title || "Agent test report")}</h1><p>${escape(value.run_id)} · ${escape(value.status)}</p><h2>Evaluation: ${escape(value.verification)}</h2><p>${escape(value.task || "")}</p><ul>${checks}</ul><h2>What happened</h2><ol>${operations || "<li>No agent operation recorded.</li>"}</ol>${findings ? "<h2>Agent findings</h2>" + findings : ""}<details><summary>Advanced: full recorded report</summary><pre>${escape(pretty(value))}</pre></details><p>Local test evidence for the reviewed scenario. This report does not certify production safety.</p></html>`;
+  }
+  $("agent-url").value = location.origin;
+  $("auth-form").addEventListener("submit", async event => { event.preventDefault(); clearNotice(); token = $("token").value.trim(); const button = event.submitter; if (button) button.disabled = true; try { await connect(); } catch (error) { fail(error); } finally { if (button) button.disabled = false; } });
+  $("disconnect").addEventListener("click", () => { try { sessionStorage.removeItem(key); } catch {} token = ""; credentials.clear(); $("credential").value = ""; location.reload(); });
+  $("template-filter").addEventListener("change", renderTemplates);
+  $("template-form").addEventListener("submit", event => { event.preventDefault(); prepare("template").catch(fail); });
+  $("advanced-form").addEventListener("submit", event => { event.preventDefault(); prepare("advanced").catch(fail); });
+  $("spec").addEventListener("input", invalidate);
   $("load-spec").addEventListener("change", async event => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const file = event.target.files[0]; if (!file) return; invalidate(); const current = revision;
     try {
       if (file.size > 2400000) throw new Error("Scenario file exceeds the supported size.");
       const spec = parseProjectJson(await file.text());
       if (spec.integer_encoding === "lab-tagged-decimal-v1") delete spec.integer_encoding;
-      if (spec.schema_version === 2 && spec.review?.status !== "approved") throw new Error("Review this project scenario with the project approve command before starting it.");
-      $("spec").value = stringifyProjectJson(spec, null, 2);
+      if (current === revision) { $("spec").value = pretty(spec); feedback("Scenario loaded. Choose Validate & review configuration to review this exact file."); }
     } catch (error) { fail(error); }
   });
+  $("edit-test").addEventListener("click", () => { invalidate(); $("builder").hidden = false; $("builder").scrollIntoView({behavior:"smooth"}); });
+  $("review-confirmed").addEventListener("change", updateCreate);
+  $("create-form").addEventListener("submit", event => { event.preventDefault(); createRun().catch(fail); });
+  $("check-environment").addEventListener("click", () => checkEnvironment().catch(fail));
+  for (const id of ["agent-client", "agent-location", "agent-url", "mcp-path"]) $(id).addEventListener("input", renderConnection);
+  $("copy-config").addEventListener("click", () => copy($("credential").value).catch(fail));
+  $("copy-agent-prompt").addEventListener("click", () => copy("Observe the connected GenLayer Agent Lab run. Follow its public task and permissions, read relevant evidence through the available tools, preserve idempotency keys on retries, and finish when the requested work is complete. Do not use production tools for these test actions.").catch(fail));
+  $("check-connection").addEventListener("click", () => checkConnection().catch(fail));
   $("refresh").addEventListener("click", () => refresh().catch(fail));
-  $("create-form").addEventListener("submit", async event => {
-    event.preventDefault(); $("create").disabled = true; $("notice").hidden = true;
-    try {
-      const spec = parseProjectJson($("spec").value);
-      if (spec.integer_encoding === "lab-tagged-decimal-v1") delete spec.integer_encoding;
-      const result = await request("", "POST", {spec});
-      selected = result.run_id;
-      $("credential").value = `LAB_URL=${location.origin}\nLAB_MODE=workflow\nLAB_ROLE=agent\nLAB_RUN_ID=${result.run_id}\nLAB_TOKEN=${result.agent_token}`;
-      $("connection").hidden = false; await refresh();
-    } catch (error) { fail(error); } finally { $("create").disabled = false; }
-  });
-  $("cancel").addEventListener("click", async () => { try { await request(`/${encodeURIComponent(selected)}/cancel`, "POST"); await refresh(); } catch (error) { fail(error); } });
-  $("download").addEventListener("click", () => {
-    if (!report) return;
-    const url = URL.createObjectURL(new Blob([stringifyProjectJson(report, null, 2)], {type:"application/json"}));
-    const link = node("a", "Report"); link.href = url; link.download = `workflow-${selected}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
+  $("new-test").addEventListener("click", () => { if (creating) return; invalidate(); selected = null; report = null; detailRevision++; $("builder").hidden = false; $("detail").hidden = true; renderConnection(); $("builder").scrollIntoView({behavior:"smooth"}); });
+  $("cancel").addEventListener("click", async () => { if (!selected) return; $("cancel").disabled = true; try { await request(`/v1/workflows/${encodeURIComponent(selected)}/cancel`, "POST"); feedback("Stop requested. Submitted transactions may still be settling; their observed results will remain in the report."); await refresh(); } catch (error) { fail(error); } finally { $("cancel").disabled = false; } });
+  $("download").addEventListener("click", () => { if (report) download(pretty(report), "application/json", "json"); });
+  $("download-readable").addEventListener("click", () => { if (report) download(readableReport(report), "text/html", "html"); });
   setInterval(() => { if (token && !document.hidden && !$("workspace").hidden) refresh().catch(fail); }, 5000);
-  if (token) connect().catch(fail);
+  updateCreate(); if (token) connect().catch(fail);
 })();

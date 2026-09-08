@@ -1,6 +1,30 @@
 # Build status
 
-This checkout is the alpha 11 development candidate for the combined
+This checkout is the **alpha 12 usability development candidate**. It adds a
+guided setup command, eleven template forms, exact-content scenario review,
+run-scoped agent connection instructions and readable saved reports to the
+existing project workflow runtime. The [usability verification record](USABILITY_VERIFICATION.md)
+separates current source evidence from the historical release gates below.
+
+The local Python regression passed **1,398 tests**, with ten explicit environment
+skips. Browser authoring checks passed sign-in, templates, changed-review
+invalidation, exact integers, escaped untrusted text and responsive review.
+Focused setup/onboarding/wire checks passed **118 tests**, with a separate
+12-test installer boundary pass; these counts overlap the regression. The
+browser-created safe Studio run passed all 13 checks; the faulty control produced
+the intended failure with seven failed checks. Both restored cleanup. Initial
+mobile report overflow was corrected, and both saved-report rechecks passed;
+eight connection layouts passed with mocked creation and no extra mutations.
+[The evidence](evidence/usability-2026-09-08.json) preserves that distinction.
+The [local wheel onboarding probe](evidence/usability-wheel-local-2026-09-08.json)
+passed outside the checkout with cached dependencies. Remote package CI and the
+published-artifact gate remain unrecorded. No
+paid model, independent human onboarding or user VPS trial is claimed for this
+candidate.
+
+## Historical alpha 11 evidence
+
+Alpha 11 was the development candidate for the combined
 [Job 1 implementation](DEVELOPMENT_ROADMAP.md#combined-job-1-extension--september-8-2026).
 Its project interfaces, authoring, clients and durable journal are implemented.
 The [full build audit](BUILD_AUDIT.md) records the investigation addition and
@@ -10,7 +34,7 @@ skips). [Eight actual investigation trials](evidence/investigation-workflows-202
 passed their expected outcomes through HTTP/MCP, including both detected faulty
 agents. Desktop/mobile report checks passed, and
 [fresh package installations](evidence/alpha11-ci-2026-09-08.json) passed on Linux,
-Windows and macOS. The full audit has no unresolved finding within this candidate's
+Windows and macOS. The full audit had no unresolved finding within that candidate's
 documented scope; the user VPS/selected-agent pilot is the next validation step.
 The earlier alpha 10 source/runtime checks passed: 1,194 Python tests, seven actual
 Studio reference cases with the expected results, MCP and TypeScript appeals,
@@ -19,7 +43,7 @@ three-contract workflow. [The evidence](evidence/project-workflows-2026-09-08.js
 retains run identities, actual fees, child outcomes and recovery checks.
 
 Installed-wheel verification and the OS package matrix are passed artifact
-gates recorded with the candidate. The user's short
+gates recorded with alpha 11. The user's short
 [VPS onboarding trial](VPS_QUICKSTART.md) and independent external developer
 validation remain unverified; source checks do not substitute for those trials.
 

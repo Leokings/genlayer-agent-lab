@@ -1,0 +1,29 @@
+{
+  "version": "0.1.0a12",
+  "verification": "pass",
+  "onboarding": {
+    "template_count": 11,
+    "template_id": "prediction-appeal-upheld",
+    "templates_from_installed_kit": true,
+    "admin_required": true,
+    "draft_preview_review": "pass",
+    "stale_review_rejected": true,
+    "controlled_responses_preserved": true,
+    "project_runs_created": 0,
+    "studio_started": false
+  },
+  "assets_sha256": {
+    "workflows.html": "7a61c9b9643b5b9962466b7765c26312c2ed46d81f5298e62b473f377112a9c0",
+    "workflows.js": "5b579084cd0f6eadd9b28130879aad847fb48000ea503deb5f4494cb95b50e51",
+    "onboarding.css": "360e65080f593ef9f59b9bc4f4259f1ccc1370149d1e74adfdf8a60e0504efd5"
+  },
+  "setup_help": "pass",
+  "source_imported": false,
+  "dependency_source": "uv cache",
+  "studio_started": false,
+  "wheel_sha256": "53772e9fdf677394eb86d6cb6be2aa06cc05a3304aa3ae8a9c3bc2100052b199",
+  "date": "2026-09-08",
+  "scope": "Targeted local wheel onboarding check in a fresh Windows virtual environment outside the checkout; cached dependencies; no Studio runtime or clean-OS claim",
+  "artifact": "genlayer_agent_lab-0.1.0a12-py3-none-any.whl",
+  "published": false
+}

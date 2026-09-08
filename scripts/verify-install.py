@@ -169,6 +169,69 @@ def _action(task, decision, run_id):
             "idempotency_key": run_id + ":action"}
 
 
+def _onboarding_probe(web, url, token, installed_examples):
+    """Check installed authoring routes without creating a project or starting Studio."""
+    from genlayer_agent_lab.project_scenarios import validate_project_scenario
+    from genlayer_agent_lab.project_verification import examples_root
+    from genlayer_agent_lab.project_wire import decode_project_wire
+
+    if (examples_root().resolve() != Path(installed_examples).resolve()
+            or not (Path(installed_examples) / "projects/prediction/project.yaml").is_file()):
+        raise VerificationError("Guided templates did not resolve from the installed kit")
+    endpoint = url + "/v1/onboarding/"
+    if web.get(endpoint + "templates").status_code != 401:
+        raise VerificationError("Installed onboarding API accepted a missing credential")
+    headers = {"Authorization": "Bearer " + token}
+    response = web.get(endpoint + "templates", headers=headers)
+    if response.status_code != 200:
+        raise VerificationError("Installed onboarding template catalog is unavailable")
+    templates = response.json().get("templates", [])
+    identifiers = {item.get("id") for item in templates}
+    if len(templates) != 11 or len(identifiers) != 11 or "prediction-appeal-upheld" not in identifiers:
+        raise VerificationError("Installed onboarding template catalog is incomplete")
+
+    def post(name, payload):
+        response = web.post(endpoint + name, headers=headers, json=payload)
+        if response.status_code != 200:
+            raise VerificationError("Installed onboarding authoring request failed")
+        return response.json()
+
+    draft = post("draft", {"template_id": "prediction-appeal-upheld", "values": {
+        "title": "Installed onboarding review", "final_outcome": "no", "initial_confidence_bps": 7312}})
+    spec = decode_project_wire(draft["spec"])
+    expected_response = {"outcome": "no", "confidence_bps": 7312}
+    if (spec["review"]["status"] != "draft" or not draft.get("rules") or not draft.get("summary")
+            or any(spec["fixtures"][phase][0]["response"] != expected_response
+                   for phase in ("initial", "after_appeal"))):
+        raise VerificationError("Installed onboarding draft changed its controlled model responses")
+    preview = post("preview", {"spec": draft["spec"]})
+    if preview.get("digest") != draft.get("digest") or preview.get("spec") != draft.get("spec"):
+        raise VerificationError("Installed onboarding preview changed the draft")
+    changed = {**preview["spec"], "task": preview["spec"]["task"] + " Changed after review."}
+    stale = web.post(endpoint + "review", headers=headers, json={
+        "spec": changed, "expected_sha256": preview["digest"], "reviewer": "Installed package probe"})
+    if stale.status_code != 409:
+        raise VerificationError("Installed onboarding review accepted a stale content digest")
+    reviewed = post("review", {"spec": preview["spec"], "expected_sha256": preview["digest"],
+                               "reviewer": "Installed package probe"})
+    approved = decode_project_wire(reviewed["spec"])
+    if (reviewed.get("digest") != preview["digest"]
+            or {key: value for key, value in approved.items() if key != "review"}
+            != {key: value for key, value in spec.items() if key != "review"}
+            or approved["review"]["status"] != "approved"
+            or approved["review"]["content_sha256"] != preview["digest"]):
+        raise VerificationError("Installed onboarding review changed the inspected scenario")
+    try:
+        validate_project_scenario(approved, require_review=True)
+    except (ValueError, TypeError):
+        raise VerificationError("Installed onboarding did not return an executable reviewed scenario") from None
+    return {"template_count": 11, "template_id": "prediction-appeal-upheld",
+            "templates_from_installed_kit": True, "admin_required": True,
+            "draft_preview_review": "pass", "stale_review_rejected": True,
+            "controlled_responses_preserved": True, "project_runs_created": 0,
+            "studio_started": False}
+
+
 def _ready(admin, run_id):
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
@@ -227,6 +290,7 @@ def probe(*, backend: str, require_kit: bool) -> dict:
         raise VerificationError("Package metadata and imported version disagree")
     package = importlib.resources.files("genlayer_agent_lab")
     resource_names = ["assets/index.html", "assets/app.js", "assets/styles.css",
+                      "assets/workflows.html", "assets/workflows.js", "assets/onboarding.css",
                       "runtime/contracts/evidence_decision.py", "runtime/Dockerfile.worker",
                       "runtime/worker-requirements.txt", "runtime/studio_relay.py"]
     resources = {}
@@ -247,6 +311,9 @@ def probe(*, backend: str, require_kit: bool) -> dict:
     installed_version = run([str(console), "--version"], cwd=work, env=env, stage="CLI version").strip()
     if installed_version != "gl-agent-lab " + metadata.version:
         raise VerificationError("Installed console entry point reports another version")
+    setup_help = run([str(console), "setup", "--help"], cwd=work, env=env, stage="CLI setup help")
+    if any(option not in setup_help for option in ("--check", "--no-open", "--port")):
+        raise VerificationError("Installed guided setup command is unavailable")
     initialized = cli("init")
     if initialized.get("initialized") is not True or "admin_token" in initialized:
         raise VerificationError("CLI initialization failed or exposed its admin credential")
@@ -326,18 +393,23 @@ def probe(*, backend: str, require_kit: bool) -> dict:
                     time.sleep(0.1)
             else:
                 raise VerificationError("Installed HTTP service was not ready")
-            with httpx.Client(trust_env=False, follow_redirects=False) as web:
+            with httpx.Client(timeout=5, trust_env=False, follow_redirects=False) as web:
                 if web.get(url + "/v1/scenarios").status_code != 401:
                     raise VerificationError("Installed HTTP API accepted a missing credential")
                 for asset in ("/", "/assets/app.js", "/assets/styles.css",
-                              "/assets/workflows.html", "/assets/workflows.js"):
+                              "/assets/workflows.html", "/assets/workflows.js", "/assets/onboarding.css"):
                     response = web.get(url + asset)
                     if response.status_code != 200 or not response.content:
                         raise VerificationError("Installed dashboard resource was not served")
+                    if asset == "/" and response.content != package.joinpath("assets/workflows.html").read_bytes():
+                        raise VerificationError("Installed root did not serve the guided dashboard")
                 if web.get(url + "/v1/workflows").status_code != 401:
                     raise VerificationError("Installed workflow API accepted a missing credential")
                 if admin.workflow_list() != []:
                     raise VerificationError("Fresh installed workflow store is not empty")
+                onboarding = _onboarding_probe(web, url, token, installed.parent / "_kit/examples")
+                if admin.workflow_list() != []:
+                    raise VerificationError("Installed onboarding authoring unexpectedly created a project run")
             created = admin.create_run("escrow-normal", agent="external", backend="fixture")
             run_id = created["run_id"]
             _ready(admin, run_id)
@@ -366,11 +438,11 @@ def probe(*, backend: str, require_kit: bool) -> dict:
             "installed_distributions": dict(sorted(
                 (dist.metadata["Name"], dist.version) for dist in importlib.metadata.distributions()
             )),
-            "resources": resources, "console_version": installed_version,
+            "resources": resources, "console_version": installed_version, "setup_help": "pass",
             "doctor": {"ready": True, "backend": "glsim", "runner_hash": runtime["runner_hash"],
                        "bundle_sha256": runtime["bundle_sha256"], "execution_success": True},
             "suite": {"backend": backend, "total": 18, "passed": 18},
-            "python_http": python_result, "mcp": mcp_result, "kit": kit}
+            "python_http": python_result, "mcp": mcp_result, "kit": kit, "onboarding": onboarding}
 
 
 def main(argv=None):

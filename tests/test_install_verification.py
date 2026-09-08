@@ -4,8 +4,11 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
+import httpx
 import pytest
+from fastapi.testclient import TestClient
 
 SPEC = importlib.util.spec_from_file_location(
     "verify_install", Path(__file__).parents[1] / "scripts/verify-install.py")
@@ -81,3 +84,57 @@ def test_doctor_failure_diagnostic_never_exports_raw_payload_or_paths():
     detail = verification._cli_failure("CLI doctor", payload)
     assert detail == ": PermissionError, OS-error-13"
     assert verification._cli_failure("CLI init", payload) == ""
+
+
+@pytest.mark.parametrize("damage", [None, "unauthenticated", "catalog", "stale_review", "changed_review"])
+def test_installed_onboarding_probe_checks_review_integrity_without_starting_runs(tmp_path, damage):
+    from genlayer_agent_lab.api import create_app, read_admin_token
+    from genlayer_agent_lab.project_verification import examples_root
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Authoring verification must not start a project or call Studio")
+
+    manager = SimpleNamespace(create=forbidden)
+    app = create_app(tmp_path, engine=SimpleNamespace(workflows=manager))
+    token = read_admin_token(tmp_path)
+    url = "http://127.0.0.1:8765"
+    seen = []
+    with TestClient(app, base_url=url) as client:
+        class Boundary:
+            def get(self, path, **kwargs):
+                seen.append(path)
+                response = client.get(path, **kwargs)
+                if damage == "unauthenticated" and not kwargs.get("headers"):
+                    return httpx.Response(200, json={"templates": []})
+                if damage == "catalog" and response.status_code == 200:
+                    body = response.json()
+                    body["templates"].pop()
+                    return httpx.Response(200, json=body)
+                return response
+
+            def post(self, path, **kwargs):
+                seen.append(path)
+                response = client.post(path, **kwargs)
+                if damage == "stale_review" and response.status_code == 409:
+                    return httpx.Response(200, json={})
+                if damage == "changed_review" and path.endswith("/review") and response.status_code == 200:
+                    body = response.json()
+                    body["spec"]["fixtures"]["initial"][0]["response"]["confidence_bps"] += 1
+                    return httpx.Response(200, json=body)
+                return response
+
+        if damage:
+            with pytest.raises(verification.VerificationError):
+                verification._onboarding_probe(Boundary(), url, token, examples_root())
+        else:
+            result = verification._onboarding_probe(Boundary(), url, token, examples_root())
+            assert result["template_count"] == 11 and result["controlled_responses_preserved"] is True
+            assert result["stale_review_rejected"] is True and result["project_runs_created"] == 0
+            assert token not in json.dumps(result)
+    assert all(path.startswith(url + "/v1/onboarding/") for path in seen)
+    assert not any(path.endswith("/status") for path in seen)
+
+
+def test_installed_onboarding_probe_refuses_source_checkout_fallback(tmp_path):
+    with pytest.raises(verification.VerificationError, match="installed kit"):
+        verification._onboarding_probe(None, "http://127.0.0.1:8765", "private-token", tmp_path)

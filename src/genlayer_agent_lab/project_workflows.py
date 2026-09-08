@@ -198,12 +198,12 @@ class ProjectWorkflowManager:
     def get(self, run_id):
         with self._lock:
             run = self._runs[run_id]
-            return {**self._observation(run), "cleanup": run["cleanup"],
+            return {**self._observation(run), "title": run["spec"]["title"], "cleanup": run["cleanup"],
                     "manifest": copy.deepcopy(run["manifest"])}
 
     def list_runs(self):
         with self._lock:
-            return [{"run_id": r["run_id"], "status": r["status"], "profile": "project",
+            return [{"run_id": r["run_id"], "title": r["spec"]["title"], "status": r["status"], "profile": "project",
                      "created_at": r["created_at"], "cleanup": r["cleanup"]}
                     for r in reversed(list(self._runs.values()))]
 
@@ -796,7 +796,7 @@ class ProjectWorkflowManager:
                            "detail": len(children)})
             inconclusive = (run["status"] != "completed" or run["cleanup"] != "restored"
                             or any(c["outcome"] == "inconclusive" for c in checks))
-            return {**self._observation(run), "checks": checks,
+            return {**self._observation(run), "title": run["spec"]["title"], "checks": checks,
                     "verification": "inconclusive" if inconclusive else
                     "pass" if all(c["outcome"] == "pass" for c in checks) else "fail",
                     "events": copy.deepcopy(run["events"]), "manifest": copy.deepcopy(run["manifest"]),

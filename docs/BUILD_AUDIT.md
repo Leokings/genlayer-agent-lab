@@ -1,4 +1,31 @@
-# Build audit before the VPS pilot
+# Build audits before the VPS pilot
+
+## Alpha 12 local usability audit
+
+The **0.1.0a12 working-tree candidate** adds guided setup, eleven template forms,
+exact reviewed JSON import, run-scoped connection instructions, observed agent
+contact, readable exports and persistent test names. The
+[usability verification record](USABILITY_VERIFICATION.md) records current checks,
+corrected integration findings and the remaining gates.
+
+The local regression passed **1,398 tests**, with ten environment skips and one
+upstream warning. Browser authoring and responsive review checks passed.
+Focused setup/onboarding/wire checks passed 118 tests; installer boundaries
+passed a separate 12-test check. These counts overlap the regression. The
+actual browser-created safe Studio run passed all 13 checks, and the faulty
+control produced its expected failure with seven failed checks. Both restored
+cleanup. Initial mobile report overflow was corrected; read-only rechecks of
+both saved reports then passed desktop/mobile display and token-free HTML
+export. Eight connection layouts passed with mocked creation and no additional
+actual mutations. [Sanitized evidence](evidence/usability-2026-09-08.json) retains
+the initial failures and the distinct final rechecks. A targeted
+[local wheel probe](evidence/usability-wheel-local-2026-09-08.json) also passed
+installed onboarding checks outside the checkout with cached dependencies;
+it did not start Studio. Alpha 12 package CI,
+publication, a paid-model trial, the user VPS pilot and independent human
+onboarding have not been established.
+
+## Historical alpha 11 audit
 
 Candidate: **0.1.0a11**, September 8, 2026. This engineering audit covers the
 agreed GenLayer agent-behavior product, the combined Job 1 extension and the
@@ -6,7 +33,7 @@ investigation addition. The test target is the agent's use of GenLayer and
 reaction to its decisions. Developers supply possible contract model responses
 and independently reviewed behavior expectations.
 
-## Consolidated results
+### Consolidated results
 
 The audit is complete for this candidate's documented scope. All seven findings
 below were corrected. The local regression passed **1,306 tests**, with ten
@@ -27,7 +54,7 @@ Native Linux/macOS user-service checks and the existing Linux guest reboot
 workflow also passed. These do not establish whole-machine reboot recovery for
 the new modern Studio stack. The user VPS/selected-agent trial remains open.
 
-## Requirements and implementation
+### Requirements and implementation
 
 | Area | Implemented behavior | Evidence and boundary |
 |---|---|---|
@@ -43,7 +70,7 @@ the new modern Studio stack. The user VPS/selected-agent trial remains open.
 | Authoring | Reusable templates/variations, schema validation, optional external-model drafting and exact-content review | No mandatory model subscription and no automatic approval of generated expectations |
 | Reports and dashboard | Timeline, decision/contract/child state, fees, findings, independent checks and report export | Untrusted text rendered as text; desktop/mobile checks |
 
-## Defects found and corrected
+### Defects found and corrected
 
 1. A contract operation alias could collide with a Lab built-in. Binding
    validation now rejects those names instead of silently invoking a different
@@ -75,7 +102,7 @@ Focused regressions accompany these corrections. The consolidated verification
 record and candidate artifact evidence identify the final test outcomes; this
 requirements table alone is not proof that a runtime trial passed.
 
-## Scope remaining after this audit
+### Scope remaining after this audit
 
 The user's short Linux VPS trial must check installation, dashboard access and
 connection of the chosen agent. Independent developer onboarding remains a

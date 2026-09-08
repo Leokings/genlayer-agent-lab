@@ -13,7 +13,7 @@ const { chromium } = require('playwright');
     const page = await browser.newPage({viewport:{width:1440,height:1100}});
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto(baseURL);
+    await page.goto(baseURL + '/assets/index.html');
     await page.locator('#token').fill(token);
     await page.locator('#auth-form button').click();
     await page.locator('#workspace').waitFor({state:'visible'});

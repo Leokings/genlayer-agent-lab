@@ -1,25 +1,64 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Studio workflows · GenLayer Agent Lab</title><link rel="stylesheet" href="styles.css"><script src="workflows.js" defer></script></head>
-<body class="workflow-page"><main style="margin:0 auto;max-width:1200px">
-  <header><div><span class="eyebrow">GENLAYER AGENT LAB</span><h1>Studio workflows</h1><p>Test how your agent reads decisions, appeals and acts across contracts.</p></div><a href="/">Scenario dashboard</a></header>
-  <div id="notice" class="notice" role="alert" hidden></div>
-  <section id="auth" class="panel"><h2>Connect to this installation</h2><form id="auth-form"><label for="token">Administrator token</label><input id="token" type="password" autocomplete="off" required><button>Connect</button></form><p>The service runs on your laptop or VPS. Use your existing SSH tunnel to view a VPS dashboard.</p></section>
-  <div id="workspace" hidden>
-    <section class="panel"><div class="section-heading"><h2>Create a workflow</h2><button id="disconnect" class="secondary">Disconnect</button></div>
-      <p>Start the owned local Studio stack first. Supply the contract responses and expected behavior, then connect the agent being tested with the run credential.</p>
-      <label for="load-spec">Load a reviewed scenario JSON file</label><input id="load-spec" type="file" accept=".json,application/json">
-      <form id="create-form"><label for="spec">Workflow specification (JSON)</label><textarea id="spec" rows="16" spellcheck="false" required></textarea><button id="create">Create agent run</button></form>
-      <p class="helper">Project scenarios use your owned fee-enabled Studio profile and local test balances. The original service workflow uses a contract ledger of test units. Reports distinguish execution, finality, appeals and observed effects.</p>
-      <div id="connection" class="connection" hidden><h3>Connect your agent</h3><p>Copy this credential now. It only controls this run. For MCP, launch gl-agent-lab-mcp with these environment variables.</p><textarea id="credential" rows="5" readonly></textarea></div>
-    </section>
-    <section class="panel"><div class="section-heading"><h2>Workflow runs</h2><button id="refresh" class="secondary">Refresh</button></div><div id="runs"></div></section>
-    <section id="detail" class="panel" hidden><div class="section-heading"><h2 id="title">Run</h2><button id="cancel" class="danger secondary">Cancel workflow</button></div><p id="status"></p><div id="project-detail" hidden><h3>Deployed contracts</h3><pre id="contracts"></pre><h3>Local fee accounting</h3><pre id="accounting"></pre><h3>Recovery</h3><pre id="recovery"></pre></div><h3>Decisions and transactions</h3><pre id="decision"></pre><h3>Finalized contract state</h3><pre id="state"></pre><h3>Agent operations</h3><div id="operations"></div>
-      <section id="investigation-detail" aria-labelledby="investigation-title" hidden>
-        <h3 id="investigation-title">Agent investigation</h3>
-        <p class="helper">These are the agent's submitted findings and proposed next steps. The independent evaluation below checks them against the developer's rules. Submitting this record does not send new evidence to a GenLayer appeal.</p>
-        <div id="investigations"></div>
-      </section>
-      <h3>Evaluation</h3><pre id="evaluation"></pre><button id="download" class="secondary">Download report JSON</button><details><summary>Full recorded evidence</summary><pre id="evidence"></pre></details></section>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Test your agent · GenLayer Agent Lab</title>
+<link rel="stylesheet" href="/assets/styles.css"><link rel="stylesheet" href="/assets/onboarding.css"><script src="/assets/workflows.js" defer></script>
+</head>
+<body class="workflow-page"><main class="lab-shell">
+<header class="lab-header">
+  <a class="lab-brand" href="/" aria-label="GenLayer Agent Lab home"><span class="lab-symbol" aria-hidden="true">◎</span><span>Agent Lab<small>FOR GENLAYER</small></span></a>
+  <nav aria-label="Workspace"><a href="#help">Setup help</a><a href="/assets/index.html">Advanced tests</a><button id="disconnect" class="secondary small-button" hidden>Lock workspace</button></nav>
+</header>
+<div id="notice" role="alert" hidden></div><div id="feedback" role="status" aria-live="polite" hidden></div>
+<section id="auth" class="welcome panel">
+  <span class="eyebrow">YOUR AGENT. A SAFE PLACE TO PRACTISE.</span><h1>Know how your agent will react.</h1>
+  <p class="lead">Test decisions, appeals and follow-up actions on your own GenLayer environment. See what happened before you deploy.</p>
+  <ol class="welcome-steps"><li><b>1</b> Choose a situation</li><li><b>2</b> Connect your agent</li><li><b>3</b> Understand the result</li></ol>
+  <div class="unlock-box"><h2>Open your workspace</h2><p>This workspace belongs to your installation. Enter its access key to continue.</p>
+    <form id="auth-form"><label for="token">Workspace access key <span class="optional">(administrator token)</span></label><div class="input-row"><input id="token" type="password" autocomplete="off" required placeholder="Paste your workspace key"><button>Open workspace</button></div></form>
+    <details><summary>Where do I find my access key?</summary><p>On the computer running the Lab, run <code>gl-agent-lab init --show-token</code>. From a source checkout, prefix this with <code>uv run</code>. Keep this key with you; your tested agent gets a separate test key.</p></details>
   </div>
+</section>
+<div id="workspace" hidden>
+  <section class="workspace-intro"><div><span class="eyebrow">TEST BEFORE YOU DEPLOY</span><h1>How does your agent handle change?</h1><p>Choose a situation, review the rules and let your agent respond.</p></div><span class="environment-badge" id="environment-badge">Checking environment…</span></section>
+  <section class="environment panel" aria-labelledby="environment-title">
+    <div class="section-heading"><div><h2 id="environment-title">Your test environment</h2><p id="environment-summary">Checking the Lab and local GenLayer Studio.</p></div><button id="check-environment" class="secondary small-button">Check again</button></div>
+    <div id="environment-checks" class="environment-checks"></div>
+    <details id="environment-help"><summary>Environment details and setup help</summary><p>Use <code>gl-agent-lab setup</code> on the machine running this Lab. For a server, use <code>gl-agent-lab setup --no-open</code>. This starts your owned Studio environment and the Lab. The first build can take several minutes.</p><p>Tests use local test balances and supplied contract responses. Your agent uses its own model access.</p></details>
+  </section>
+  <nav class="flow-steps" aria-label="Test progress"><span id="step-choose" class="current"><b>1</b> Choose a test</span><span id="step-review"><b>2</b> Review</span><span id="step-connect"><b>3</b> Connect agent</span><span id="step-results"><b>4</b> Results</span></nav>
+  <section id="builder" class="panel">
+    <div class="section-heading"><div><span class="eyebrow">START WITH A SITUATION</span><h2>What would you like to test?</h2><p>These templates include example contracts. To use your own project, import its scenario below.</p></div></div>
+    <label class="sr-only" for="template-filter">Filter test templates</label><select id="template-filter" class="category-select"><option value="all">All situations</option><option value="decision">Decisions &amp; appeals</option><option value="investigation">Evidence &amp; investigation</option><option value="messages">Actions across contracts</option></select>
+    <div id="templates" class="template-grid" aria-label="Test templates"></div>
+    <form id="template-form" hidden><div class="chosen-template"><span class="eyebrow">CUSTOMISE YOUR TEST</span><h3 id="chosen-title"></h3><p id="chosen-description"></p></div><div id="template-fields" class="form-grid"></div><div class="form-actions"><button id="prepare-review">Review test</button><span class="helper">Reviewing creates no test transactions.</span></div></form>
+    <details class="advanced-authoring"><summary>Use your own project or edit advanced settings</summary><p>Import a project scenario from your developer or authoring agent. It contains the contract files, possible responses and expected behavior. You can review and approve it here.</p><p>A deployed contract address alone is not a project scenario. <a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/PROJECT_BINDINGS.md" target="_blank" rel="noreferrer">Prepare your own contract project ↗</a></p><label for="load-spec">Project scenario file (.json)</label><input id="load-spec" type="file" accept=".json,application/json"><form id="advanced-form"><label for="spec">Scenario configuration</label><textarea id="spec" rows="9" spellcheck="false" placeholder="Paste a project scenario, or load a JSON file above."></textarea><button class="secondary">Validate &amp; review configuration</button></form></details>
+  </section>
+  <section id="review-panel" class="panel" hidden aria-labelledby="review-title">
+    <div class="section-heading"><div><span class="eyebrow">REVIEW BEFORE STARTING</span><h2 id="review-title">Is this the behavior you expect?</h2><p>Your agent sees its task and permissions. Possible model responses and grading rules stay with the Lab.</p></div><button id="edit-test" class="secondary small-button">Edit test</button></div>
+    <div class="review-grid"><div><h3>The situation</h3><ul id="review-summary" class="plain-list"></ul><h3>Possible contract responses</h3><div id="review-responses"></div></div><div><h3>What a successful agent should do</h3><ul id="review-rules" class="check-list"></ul></div></div><div id="review-warnings"></div><details><summary>Full test configuration</summary><pre id="review-spec"></pre></details>
+    <form id="create-form"><label class="checkbox-label"><input id="review-confirmed" type="checkbox" required><span>I reviewed the possible responses and expected behavior for this test.</span></label><label for="reviewer">Reviewed by</label><input id="reviewer" value="Project developer" required maxlength="160"><p id="review-duration" class="helper"></p><div class="form-actions"><button id="create">Create test &amp; connect agent</button><span class="helper">Uses your local Studio. No real funds.</span></div></form>
+  </section>
+  <section id="connection" class="panel" hidden aria-labelledby="connection-title">
+    <div class="section-heading"><div><span class="eyebrow">BRING YOUR AGENT</span><h2 id="connection-title">Connect your agent to this test</h2><p id="connection-run"></p></div><span id="connection-badge" class="environment-badge">Waiting for agent</span></div>
+    <p class="callout">Copy these settings into your agent's test profile, then ask it to begin. Creating a test does not start your agent automatically.</p>
+    <div class="form-grid"><div><label for="agent-client">How does your agent connect?</label><select id="agent-client"><option value="mcp">MCP-compatible agent</option><option value="python">Python agent</option><option value="typescript">TypeScript agent</option><option value="http">HTTP / another framework</option></select></div><div><label for="agent-location">Where does your agent run?</label><select id="agent-location"><option value="same">On the same computer or VPS as the Lab</option><option value="tunnel">On my laptop, through an SSH tunnel</option></select></div></div>
+    <div id="remote-settings" hidden><label for="agent-url">Lab address reachable by your agent</label><input id="agent-url" type="url" placeholder="http://127.0.0.1:8875"><p class="helper">Keep the SSH tunnel open on the agent's computer. This is the forwarded local address, not the public VPS IP.</p></div>
+    <div id="remote-mcp" hidden><label for="mcp-path">Installed MCP executable on your agent's computer</label><input id="mcp-path" placeholder="Full path to gl-agent-lab-mcp"><p class="helper">MCP starts a local connector process. Install the Lab package on the agent's computer too; only the connector runs there. Studio stays on your VPS.</p></div>
+    <p id="connection-instructions"></p><div class="copy-actions"><button id="copy-config">Copy connection settings</button><button id="copy-agent-prompt" class="secondary">Copy start prompt</button></div>
+    <details><summary>Show connection settings</summary><label for="credential" class="sr-only">Agent connection settings</label><textarea id="credential" rows="12" readonly spellcheck="false"></textarea></details><p class="helper">Save these settings now. The test key is shown only when the test is created. Keep the workspace key and private test files away from the tested agent.</p>
+    <details><summary>My agent already has wallet or contract tools</summary><p>Use a separate test profile. Route the actions being tested through the Lab's tools. Adding MCP does not replace hardcoded production calls. The Lab can only report on actions it observes.</p></details>
+    <div class="form-actions"><button id="check-connection" class="secondary">Check connection</button><p id="connection-status" role="status">No authenticated agent activity observed yet.</p></div>
+  </section>
+  <section class="panel" id="history-panel"><div class="section-heading"><div><h2>Your tests</h2><p>Open a test to follow progress or read its saved result.</p></div><div class="button-row"><button id="new-test" class="secondary small-button">New test</button><button id="refresh" class="secondary small-button">Refresh</button></div></div><div id="runs" class="run-list"></div></section>
+  <section id="detail" class="panel" hidden aria-labelledby="title">
+    <div class="section-heading"><div><span class="eyebrow">TEST RESULT</span><h2 id="title">Your test</h2><p id="status"></p></div><div class="button-row"><button id="download-readable" class="secondary small-button">Save readable report</button><button id="cancel" class="danger secondary small-button">Stop test</button></div></div>
+    <div id="result-summary" class="result-summary" role="status"></div><div id="evaluation-cards" class="evaluation-cards"></div><h3>What happened</h3><ol id="operations" class="operation-timeline"></ol>
+    <section id="investigation-detail" hidden><h3>What your agent found</h3><p class="helper">Findings submitted by your agent. These do not submit new evidence to a GenLayer appeal.</p><div id="investigations"></div></section>
+    <details class="technical-details"><summary>Technical details &amp; full evidence</summary><div id="project-detail" hidden><h3>Deployed contracts</h3><pre id="contracts"></pre><h3>Local fee accounting</h3><pre id="accounting"></pre><h3>Recovery</h3><pre id="recovery"></pre></div><h3>Decisions and transactions</h3><pre id="decision"></pre><h3>Final contract state</h3><pre id="state"></pre><h3>Evaluation data</h3><pre id="evaluation"></pre><button id="download" class="secondary small-button">Download report JSON</button><h3>Full recorded evidence</h3><pre id="evidence"></pre></details>
+  </section>
+</div>
+<section id="help" class="panel help-panel"><h2>A simpler way to get started</h2><div class="help-grid"><div><h3>On your laptop</h3><p>After installing the package, run <code>gl-agent-lab setup</code>. It checks the requirements, starts your environment and opens this workspace.</p></div><div><h3>On a VPS</h3><p>Run <code>gl-agent-lab setup --no-open</code> on the server. Follow the printed SSH tunnel instructions to open this dashboard privately on your laptop.</p></div><div><h3>Using your own agent</h3><p>Choose a test and follow “Connect your agent.” You can use MCP, Python, TypeScript or HTTP. OpenClaw is optional.</p></div></div><p><a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/GETTING_STARTED.md" target="_blank" rel="noreferrer">Installation &amp; first-test guide ↗</a></p></section>
+<footer>Self-hosted. Your contracts, test evidence and reports stay in your installation. Results describe the situations you tested; they do not certify production safety.</footer>
 </main></body></html>

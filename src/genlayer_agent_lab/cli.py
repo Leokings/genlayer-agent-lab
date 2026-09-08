@@ -55,6 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     init = command("init", "Initialize local state without replacing configuration or credentials")
     init.add_argument("--show-token", action="store_true", help="Explicitly print the admin secret")
+    setup = command("setup", "Check prerequisites, start project Studio and open the Lab dashboard")
+    setup.add_argument("--port", type=int, default=DEFAULT_PORT, help="Loopback Lab port (default 8765)")
+    setup.add_argument("--no-open", action="store_true", help="Show connection instructions without opening a browser")
+    setup.add_argument("--check", action="store_true", help="Read-only prerequisite and installation status checks")
     doctor = command("doctor", "Inspect the runtime and local prerequisites")
     doctor.add_argument("--timeout", type=float, default=900,
                         help="First-time preparation deadline in seconds (default 900, maximum 1800)")
@@ -416,6 +420,12 @@ def main(argv: list[str] | None = None, *, engine_factory: Any = None) -> int:
         args.data_dir = args.data_dir.expanduser()
         if args.command not in {"backup", "restore"}:
             args.data_dir = args.data_dir.resolve()
+        if args.command == "setup":
+            if args.url:
+                raise ValueError("Setup manages this local installation. Omit --url and LAB_URL.")
+            from .onboarding_setup import run_setup
+
+            return run_setup(args.data_dir, port=args.port, no_open=args.no_open, check=args.check)
         if args.command in {"kit", "backup", "restore", "service"}:
             if args.url:
                 raise ValueError("This command operates locally. Omit --url and LAB_URL.")

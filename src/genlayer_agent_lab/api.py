@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -89,7 +89,8 @@ class BoundedRequestMiddleware:
             return
         headers = {key.lower(): value for key, value in scope.get("headers", [])}
         limit = (MAX_PROJECT_BODY_BYTES if scope.get("method") == "POST"
-                 and scope.get("path") == "/v1/workflows"
+                 and scope.get("path") in {"/v1/workflows", "/v1/onboarding/preview",
+                                           "/v1/onboarding/review"}
                  and headers.get(b"content-type", b"").split(b";", 1)[0].strip() == b"application/json"
                  else self.max_bytes)
         try:
@@ -217,7 +218,9 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
         if not hmac.compare_digest(bearer(authorization), admin_token):
             raise HTTPException(401, "Invalid administrator credentials")
 
+    from .onboarding import mount_onboarding_routes
     from .workflow_api import mount_workflow_routes
+    mount_onboarding_routes(app, data_dir, administrator)
     mount_workflow_routes(app, lambda request: request.app.state.engine.workflows,
                           administrator, bearer)
 
@@ -280,8 +283,15 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
         return JSONResponse({"detail": "Internal service error"}, status_code=500)
 
     @app.get("/health")
-    def health() -> dict:
-        return {"status": "ok", "version": __version__}
+    def health(setup_nonce: Annotated[str | None, Query(
+        min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$",
+    )] = None) -> dict:
+        from .onboarding_setup import installation_identity, installation_proof
+        result = {"status": "ok", "version": __version__,
+                  "installation_id": installation_identity(data_dir, admin_token)}
+        if setup_nonce is not None:
+            result["setup_proof"] = installation_proof(admin_token, setup_nonce)
+        return result
 
     @app.get("/v1/scenarios", dependencies=[Depends(administrator)])
     def scenarios(request: Request) -> list[dict]:
@@ -342,7 +352,7 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
 
     @app.get("/", include_in_schema=False)
     def dashboard() -> Response:
-        index = assets / "index.html"
+        index = assets / "workflows.html"
         if index.is_file():
             return FileResponse(index, media_type="text/html")
         return Response("GenLayer Agent Lab is running. Dashboard assets are unavailable.",

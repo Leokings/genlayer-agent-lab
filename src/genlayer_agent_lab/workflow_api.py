@@ -113,6 +113,8 @@ def mount_workflow_routes(
             valid = False
         if not valid:
             raise HTTPException(401, "Invalid run credentials")
+        from .onboarding import mark_agent_connection
+        mark_agent_connection(request, run_id)
 
     @app.post("/v1/workflows", status_code=201, dependencies=[Depends(administrator)])
     def create_workflow(payload: CreateWorkflow, request: Request) -> dict:

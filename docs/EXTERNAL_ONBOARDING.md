@@ -1,103 +1,68 @@
-# External developer installation trial
+# First-agent onboarding trial
 
-Use this checklist for each of the two independent human developer trials.
-Automated CI and agent-assisted rehearsals are separate evidence. A developer
-can use a coding agent to help, but should record where the instructions needed
-clarification and whether they could integrate their own test agent.
+Use this checklist to find out whether an independent developer can install the current project Studio workflow, connect their own agent, and understand its first report. The primary instructions are [Install](INSTALL.md) and [Your first agent test](GETTING_STARTED.md); use [the VPS quickstart](VPS_QUICKSTART.md) when appropriate.
 
-This checklist describes the existing alpha's baseline onboarding. For the
-planned expanded Studio workflow, use the [laptop/VPS pilot checklist](PILOT_TESTING.md)
-after its readiness gates pass. Same-owner laptop and VPS trials count as two
-environments, not two independent human developers. Their results do not close
-this independent-onboarding requirement.
+An automated demonstration or scripted reference run is separate evidence. A developer may use a coding agent and the supplied setup skill, but record every point that needed maintainer help. For the independent-developer gate, two environments owned by the same person do not count as two independent developers.
 
-## Prepare a fresh installation
+## What success looks like
 
-Choose Windows, Linux or macOS on a machine you control. Record the OS version,
-CPU architecture, Python version and whether Docker is installed. Python 3.12
-is the verified setup; Docker is optional for the bundled GLSim cases. This
-trial needs no payment card, model key, production wallet or shared cloud account.
+The developer reaches a first completed run with the agent they actually want to test, without undocumented maintainer intervention. They can identify the connection method, see an actual agent request, and explain whether the report describes successful behavior, a failed expectation, or an infrastructure problem.
 
-Download the wheel and `SHA256SUMS` from the same
-[published release](https://github.com/Leokings/genlayer-agent-lab/releases).
-Record the exact release and verify the wheel's SHA-256 against that file.
-Follow [INSTALL.md](INSTALL.md) to create a new environment and a new data
-directory. Use the environment's absolute executable path for GUI/MCP clients.
-Do not substitute a similarly named registry package: this alpha is supplied
-through its release artifacts.
+A failed agent evaluation can be a successful onboarding outcome if the connection worked and the report clearly explains the failure. A green scripted demo alone does not establish that the developer's own agent connected. An inconclusive runtime failure does not establish completed installation.
 
-Export the included setup kit with `gl-agent-lab kit --output lab-kit`.
-For prompt-assisted installation, give your coding agent the exported
-`skills/setup-genlayer-agent-lab/SKILL.md` and the prompt in INSTALL.md. Record
-each correction you had to make. Keep the same data directory for every step
-below; supply `--data-dir` explicitly if it differs from the default.
+## Before the trial
 
-## Complete these checks
+Record the source revision or supplied artifact version, OS, CPU architecture, Python version, and Docker environment. The primary project path requires the supported Linux x86-64 Docker profile. Use a fresh environment and data directory for an installation trial. The repository and supplied artifacts are the distribution sources; do not substitute a similarly named registry package.
 
-1. Run `gl-agent-lab doctor`. Record the first preparation time and its result.
-   The first run downloads about 217 MB; later runs reuse the verified cache.
-2. Run `gl-agent-lab run escrow-normal --agent safe`. Expect a completed report
-   with all four grades passing and exit code 0.
-3. Run `gl-agent-lab run escrow-provisional --agent unsafe`. Expect an evaluation
-   failure and exit code 1, including a failed behavior grade. A runtime error
-   or inconclusive report is not the expected negative result.
-4. Start `gl-agent-lab serve`. Open the dashboard at its reported loopback URL,
-   authenticate locally, inspect both saved reports and export JSON or HTML.
-   Keep the administrator token private; do not paste it in the trial report.
-5. Choose Python, TypeScript or MCP from the exported `examples/README.md`.
-   First run that independent client against `escrow-normal`. Then route the
-   relevant tools of your own developer agent into the test interface. Record
-   your framework, integration changes, run ID and result. Keep real wallet and
-   production actions out of this test profile. Installing MCP alone does not
-   redirect an agent's existing calls.
-6. Stop and start the Lab process. Confirm the earlier report is unchanged and
-   another bundled test succeeds. If testing optional automatic startup, follow
-   [SERVICES.md](SERVICES.md) and record it separately from process restart.
+VPS access and operating-system dependencies remain external prerequisites. The bundled scripted verification does not require a paid model. The developer chooses the model and credentials for their own tested agent. Keep tokens, private keys, and private evidence out of the feedback record.
 
-If a step fails, retain its fixed error code and a redacted excerpt, then report
-the blocker. Do not silently replace GLSim or Studio with `fixture` and count
-that as real contract execution. Scripted reference agents check integration
-and expected grading; their results are not evidence of a language model's skill.
+## Complete the journey
 
-## Optional checks
+1. **Install and open the dashboard.** Follow the source or supplied-wheel instructions and run `gl-agent-lab setup`. Record time spent on prerequisites, downloads, and runtime preparation separately. Use `--no-open` plus an SSH tunnel for a VPS. Record any confusing or missing diagnostic.
+2. **Choose and review a test.** Select a template, inspect its public task and supplied conditions, and read its expected behavior. Confirm that the developer can explain what should pass before creating the run. Custom-specification import is an advanced path, not a prerequisite for this first test.
+3. **Connect the developer's own agent.** Use the generated MCP, HTTP, Python, or TypeScript instructions. Record the framework, model, configuration changes, and time to the first observed request. Note whether the developer mistook copying a snippet or pressing Check connection for the agent actually connecting.
+4. **Complete and explain the run.** Have the agent observe its task, use the permitted tools, and finish. Record the run ID and result. Ask the developer to point to the action or check that explains the outcome, using the readable report before opening Advanced JSON.
+5. **Run one variation.** Change a supported template option or choose another relevant template. Review the new expectations and run the same agent again. Record whether the developer understood what changed and could compare the outcomes.
+6. **Return to the installation.** After runs have finished, stop and start the Lab process. Confirm that the earlier report remains available and the developer knows how to create a new test. Optional startup, logout, or whole-machine reboot checks should be recorded separately.
 
-Custom contracts require the Linux Docker worker and
-[CUSTOM_CONTRACTS.md](CUSTOM_CONTRACTS.md). Studio requires a larger Docker
-resource budget and [STUDIO.md](STUDIO.md). Report these as separate extensions
-to the base trial, with the selected binding/runtime and observed result.
+If a prerequisite or connection blocks progress, retain the exact safe error code and report what the developer tried. Do not silently switch to a different runtime and call the original path successful. For diagnosis, a separate `project verify --case prediction` run can distinguish a scripted installation check from the developer-agent trial.
 
-Rebooting or logging out of the developer's computer is optional and requires
-their agreement. Windows/macOS startup runs after login. A service restart does
-not establish recovery from a whole OS reboot. The release verification record
-states which platform checks have actually passed.
+The setup skill can be read locally from `skills/setup-genlayer-agent-lab/SKILL.md` in the checkout or exported kit, or from [its source URL](https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md). If installed in the coding agent, a later session should need only a short request to start the existing Lab. Record whether that worked without repeating the entire setup procedure.
 
-## Trial report template
+## Record these measures
+
+| Measure | What to record |
+|---|---|
+| Time to dashboard | Elapsed time, separating downloads from active effort |
+| Time to first real-agent request | From opening connection instructions to an observed request by the developer's agent |
+| Unassisted completion | Whether the supplied instructions and setup skill were sufficient without maintainer intervention |
+| Connection clarity | Whether the developer could distinguish configured, waiting, and observed use |
+| Report clarity | Whether the developer could explain the result and identify the next action |
+| Repeat use | Whether the developer could return later and create a second run without repeating installation |
+
+## Trial report
 
 ```text
 Trial ID and date:
-Human developer alias (no email required):
-Prior involvement in this project:
-Release / wheel filename / wheel SHA-256:
-OS version / architecture / Python version:
-Docker present and version (if used):
-Install method: manual / coding agent (name)
-Fresh environment and data directory: yes / no
-First doctor duration and result:
-Safe run ID / four grades / exit code:
-Unsafe provisional run ID / behavior grade / exit code:
-Dashboard and export result:
-Independent client: Python / TypeScript / MCP
-Developer's agent/framework:
-Tool integration changes required:
-Developer-agent run ID / result:
-Process restart: history preserved / new run result:
-Optional startup, logout, reboot or Studio checks (exactly what happened):
-Instruction corrections, blockers and time spent:
-Redacted error codes or excerpts:
-Outcome: completed / blocked / completed with documented workaround
+Developer alias / prior involvement in the project:
+Source revision or artifact filename / checksum:
+OS / architecture / Python / Docker environment:
+Fresh installation and data directory:
+Manual setup or coding agent / installed setup skill:
+Prerequisite, download, and active setup time:
+Time to dashboard / blockers:
+First template / expectation understood before creation:
+Developer's own agent framework / model:
+Connection method / integration changes:
+Time to first observed request / connection indicator understood:
+First real-agent run ID / result / developer's explanation:
+Second run ID / changed condition / comparison understood:
+Optional scripted check ID / result, recorded separately:
+Return session / history retained / new run possible:
+Maintainer help or instruction corrections required:
+Optional startup, logout, or reboot checks actually performed:
+Redacted diagnostic codes / report locations:
+Outcome: completed unassisted / completed with help / blocked
 ```
 
-Review reports before sharing: omit tokens, private keys, raw Studio receipts,
-personal directories and private scenario evidence. A failed agent evaluation
-can be a valid integration outcome; an infrastructure failure cannot be recorded
-as a successful installation gate.
+Share only the report material needed to explain a blocker. A service restart does not establish whole-machine reboot recovery; use the dated [verification record](VERIFICATION.md) for the exact platform evidence.

@@ -1,71 +1,60 @@
-# Short VPS trial
+# Start the Lab on your VPS
 
-Use the alpha 11 candidate identified in the verification record. This trial
-checks installation and access on your server after the maintainer's main
-verification. It does not require a paid AI model or public GenLayer tokens.
+This path runs the current project Studio environment on a Linux x86-64 server you control. You use the dashboard through an SSH tunnel and can connect your agent from the server or your own computer.
 
-Use a Linux x86-64 VPS with Docker Engine, Docker Compose, Git and `uv` available
-to your installation user. Allow roughly 8 GiB RAM for Studio, Docker and some
-headroom, plus disk space for several gigabytes of runtime downloads and Docker
-cache. This is planning guidance; the minimum VPS size has not been measured.
-If dependencies are missing, the [setup skill](../skills/setup-genlayer-agent-lab/SKILL.md)
-can guide a coding agent through installing them. A supplied wheel can be used
-instead of source; see [installation](INSTALL.md).
+You need an existing VPS account, SSH access, Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), Docker Engine, and Docker Compose available to your installation user. For this short trial, plan for 8 GiB RAM and an 80 GB disk with room for runtime downloads and Docker build cache. This is planning guidance; a minimum server size has not been measured. See [installation](INSTALL.md) if a prerequisite is missing.
 
-For a first installation, download the source in your VPS terminal:
+The Lab does not provision a VPS account or purchase server resources. Its scripted installation check needs no paid AI model or public GenLayer tokens. Your own agent uses its chosen model and provider.
+
+## Start the installation
+
+In your VPS terminal:
 
 ```sh
 git clone https://github.com/Leokings/genlayer-agent-lab.git
 cd genlayer-agent-lab
-```
-
-If you already cloned it, enter that directory. The following commands use the
-alpha 11 candidate from the current main branch:
-
-```sh
 uv sync --locked --python 3.12
-uv run gl-agent-lab init
-uv run gl-agent-lab project studio-build
-uv run gl-agent-lab serve
+uv run gl-agent-lab setup --no-open
 ```
 
-Leave the last command running. The first Studio build downloads and compiles
-dependencies; it can take tens of minutes. Later starts use
-`uv run gl-agent-lab project studio-up`. The Lab and Studio run on this VPS;
-there is no Lab-owned hosting account to connect.
+If you already have the checkout, enter that directory and run `setup --no-open`. Use the source or supplied artifact version intended for your trial; these commands do not install a candidate from a package registry.
 
-In a second SSH terminal, from the same directory:
+Setup checks prerequisites, prepares or starts the owned project Studio stack, and starts the Lab. Keep this terminal open while its foreground Lab is running. The first build can take tens of minutes. For a read-only diagnostic, use `uv run gl-agent-lab setup --check`.
 
-```sh
-uv run gl-agent-lab project verify --case prediction --url http://127.0.0.1:8765 --output vps-check.json
-```
+## Open the dashboard from your computer
 
-Expect `verification: pass`. This scripted example deploys two contracts, asks
-for a decision, waits for finality, and records the result once. It usually takes
-a few minutes. A failure should retain its report; do not repeatedly rebuild
-Studio or erase data to turn it green. The full verifier is unnecessary for this
-short onboarding check unless its result reveals a specific remaining problem.
-
-On your laptop, open a separate terminal and replace the SSH destination:
+In a terminal on your computer, replace the SSH destination:
 
 ```sh
 ssh -N -L 8875:127.0.0.1:8765 your-user@your-server
 ```
 
-Keep that tunnel open. Browse
-[the workflow dashboard](http://127.0.0.1:8875/assets/workflows.html). In your
-private VPS terminal, `uv run gl-agent-lab init --show-token` shows the local
-administrator token to enter in the dashboard. Select the completed project run
-to inspect its evaluation, contracts and recorded state. Public ports 8765 and
-8796 do not need to be opened.
+Keep the tunnel open and browse to [the workflow dashboard](http://127.0.0.1:8875/assets/workflows.html). In a second private VPS terminal, show the installation's dashboard credential:
 
-After this passes, connect the agent you actually want to test using
-[the project integration guide](PROJECT_WORKFLOWS.md#connecting-an-agent).
-That agent receives a new run's scoped credential and keeps its own model.
-Python, TypeScript, HTTP and MCP are supported; installing OpenClaw is unnecessary.
-The scripted installation check is separate from testing that agent's behavior.
+```sh
+uv run gl-agent-lab init --show-token
+```
 
-The foreground Lab stops when its terminal closes. For persistent startup, use
-[the user service instructions](SERVICES.md); Studio readiness is checked
-separately. `project studio-down` stops Studio while preserving its volumes.
-Stopping application processes does not stop your VPS provider's billing.
+Enter that administrator token in the dashboard. If you selected a custom data directory, include the same `--data-dir PATH` when retrieving it. Use a private terminal for this command and keep the token out of shared logs. Public ports 8765 and 8796 do not need to be opened.
+
+Follow [your first agent test](GETTING_STARTED.md): choose a template, review its expected behavior, create a test, and use its generated connection instructions. Give the tested agent that run's credential, not the administrator token.
+
+An agent on your computer uses the tunnel address, `http://127.0.0.1:8875`. An agent running directly on the VPS uses `http://127.0.0.1:8765`. A separate container needs a reachable route to the Lab host; its own loopback address is not the host. The dashboard's connection check records actual run-scoped requests so you can see whether the configured agent reached the run.
+
+## Optional installation check
+
+Before using your own agent, you can run one scripted control in a second VPS terminal:
+
+```sh
+uv run gl-agent-lab project verify --case prediction --url http://127.0.0.1:8765 --output vps-check.json
+```
+
+Expect `verification: pass`. This deploys two contracts, requests a decision, waits for finality, and records the result once. Inspect a failure's report instead of replacing Studio with a fixture backend or repeatedly rebuilding. The full maintainer suite is unnecessary for a normal first installation.
+
+This check establishes the scripted local workflow. Complete a separate run with your own agent to establish its connection and evaluate its behavior. The [onboarding checklist](EXTERNAL_ONBOARDING.md) helps record both outcomes.
+
+## Return later or stop
+
+Return to the checkout and run `setup --no-open` again to start the same installation. Optional [user startup services](SERVICES.md) have separate host requirements; they do not arrange Docker or Studio startup automatically. `project studio-down` stops the owned Studio stack while preserving its volumes. Follow [backup and recovery instructions](RECOVERY.md) before upgrades.
+
+Closing the foreground Lab terminal stops that Lab process. It does not shut down the VPS or stop provider billing.

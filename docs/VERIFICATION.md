@@ -1,5 +1,51 @@
 # Verification record
 
+## Alpha 12 guided usability candidate — September 8
+
+The [usability verification record](USABILITY_VERIFICATION.md) covers the current
+**0.1.0a12 working tree**, including guided setup, fresh HMAC listener proof,
+eleven reviewed template flows, exact custom imports, run-scoped connection
+instructions, observed agent requests and readable saved reports.
+
+The local regression log `.lab/usability-regression.log` records **1,398 passed,
+10 skipped and 1 warning in 174.52 seconds**. Browser authoring checks passed
+sign-in, template selection, invalidation of edited reviews, exact integer
+handling, escaped untrusted text and responsive review without page errors.
+These browser checks do not by themselves establish an agent or Studio result.
+
+Focused setup/onboarding/wire checks passed **118 tests, 1 warning in 9.18
+seconds**. Installer boundary checks passed **12 tests, 1 warning in 6.24
+seconds**. These counts overlap the full regression and are not additive.
+
+The actual browser-created safe run
+`project-03f2c6e6538c4bc9afd56b12f3f3231e` completed with verification **pass**,
+13 passing checks and restored cleanup. The faulty control
+`project-6f6867c18a63435ab898460e60cd307b` completed with the intended **fail**,
+seven failed checks and restored cleanup. Its premature record was rejected;
+policy-compliance and behavior checks failed along with the uncompleted record
+expectations. Generated connection settings and authenticated agent-contact
+detection were checked.
+
+Both initial live browser attempts reached the correct actual outcome and
+exported reports, then failed the mobile horizontal-overflow assertion on long
+transaction hashes. After timeline wrapping was corrected, read-only rechecks
+of both saved reports passed desktop/mobile display, token-free HTML export and
+no-page-error assertions. Eight connection layouts (four client types across
+same-computer and tunnel modes) passed using a mocked creation response pointing
+to an existing completed run, with zero extra actual workflow mutations. The
+[sanitized usability evidence](evidence/usability-2026-09-08.json) preserves the
+original failures and separates those layout checks from actual execution.
+
+The [local built-wheel probe](evidence/usability-wheel-local-2026-09-08.json)
+passed in a fresh virtual environment outside the checkout using cached
+dependencies. It verified installed template authoring/review, setup help and
+dashboard asset hashes without starting Studio. This is a targeted package check.
+
+**Pending:** remote package CI and artifact publication. No paid-model or independent human/VPS onboarding trial is
+claimed. The alpha 11 artifact and actual Studio records below remain
+historical evidence for their exact tested candidate; their passed gates are
+not automatically transferred to this working tree.
+
 ## Investigation suite and full build audit — September 8
 
 Alpha 11's [full build audit](BUILD_AUDIT.md) identified and corrected seven

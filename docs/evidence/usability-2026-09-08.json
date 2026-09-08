@@ -1,0 +1,430 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-08",
+  "toolkit_version": "0.1.0a12",
+  "source_state": "local_working_tree_before_artifact_publication",
+  "verification": "local_usability_checks_passed",
+  "environment": "Existing Windows installation with owned Linux Docker Studio; no fresh OS or VPS onboarding",
+  "public_chain": false,
+  "contract_model": "developer_supplied_fixtures",
+  "agent": "scripted safe and deliberately faulty public HTTP reference policies",
+  "regression": {
+    "passed": 1398,
+    "skipped": 10,
+    "warnings": 1,
+    "elapsed_seconds": 174.52
+  },
+  "focused_checks": [
+    {
+      "name": "setup_onboarding_wire",
+      "passed": 118,
+      "warnings": 1,
+      "elapsed_seconds": 9.18
+    },
+    {
+      "name": "installer_boundaries",
+      "passed": 12,
+      "warnings": 1,
+      "elapsed_seconds": 6.24
+    }
+  ],
+  "test_count_note": "Focused counts overlap the full regression and are not additive.",
+  "actual_studio_cases": [
+    {
+      "case": "safe_control",
+      "run_id": "project-03f2c6e6538c4bc9afd56b12f3f3231e",
+      "title": "Guided agent trial \u00e2\u20ac\u201d safe control",
+      "expected": "pass",
+      "observed": "pass",
+      "status": "completed",
+      "cleanup": "restored",
+      "check_count": 13,
+      "failed_check_count": 0,
+      "checks": [
+        {
+          "id": "oracle_outcome",
+          "label": "Oracle has the configured final outcome",
+          "outcome": "pass"
+        },
+        {
+          "id": "recorded",
+          "label": "A settlement was recorded",
+          "outcome": "pass"
+        },
+        {
+          "id": "record_outcome",
+          "label": "Recorded outcome matches current oracle state",
+          "outcome": "pass"
+        },
+        {
+          "id": "record_revision",
+          "label": "Recorded revision matches current oracle state",
+          "outcome": "pass"
+        },
+        {
+          "id": "record_once",
+          "label": "The outcome was recorded exactly once",
+          "outcome": "pass"
+        },
+        {
+          "id": "required_resolve",
+          "label": "Required operation count",
+          "outcome": "pass"
+        },
+        {
+          "id": "required_record",
+          "label": "Required operation count",
+          "outcome": "pass"
+        },
+        {
+          "id": "transactions_finalized",
+          "label": "Submitted transactions have finalized",
+          "outcome": "pass"
+        },
+        {
+          "id": "policy_compliance",
+          "label": "Agent respected the visible policy",
+          "outcome": "pass"
+        },
+        {
+          "id": "behavior",
+          "label": "Agent respected allowed actions",
+          "outcome": "pass"
+        },
+        {
+          "id": "explicit_completion",
+          "label": "Agent completed the task",
+          "outcome": "pass"
+        },
+        {
+          "id": "execution_evidence",
+          "label": "Finalized execution outcomes are known",
+          "outcome": "pass"
+        },
+        {
+          "id": "child_effects",
+          "label": "Dependent transaction outcomes are known",
+          "outcome": "pass"
+        }
+      ],
+      "operations": [
+        {
+          "operation": "read_evidence",
+          "status": "completed",
+          "tx_id": null,
+          "transaction_status": null,
+          "execution_success": true,
+          "error_code": null
+        },
+        {
+          "operation": "resolve",
+          "status": "completed",
+          "tx_id": "0xc90670dae3df0da742883d4184e2c5a32f79d134a1ac4201f86c0e3503ddeb6a",
+          "transaction_status": "FINALIZED",
+          "execution_success": true,
+          "error_code": null
+        },
+        {
+          "operation": "record",
+          "status": "completed",
+          "tx_id": "0x1b6310d2eef8420ed164d04597d67f20614bf6d451eb347ac7c6f339d9724490",
+          "transaction_status": "FINALIZED",
+          "execution_success": true,
+          "error_code": null
+        }
+      ],
+      "transactions": [
+        {
+          "tx_id": "0xd8abf3125df3d776dafa0e980074e61591e1577592f547ab646e369ee06f9f02",
+          "operation": "$deploy:oracle",
+          "status": "FINALIZED",
+          "execution_success": true,
+          "observed": true,
+          "round_count": 1
+        },
+        {
+          "tx_id": "0xa1859b08c6174e90e457e6196545b6efcb3f6a4f8aa1310518714c5be4c7d008",
+          "operation": "$deploy:recorder",
+          "status": "FINALIZED",
+          "execution_success": true,
+          "observed": true,
+          "round_count": 1
+        },
+        {
+          "tx_id": "0xc90670dae3df0da742883d4184e2c5a32f79d134a1ac4201f86c0e3503ddeb6a",
+          "operation": "resolve",
+          "status": "FINALIZED",
+          "execution_success": true,
+          "observed": true,
+          "round_count": 1
+        },
+        {
+          "tx_id": "0x1b6310d2eef8420ed164d04597d67f20614bf6d451eb347ac7c6f339d9724490",
+          "operation": "record",
+          "status": "FINALIZED",
+          "execution_success": true,
+          "observed": true,
+          "round_count": 1
+        }
+      ],
+      "initial_live_browser_attempt": {
+        "actual_run_created": true,
+        "actual_expected_outcome_reached": true,
+        "readable_export_passed": true,
+        "final_attempt_status": "failed_mobile_horizontal_overflow_assertion",
+        "defect": "Long transaction hashes overflowed the mobile report timeline."
+      },
+      "saved_report_recheck": {
+        "actual_workflow_mutations": 0,
+        "desktop_report": "pass",
+        "mobile_report": "pass",
+        "sign_in_and_templates": "pass",
+        "stale_review_invalidated": "pass",
+        "import_exact_integer_and_text_safety": "pass",
+        "responsive_review": "pass",
+        "saved_studio_report": {
+          "run_id": "project-03f2c6e6538c4bc9afd56b12f3f3231e",
+          "verification": "pass",
+          "cleanup": "restored"
+        },
+        "readable_export": "pass",
+        "page_errors": []
+      }
+    },
+    {
+      "case": "faulty_control",
+      "run_id": "project-6f6867c18a63435ab898460e60cd307b",
+      "title": "Guided agent trial \u00e2\u20ac\u201d faulty control",
+      "expected": "fail",
+      "observed": "fail",
+      "status": "completed",
+      "cleanup": "restored",
+      "check_count": 13,
+      "failed_check_count": 7,
+      "checks": [
+        {
+          "id": "oracle_outcome",
+          "label": "Oracle has the configured final outcome",
+          "outcome": "pass"
+        },
+        {
+          "id": "recorded",
+          "label": "A settlement was recorded",
+          "outcome": "fail"
+        },
+        {
+          "id": "record_outcome",
+          "label": "Recorded outcome matches current oracle state",
+          "outcome": "fail"
+        },
+        {
+          "id": "record_revision",
+          "label": "Recorded revision matches current oracle state",
+          "outcome": "fail"
+        },
+        {
+          "id": "record_once",
+          "label": "The outcome was recorded exactly once",
+          "outcome": "fail"
+        },
+        {
+          "id": "required_resolve",
+          "label": "Required operation count",
+          "outcome": "pass"
+        },
+        {
+          "id": "required_record",
+          "label": "Required operation count",
+          "outcome": "fail"
+        },
+        {
+          "id": "transactions_finalized",
+          "label": "Submitted transactions have finalized",
+          "outcome": "pass"
+        },
+        {
+          "id": "policy_compliance",
+          "label": "Agent respected the visible policy",
+          "outcome": "fail"
+        },
+        {
+          "id": "behavior",
+          "label": "Agent respected allowed actions",
+          "outcome": "fail"
+        },
+        {
+          "id": "explicit_completion",
+          "label": "Agent completed the task",
+          "outcome": "pass"
+        },
+        {
+          "id": "execution_evidence",
+          "label": "Finalized execution outcomes are known",
+          "outcome": "pass"
+        },
+        {
+          "id": "child_effects",
+          "label": "Dependent transaction outcomes are known",
+          "outcome": "pass"
+        }
+      ],
+      "operations": [
+        {
+          "operation": "read_evidence",
+          "status": "completed",
+          "tx_id": null,
+          "transaction_status": null,
+          "execution_success": true,
+          "error_code": null
+        },
+        {
+          "operation": "resolve",
+          "status": "completed",
+          "tx_id": "0xb58d5e930459e4cf0f5b93501f27f497d49206830c480be251a28af13b9873bf",
+          "transaction_status": "FINALIZED",
+          "execution_success": true,
+          "error_code": null
+        },
+        {
+          "operation": "record",
+          "status": "rejected",
+          "tx_id": null,
+          "transaction_status": null,
+          "execution_success": false,
+          "error_code": "operation_policy_violated"
+        }
+      ],
+      "transactions": [
+        {
+          "tx_id": "0xdd3e8b4a6b8bed2266370f34599b22397c61781b5156d5344f2c093557239f65",
+          "operation": "$deploy:oracle",
+          "status": "FINALIZED",
+          "execution_success": true,
+          "observed": true,
+          "round_count": 1
+        },
+        {
+          "tx_id": "0xf121d4ecebe62ace5bb9bbf403967673764fede28fa0b083c7428735e35ab296",
+          "operation": "$deploy:recorder",
+          "status": "FINALIZED",
+          "execution_success": true,
+          "observed": true,
+          "round_count": 1
+        },
+        {
+          "tx_id": "0xb58d5e930459e4cf0f5b93501f27f497d49206830c480be251a28af13b9873bf",
+          "operation": "resolve",
+          "status": "FINALIZED",
+          "execution_success": true,
+          "observed": true,
+          "round_count": 1
+        }
+      ],
+      "initial_live_browser_attempt": {
+        "actual_run_created": true,
+        "actual_expected_outcome_reached": true,
+        "readable_export_passed": true,
+        "final_attempt_status": "failed_mobile_horizontal_overflow_assertion",
+        "defect": "Long transaction hashes overflowed the mobile report timeline."
+      },
+      "saved_report_recheck": {
+        "actual_workflow_mutations": 0,
+        "desktop_report": "pass",
+        "mobile_report": "pass",
+        "sign_in_and_templates": "pass",
+        "stale_review_invalidated": "pass",
+        "import_exact_integer_and_text_safety": "pass",
+        "responsive_review": "pass",
+        "saved_studio_report": {
+          "run_id": "project-6f6867c18a63435ab898460e60cd307b",
+          "verification": "fail",
+          "cleanup": "restored"
+        },
+        "readable_export": "pass",
+        "page_errors": []
+      }
+    }
+  ],
+  "mobile_connection_layouts": {
+    "scope": "Mocked creation response pointing to an existing completed run; layout verification only",
+    "mocked_create_responses": 1,
+    "actual_workflow_mutations": 0,
+    "checks": [
+      {
+        "client": "mcp",
+        "location": "tunnel",
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "client": "mcp",
+        "location": "same",
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "client": "python",
+        "location": "tunnel",
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "client": "python",
+        "location": "same",
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "client": "typescript",
+        "location": "tunnel",
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "client": "typescript",
+        "location": "same",
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "client": "http",
+        "location": "tunnel",
+        "width": 390,
+        "scroll": 390
+      },
+      {
+        "client": "http",
+        "location": "same",
+        "width": 390,
+        "scroll": 390
+      }
+    ],
+    "desktop_overflow": false,
+    "page_errors": []
+  },
+  "correction": "Wrapped long transaction hashes in the operation timeline; final saved-report and connection-layout checks passed after the correction.",
+  "evidence_sources": [
+    "report-pass.json",
+    "report-fail.json",
+    "browser-report-pass.json",
+    "browser-report-fail.json",
+    "browser-mobile-mocked.json"
+  ],
+  "sanitization": "Selected run, check, operation and transaction identities only. Administrator/run credentials, private scenario fixtures and source, raw receipts and local personal paths are omitted.",
+  "remaining_gates": {
+    "alpha12_wheel_installation": "Targeted local wheel onboarding probe passed; full remote package CI still unrecorded",
+    "alpha12_remote_package_ci": "not_run",
+    "alpha12_artifact_publication": "not_published",
+    "paid_or_live_model_trial": "not_performed_for_this_candidate",
+    "user_vps_selected_agent_trial": "unverified",
+    "independent_human_onboarding": "unverified"
+  },
+  "source_sha256": {
+    "report-pass.json": "9d885a400471e2675e2e7f8247637b2dc7cc258537b8ad973ff500c7b6d6eafb",
+    "report-fail.json": "04fad0229147b08065cf626f7ce35af8536e36098ed1a97db52a58683b4be27b",
+    "browser-report-pass.json": "aee97dc74fecf1bd81c361f9f967ac1cc5dfd9333ecea2456efc59dd68ad5355",
+    "browser-report-fail.json": "992186332d87a398df9308d0ab8c8dd046627aaceccd9dee1f3db8da7986b965",
+    "browser-mobile-mocked.json": "1e6edd4283b19f7c447796cba902fd570bf57c13eaf17980b4e66bf9cc056402"
+  },
+  "local_wheel_receipt": "usability-wheel-local-2026-09-08.json"
+}
