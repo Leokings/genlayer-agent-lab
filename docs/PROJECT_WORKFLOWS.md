@@ -194,6 +194,16 @@ checks the distinct contract states, child outcomes and resulting counts.
 This is a defined contract graph with implemented methods. It does not reproduce
 every protocol's state, dependencies or downstream behavior from an address.
 
+The [investigation examples](INVESTIGATION.md) add supplied records with explicit
+source, subject, age and availability data. Agents read those records, submit
+concise findings with `submit_investigation`, and follow the reviewed policy for
+acceptance, appeal or requesting review. Missing, stale, conflicting and
+misleading evidence have distinct expected behavior. The existing operation
+invocation carries this capability through HTTP, language clients and MCP; it
+does not add another MCP tool. The submitted findings appear in the dashboard
+and report as agent-authored claims with independent evaluation. This Lab
+artifact does not upload evidence to a GenLayer appeal.
+
 ## Reports, recovery and the VPS trial
 
 Use an administrator terminal, without the agent's `LAB_TOKEN` override:
@@ -215,6 +225,16 @@ Studio's observed state. A lost response may resend identical signed bytes; it
 must not create a new logical action. Recovery covers a Lab interruption with
 Studio state intact. It does not restore a deleted Studio database or prove
 full-machine reboot behavior.
+
+If cleanup times out while a submitted transaction is unsettled, the run stays
+inconclusive and blocks new project runs. Restarting the Lab retries cleanup
+when the original encrypted signing journal and fixture state are present. It
+verifies the same backend and deployed code, reconciles existing transaction
+identities and restores fixtures after settlement. It does not resume the failed
+agent task, deploy another contract or accept new actions. Successful cleanup
+removes the block while preserving the original inconclusive result and error.
+Portable restored histories without the original signing material cannot use
+this recovery path.
 
 The main consolidated verifier is an administrator operation:
 

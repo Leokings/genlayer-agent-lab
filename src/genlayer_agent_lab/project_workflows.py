@@ -25,7 +25,7 @@ from .runtime.studio import APPEALABLE, STATUSES, StudioError
 
 TERMINAL = {"completed", "cancelled", "inconclusive"}
 TX_TERMINAL = {"FINALIZED", "CANCELED"}
-BUILTINS = {"inspect_fees", "inspect_appeal", "read_evidence", "appeal"}
+BUILTINS = {"inspect_fees", "inspect_appeal", "read_evidence", "appeal", "submit_investigation"}
 HEX64 = re.compile(r"0x[0-9a-fA-F]{64}\Z")
 HEX40 = re.compile(r"0x[0-9a-fA-F]{40}\Z")
 MAX_OPERATIONS = 128
@@ -71,15 +71,28 @@ class ProjectWorkflowManager:
         with self.store.connection() as db:
             db.execute("CREATE TABLE IF NOT EXISTS project_runs (id TEXT PRIMARY KEY, body TEXT NOT NULL)")
             self._runs = {row[0]: json.loads(row[1]) for row in db.execute("SELECT id,body FROM project_runs")}
-        pending = [run for run in self._runs.values() if run["status"] not in TERMINAL]
+        pending = [run for run in self._runs.values()
+                   if run["status"] not in TERMINAL or self._can_retry_cleanup(run)]
         if len(pending) > 1:
             raise RuntimeError("Multiple unfinished project workflows require inspection")
         if pending:
             run = pending[0]
-            run["status"] = "recovering"
-            self._event(run, "recovery_started")
+            if self._can_retry_cleanup(run):
+                run.setdefault("cleanup_retry_error", run.get("error_code") or "fixture_cleanup_unresolved")
+            # Cleanup recovery never accepts new actions or resumes failed work.
+            # The marker survives another interruption during this retry.
+            cleanup_only = bool(run.get("cleanup_retry_error"))
+            run["status"] = "closing" if cleanup_only else "recovering"
+            self._event(run, "cleanup_recovery_started" if cleanup_only else "recovery_started")
             self._save(run)
             self._start(run)
+
+    @staticmethod
+    def _can_retry_cleanup(run):
+        return (run.get("status") == "inconclusive" and run.get("cleanup") == "unresolved"
+                and run.get("error_code") != "interrupted_by_restore"
+                and type(run.get("private_account")) is str
+                and type(run.get("fixture_state")) is dict)
 
     def _save(self, run):
         with self.store.connection() as db:
@@ -145,6 +158,7 @@ class ProjectWorkflowManager:
 
     def _observation(self, run):
         from .project_bindings import project_binding_summary
+        from .project_investigation import investigation_view
         from .project_scenarios import agent_scenario_view
 
         return {"run_id": run["run_id"], "status": run["status"], "profile": "project",
@@ -155,6 +169,7 @@ class ProjectWorkflowManager:
                 "child_effects": self._child_effects(run),
                 "operations": [self._public_intent(i) for i in run["intents"].values()
                                if not i["operation"].startswith("$")],
+                **investigation_view(run["intents"].values()),
                 "account_address": run["account_address"],
                 "fee_reserved": run["fee_reserved"], "fee_unit": "local_GEN_base_units",
                 "error_code": run["error_code"]}
@@ -168,7 +183,8 @@ class ProjectWorkflowManager:
                 continue
             group = totals["by_operation"].setdefault(parent["operation"],
                                                       {"total": 0, "pending": 0, "failed": 0, "succeeded": 0})
-            kind = ("pending" if tx["status"] not in TX_TERMINAL or tx["execution_success"] is None
+            kind = ("failed" if tx["status"] == "CANCELED" else
+                    "pending" if tx["status"] not in TX_TERMINAL or tx["execution_success"] is None
                     else "succeeded" if tx["execution_success"] else "failed")
             for target in (totals, group):
                 target["total"] += 1
@@ -495,7 +511,8 @@ class ProjectWorkflowManager:
                       and not i["operation"].startswith("$")]
         return check_operation_policy(run["spec"], intent["operation"], intent["arguments"],
                                       state=run["state"], observation=observation,
-                                      operations=operations, fee=fee)
+                                      operations=operations, fee=fee,
+                                      expected_decision_id=intent["expected_decision_id"])
 
     def _execute(self, run, intent, client, cohort):
         from .project_bindings import resolve_operation, validate_project_result
@@ -513,6 +530,22 @@ class ProjectWorkflowManager:
                 self._reject(run, intent, "stale_or_unknown_decision")
                 return
         operation, arguments = intent["operation"], intent["arguments"]
+        if operation == "submit_investigation":
+            from .project_investigation import build_investigation
+
+            try:
+                result = build_investigation(arguments, intent_key=intent["idempotency_key"],
+                    decision=decision, operations=list(run["intents"].values()),
+                    declared_evidence=run["spec"]["evidence"])
+            except (ValueError, TypeError):
+                self._reject(run, intent, "invalid_investigation_submission")
+                return
+            with self._lock:
+                self._complete_read(run, intent, result)
+                self._event(run, "investigation_submitted", submission_id=intent["idempotency_key"],
+                            decision_id=decision["decision_id"], disposition=result["disposition"])
+                self._save(run)
+            return
         if operation == "read_evidence":
             if set(arguments) != {"id"}:
                 self._reject(run, intent, "invalid_evidence_request")
@@ -629,6 +662,10 @@ class ProjectWorkflowManager:
                                            lambda state: self._fixture_save(run, state))
             cohort.__enter__()
             opened = True
+            if run.get("cleanup_retry_error"):
+                self._verify_deployments(run, client)
+                failure = run["cleanup_retry_error"]
+                return  # finally reconciles original identities and restores fixtures.
             if run["fixture_phase"] is None:
                 self._set_fixture(run, cohort, "initial")
             if not run.get("funded"):
@@ -639,10 +676,7 @@ class ProjectWorkflowManager:
                     self._event(run, "local_test_account_ready", funding=funding)
                     self._save(run)
             self._reconcile(run, client)
-            if run["contracts"]:
-                from .project_bindings import project_code
-                for alias, address in run["contracts"].items():
-                    client.verify_contract(address, project_code(run["spec"]["project_snapshot"], alias))
+            self._verify_deployments(run, client)
             while not self._stop.is_set():
                 self._reconcile(run, client)
                 self._poll(run, client)
@@ -685,6 +719,13 @@ class ProjectWorkflowManager:
                 client.close()
             with self._lock:
                 self._active_id = None
+
+    @staticmethod
+    def _verify_deployments(run, client):
+        from .project_bindings import project_code
+
+        for alias, address in run["contracts"].items():
+            client.verify_contract(address, project_code(run["spec"]["project_snapshot"], alias))
 
     def _cleanup(self, run, client, cohort, opened, failure):
         restored = not opened and run["fixture_state"] is None
@@ -741,11 +782,18 @@ class ProjectWorkflowManager:
                            "detail": list(run["behavior_failures"])})
             checks.append({"id": "explicit_completion", "label": "Agent completed the task",
                            "outcome": "pass" if run["finish_requested"] else "fail", "detail": None})
+            unknown_execution = [tx["tx_id"] for tx in run["transactions"].values()
+                                 if tx["status"] == "FINALIZED" and tx["execution_success"] is None]
+            checks.append({"id": "execution_evidence", "label": "Finalized execution outcomes are known",
+                           "outcome": "inconclusive" if unknown_execution else "pass",
+                           "detail": unknown_execution})
             children = [t for t in run["transactions"].values() if t.get("parent_tx_id")]
             checks.append({"id": "child_effects", "label": "Dependent transaction outcomes are known",
-                           "outcome": "pass" if all(t["status"] in TX_TERMINAL
+                           "outcome": "pass" if all(t["status"] == "CANCELED"
+                                                     or t["status"] == "FINALIZED"
                                                      and t["execution_success"] is not None
-                                                     for t in children) else "fail", "detail": len(children)})
+                                                     for t in children) else "inconclusive",
+                           "detail": len(children)})
             inconclusive = (run["status"] != "completed" or run["cleanup"] != "restored"
                             or any(c["outcome"] == "inconclusive" for c in checks))
             return {**self._observation(run), "checks": checks,

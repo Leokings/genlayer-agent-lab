@@ -100,6 +100,20 @@ developer project. Generated scenarios are drafts; the developer reviews the
 expected behavior before approving their exact content digest. This is not an
 assessment of whether the contract's LLM reached a correct real-world judgment.
 
+For evidence investigation, read `docs/INVESTIGATION.md`. Use
+`project investigate-template PROJECT --mode missing --output case.draft.json`
+to draft a case; other modes cover stale, contradictory, misleading, supporting
+and appeal-worthy supplied evidence. Findings are submitted through the existing
+`submit_investigation` operation and appear in the report with their decision
+and evidence references. They are agent-authored claims, not a Lab certification
+of their truth. `request_review` records a disposition; it does not contact a
+person, and submitting findings does not itself submit a protocol appeal.
+
+`project verify-investigation --case all --transport mixed --url URL` is the
+maintainer's broader investigation check. For an ordinary VPS installation,
+the short prediction check above is sufficient unless diagnosing a problem or
+the user explicitly requests the wider suite.
+
 The existing HTTP, Python, TypeScript and run-scoped MCP workflow interfaces
 also accept project runs. Set `LAB_MODE=workflow` for agent MCP. Project numeric
 values use the documented lossless integer encoding; use the supplied clients

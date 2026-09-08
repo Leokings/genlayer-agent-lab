@@ -27,6 +27,9 @@ GENVM_EXECUTOR_VERSION = "v0.3.0"
 # a verifiable dependency lock; it does not install host packages or override it.
 GENLAYER_STD_RUNNER = "py-lib-genlayer-std:kzr02ndm9et4qkmbqpq5djjt5sme2yt76n7sz1qbzax0knt6mam0"
 SUPPORTED_DEPENDENCIES = frozenset({GENLAYER_STD_RUNNER})
+RESERVED_OPERATIONS = frozenset({
+    "appeal", "inspect_fees", "inspect_appeal", "read_evidence", "submit_investigation",
+})
 MAX_PROJECT_BYTES = 524288
 MAX_SNAPSHOT_BYTES = 2097152
 NAME_PATTERN = r"^[A-Za-z][A-Za-z0-9_]{0,63}$"
@@ -230,6 +233,8 @@ class ProjectBinding(StrictModel):
 
     @model_validator(mode="after")
     def references(self):
+        if set(self.operations) & RESERVED_OPERATIONS:
+            raise ValueError("Contract operation aliases cannot use reserved Lab operation names")
         for name in (*self.contracts, *self.operations, *self.state_reads):
             _name(name)
         for alias, contract in self.contracts.items():

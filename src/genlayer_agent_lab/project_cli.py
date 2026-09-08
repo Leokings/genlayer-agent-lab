@@ -37,6 +37,7 @@ def add_project_arguments(parser, common):
     descriptions = {
         "snapshot": "Validate a local project and export its pinned source snapshot",
         "template": "Draft a supported prediction workflow scenario",
+        "investigate-template": "Draft a supplied-evidence investigation scenario",
         "validate": "Validate a scenario draft and show the content digest for review",
         "schema": "Export the scenario JSON schema",
         "author-prompt": "Export drafting instructions for your own model; no model is called",
@@ -48,6 +49,7 @@ def add_project_arguments(parser, common):
         "report": "Read a saved independent workflow report",
         "cancel": "Cancel observation of a project workflow, preserving its trace",
         "verify": "Verify project reference behavior on actual local Studio",
+        "verify-investigation": "Verify evidence investigation and remedy behavior on local Studio",
         "studio-build": "Build and start the separately owned fee-enabled Studio profile",
         "studio-up": "Start the already built project Studio profile",
         "studio-status": "Inspect the project Studio profile",
@@ -56,16 +58,24 @@ def add_project_arguments(parser, common):
     for name, description in descriptions.items():
         operation = commands.add_parser(name, help=description, description=description)
         common(operation, child=True)
-        if name in {"snapshot", "template", "author-prompt"}:
+        if name in {"snapshot", "template", "investigate-template", "author-prompt"}:
             operation.add_argument("project", type=Path, help="Local manifest or exported snapshot")
         if name in {"validate", "approve", "variants", "create"}:
             operation.add_argument("spec", type=Path, help="Scenario YAML or JSON")
         if name == "template":
             operation.add_argument("--mode", choices=["finalize", "appeal_changed", "appeal_upheld", "delivered", "repair"],
                                    default="finalize")
+        if name == "investigate-template":
+            operation.add_argument("--mode", choices=["missing", "stale", "contradictory",
+                                   "misleading", "supports", "appeal"], default="supports")
         if name == "verify":
             operation.add_argument("--case", default="all", choices=["all", "prediction", "appeal-changed",
                                    "appeal-upheld", "unsafe", "messages", "message-repair", "fee-limit"])
+        if name == "verify-investigation":
+            operation.add_argument("--case", default="all", choices=["all", "missing", "stale",
+                "contradictory", "misleading", "supports", "appeal", "blind-accept", "follow-untrusted"])
+            operation.add_argument("--transport", choices=["python", "mcp", "mixed"], default="mixed")
+        if name in {"verify", "verify-investigation"}:
             operation.add_argument("--timeout", type=int, default=900,
                                    help="Per-case deadline in seconds (maximum 1800)")
         if name == "approve":
@@ -76,9 +86,10 @@ def add_project_arguments(parser, common):
             operation.add_argument("changes", type=Path, help="YAML/JSON array of explicit variations")
         if name in {"status", "report", "cancel"}:
             operation.add_argument("run_id")
-        if name in {"snapshot", "template", "validate", "schema", "author-prompt", "approve",
-                    "variants", "report", "verify"}:
-            operation.add_argument("--output", type=Path, required=name in {"snapshot", "template", "approve", "variants"},
+        if name in {"snapshot", "template", "investigate-template", "validate", "schema", "author-prompt", "approve",
+                    "variants", "report", "verify", "verify-investigation"}:
+            operation.add_argument("--output", type=Path,
+                                   required=name in {"snapshot", "template", "investigate-template", "approve", "variants"},
                                    help="New output file (new directory for variants); never overwritten")
         if name == "create":
             operation.add_argument("--show-agent-token", action="store_true",
@@ -145,6 +156,11 @@ def _execute(args):
                     else prediction_scenario_template)
         spec = template(_project(args.project), mode=args.mode)
         return {**_summary(spec), "draft": _write(args.output, spec)}
+    if operation == "investigate-template":
+        from .investigation_scenarios import investigation_scenario_template
+
+        spec = investigation_scenario_template(_project(args.project), mode=args.mode)
+        return {**_summary(spec), "draft": _write(args.output, spec)}
     if operation in {"validate", "approve", "variants"}:
         spec = load_project_scenario(args.spec, require_review=False)
         if operation == "validate":
@@ -168,16 +184,20 @@ def _execute(args):
     # Validate content before obtaining credentials or contacting the service.
     spec = load_project_scenario(args.spec) if operation == "create" else None
     token = os.environ.get("LAB_TOKEN") or read_admin_token(args.data_dir)
-    if operation == "verify":
+    if operation in {"verify", "verify-investigation"}:
         from .project_verification import verify_projects
 
         if type(args.timeout) is not int or not 1 <= args.timeout <= 1800:
             raise ValueError("Verification timeout must be an integer from 1 to 1800 seconds")
         output = args.output.open("x", encoding="utf-8") if args.output else None
         try:
-            result = verify_projects(args.url, token,
-                                     cases=None if args.case == "all" else [args.case],
-                                     timeout_seconds=args.timeout)
+            options = {"cases": None if args.case == "all" else [args.case], "timeout_seconds": args.timeout}
+            if operation == "verify-investigation":
+                from .investigation_verification import verify_investigations
+
+                result = verify_investigations(args.url, token, transport=args.transport, **options)
+            else:
+                result = verify_projects(args.url, token, **options)
             if output:
                 json.dump(result, output, indent=2, ensure_ascii=False)
             return {key: value for key, value in result.items() if key != "reports"}
@@ -217,7 +237,7 @@ def execute_project(args):
 
 
 def project_exit_code(operation, result):
-    if operation == "verify":
+    if operation in {"verify", "verify-investigation"}:
         return {"pass": 0, "fail": 1}.get(result.get("verification"), 2)
     if operation in {"studio-build", "studio-up", "studio-status"}:
         return 0 if result.get("ready") is True else 2

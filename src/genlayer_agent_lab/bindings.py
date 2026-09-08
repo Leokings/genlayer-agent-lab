@@ -17,7 +17,7 @@ MAX_DEFINITION_BYTES = 65536
 MAX_SOURCE_BYTES = 131072
 
 
-def bounded_json(value, max_nodes=10000):
+def bounded_json(value, max_nodes=10000, *, max_bytes=262144):
     """Reject cycles, alias expansion, non-JSON types and deep nesting before parsing."""
     remaining = max_nodes
 
@@ -44,7 +44,7 @@ def bounded_json(value, max_nodes=10000):
             raise ValueError("Non-finite JSON numbers are not allowed")
 
     visit(value, 0, set())
-    if len(json.dumps(value, ensure_ascii=True).encode()) > 262144:
+    if len(json.dumps(value, ensure_ascii=True).encode()) > max_bytes:
         raise ValueError("Expanded binding JSON is too large")
 
 

@@ -14,6 +14,12 @@
       <div id="connection" class="connection" hidden><h3>Connect your agent</h3><p>Copy this credential now. It only controls this run. For MCP, launch gl-agent-lab-mcp with these environment variables.</p><textarea id="credential" rows="5" readonly></textarea></div>
     </section>
     <section class="panel"><div class="section-heading"><h2>Workflow runs</h2><button id="refresh" class="secondary">Refresh</button></div><div id="runs"></div></section>
-    <section id="detail" class="panel" hidden><div class="section-heading"><h2 id="title">Run</h2><button id="cancel" class="danger secondary">Cancel workflow</button></div><p id="status"></p><div id="project-detail" hidden><h3>Deployed contracts</h3><pre id="contracts"></pre><h3>Local fee accounting</h3><pre id="accounting"></pre><h3>Recovery</h3><pre id="recovery"></pre></div><h3>Decisions and transactions</h3><pre id="decision"></pre><h3>Finalized contract state</h3><pre id="state"></pre><h3>Agent operations</h3><div id="operations"></div><h3>Evaluation</h3><pre id="evaluation"></pre><button id="download" class="secondary">Download report JSON</button><details><summary>Full recorded evidence</summary><pre id="evidence"></pre></details></section>
+    <section id="detail" class="panel" hidden><div class="section-heading"><h2 id="title">Run</h2><button id="cancel" class="danger secondary">Cancel workflow</button></div><p id="status"></p><div id="project-detail" hidden><h3>Deployed contracts</h3><pre id="contracts"></pre><h3>Local fee accounting</h3><pre id="accounting"></pre><h3>Recovery</h3><pre id="recovery"></pre></div><h3>Decisions and transactions</h3><pre id="decision"></pre><h3>Finalized contract state</h3><pre id="state"></pre><h3>Agent operations</h3><div id="operations"></div>
+      <section id="investigation-detail" aria-labelledby="investigation-title" hidden>
+        <h3 id="investigation-title">Agent investigation</h3>
+        <p class="helper">These are the agent's submitted findings and proposed next steps. The independent evaluation below checks them against the developer's rules. Submitting this record does not send new evidence to a GenLayer appeal.</p>
+        <div id="investigations"></div>
+      </section>
+      <h3>Evaluation</h3><pre id="evaluation"></pre><button id="download" class="secondary">Download report JSON</button><details><summary>Full recorded evidence</summary><pre id="evidence"></pre></details></section>
   </div>
 </main></body></html>

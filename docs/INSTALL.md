@@ -50,7 +50,7 @@ uv venv --python 3.12 .lab-env
 On Linux/macOS:
 
 ```sh
-uv pip install --python .lab-env/bin/python /path/to/genlayer_agent_lab-0.1.0a10-py3-none-any.whl
+uv pip install --python .lab-env/bin/python /path/to/genlayer_agent_lab-0.1.0a11-py3-none-any.whl
 .lab-env/bin/gl-agent-lab kit --output lab-kit
 .lab-env/bin/gl-agent-lab doctor
 .lab-env/bin/gl-agent-lab run escrow-normal --agent safe
@@ -60,7 +60,7 @@ uv pip install --python .lab-env/bin/python /path/to/genlayer_agent_lab-0.1.0a10
 On Windows PowerShell:
 
 ```powershell
-uv pip install --python .lab-env/Scripts/python.exe C:/path/to/genlayer_agent_lab-0.1.0a10-py3-none-any.whl
+uv pip install --python .lab-env/Scripts/python.exe C:/path/to/genlayer_agent_lab-0.1.0a11-py3-none-any.whl
 .lab-env/Scripts/gl-agent-lab.exe kit --output lab-kit
 .lab-env/Scripts/gl-agent-lab.exe doctor
 .lab-env/Scripts/gl-agent-lab.exe run escrow-normal --agent safe

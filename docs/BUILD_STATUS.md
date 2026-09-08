@@ -1,9 +1,13 @@
 # Build status
 
-This checkout is the alpha 10 development candidate for the combined
+This checkout is the alpha 11 development candidate for the combined
 [Job 1 implementation](DEVELOPMENT_ROADMAP.md#combined-job-1-extension--september-8-2026).
 Its project interfaces, authoring, clients and durable journal are implemented.
-The consolidated source/runtime checks passed: 1,194 Python tests, seven actual
+The [full build audit](BUILD_AUDIT.md) records the investigation addition and
+the integration, cleanup, ordering and reporting defects found and corrected.
+The expanded Python regression passed 1,306 tests (10 explicit environment
+skips); live investigation and installed-candidate results have separate records.
+The earlier alpha 10 source/runtime checks passed: 1,194 Python tests, seven actual
 Studio reference cases with the expected results, MCP and TypeScript appeals,
 desktop/mobile report inspection, and forced Lab interruption during a pending
 three-contract workflow. [The evidence](evidence/project-workflows-2026-09-08.json)

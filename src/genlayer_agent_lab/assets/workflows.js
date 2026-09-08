@@ -76,6 +76,44 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     return result;
   }
   function node(tag, value) { const element = document.createElement(tag); element.textContent = value; return element; }
+  function renderInvestigations(run, evidence) {
+    const submissions = evidence.investigations ?? run.investigations ?? [];
+    const investigations = Array.isArray(submissions) ? submissions : [];
+    $("investigation-detail").hidden = run.profile !== "project" && !investigations.length;
+    const container = $("investigations");
+    container.replaceChildren();
+    if (!investigations.length) {
+      container.append(node("p", "No investigation has been submitted."));
+      return;
+    }
+    const labels = {accept:"Accept the observed decision", appeal:"Appeal the observed decision", request_review:"Request developer review"};
+    investigations.forEach((submission, index) => {
+      const card = node("article", "");
+      card.className = "investigation-card";
+      card.append(node("h4", `${index + 1}. ${labels[submission.disposition] || "Submitted investigation"}`));
+      const identity = node("p", `Submission: ${submission.submission_id ?? "Not recorded"} · Decision: ${submission.decision_id ?? "Not recorded"}`);
+      identity.className = "helper";
+      card.append(identity);
+      const summary = node("p", submission.summary || "No summary recorded.");
+      summary.className = "investigation-summary";
+      card.append(summary);
+      card.append(node("h5", "Proposed result"), node("pre", stringifyProjectJson(submission.proposed_result ?? null, null, 2)));
+      const findings = node("ul", "");
+      findings.className = "investigation-findings";
+      for (const finding of submission.findings || []) {
+        const item = node("li", "");
+        item.append(node("strong", `${finding.evidence_id}: ${finding.assessment}`), node("p", finding.note || "No note recorded."));
+        findings.append(item);
+      }
+      card.append(node("h5", "Evidence findings"));
+      card.append(findings.children.length ? findings : node("p", "No findings recorded."));
+      const provenance = node("details", "");
+      provenance.append(node("summary", "Cited evidence and decision snapshot"));
+      provenance.append(node("pre", stringifyProjectJson({citations:submission.citations ?? [], decision_snapshot:submission.decision_snapshot ?? null}, null, 2)));
+      card.append(provenance);
+      container.append(card);
+    });
+  }
   async function refresh() {
     if (busy) return;
     busy = true;
@@ -108,6 +146,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
         $("state").textContent = stringifyProjectJson(run.state || "Waiting for deployment", null, 2);
         $("operations").replaceChildren();
         for (const operation of run.operations || []) $("operations").append(node("pre", stringifyProjectJson(operation, null, 2)));
+        renderInvestigations(run, evidence);
         $("evaluation").textContent = stringifyProjectJson({verification:evidence.verification, checks:evidence.checks ?? null, grades:evidence.grades ?? null, cleanup:evidence.cleanup ?? null, error_code:evidence.error_code ?? null}, null, 2);
         $("evidence").textContent = stringifyProjectJson(evidence, null, 2);
       }

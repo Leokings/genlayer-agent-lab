@@ -1,6 +1,6 @@
 # Short VPS trial
 
-Use the alpha 10 candidate identified in the verification record. This trial
+Use the alpha 11 candidate identified in the verification record. This trial
 checks installation and access on your server after the maintainer's main
 verification. It does not require a paid AI model or public GenLayer tokens.
 

@@ -119,6 +119,7 @@ project's executable operations.
 | `fixtures.initial`, `fixtures.after_appeal` | Prompt-prefix mappings to controlled model responses | No |
 | `policy.operations` | Allowed operations, attempt limits, finality prerequisites and argument constraints | Yes |
 | `policy.allow_appeal`, `max_appeals` | Appeal permission and attempt limit | Yes |
+| `policy.appeal_constraints` | Optional rules checked before an appeal, using the same inputs as operation constraints | Yes |
 | `policy.max_fee`, `max_total_fee` | Maximum current quoted deposit and cumulative submitted deposits, in integer base units | Yes |
 | `expectations` | Independent final-state checks, action counts and forbidden actions | No |
 | `review` | Approval and digest of the reviewed executable content | No |
@@ -192,10 +193,22 @@ A value reference is either `{literal: <JSON value>}` or
 `operation`. State paths begin with a declared `state_reads` alias. Array indices
 use dotted numbers, such as `observation.operations.0.status`.
 
+The optional `policy.appeal_constraints` list applies the same rule language to
+appeal requests. The `operation` input includes the requested
+`expected_decision_id`, accessible as
+`{source: operation, path: expected_decision_id}`. Investigation recipes require
+a completed investigation that requests an appeal and whose `decision_id`
+matches this value. These visible constraints prevent an agent from appealing
+first and supplying its justification afterward; other workflows can define
+their own appeal prerequisites. An omitted or empty list adds no prerequisites
+and is omitted from canonical serialization, preserving earlier reviewed
+scenario digests.
+
 Comparisons are `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `contains` and
 `exists`. `exists` has no right operand and checks whether a path is present;
 an explicit JSON `null` is present. Other missing observations produce an
-inconclusive check. Numeric comparisons require numbers, and booleans are not
+inconclusive check, except omitted investigation artifacts or evidence reads in
+a completed run, which fail the corresponding expected rule. Numeric comparisons require numbers, and booleans are not
 integers. Paths do not execute expressions, inspect Python attributes, call
 functions or query the host environment. There are no wildcard or arbitrary-code
 rules.
@@ -215,11 +228,25 @@ the same amount was ultimately consumed. Refunds, rewards and settled charges
 need the appropriate actual backend accounting observations.
 
 The policy lists contract operations declared in the binding plus supported Lab
-tools (`read_evidence`, `inspect_fees`, `inspect_appeal`). Protocol appeals use
+tools (`read_evidence`, `inspect_fees`, `inspect_appeal`, `submit_investigation`). Protocol appeals use
 the separate appeal permission and limit. A rule named `liquidate` or a scenario
 named `cross-chain` does not implement such an operation. A developer must first
 provide a supported contract/binding and the runtime must support the relevant
 execution behavior.
+
+The [investigation guide](INVESTIGATION.md) describes bounded evidence and remedy
+cases. Evidence may include an optional `data` object alongside text and
+provenance. Its contents are exposed only by a successful `read_evidence` call.
+The reference templates define a public source/subject/freshness policy and
+private expectations for each evidence assessment, proposed result and remedy.
+The report retains successful `submit_investigation` artifacts and evidence-read
+counts. Rules can inspect `observation.investigations`,
+`observation.investigation_count` and `observation.evidence_reads`.
+
+Treat submitted notes and summaries as the agent's claims. A structurally valid
+submission is not a correctness grade. Review expectations independently and use
+the same approved case for safe and faulty agents. A Lab investigation artifact
+does not amend contract evidence or replace the separate protocol appeal call.
 
 ## Templates, variations and an optional model
 

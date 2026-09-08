@@ -4,7 +4,7 @@ This is a developer alpha with controlled model responses. It is suitable for
 reproducible agent integration experiments within the documented interfaces.
 It does not certify an agent's general safety or performance with live models.
 
-## Alpha 10 candidate
+## Alpha 11 candidate
 
 The combined project profile adds typed contract projects and operation bindings,
 reviewed behavioral scenarios, actual local fees/appeals/child effects, and a
@@ -53,7 +53,7 @@ uv run --locked python scripts/prepare-release.py --source-commit VERIFIED_40_CH
 
 The final command requires a new destination, audits the wheel/source file lists,
 then assembles the wheel, source archive, initial setup instructions, setup skill
-and `SHA256SUMS` under `dist/release-0.1.0a10`. It never publishes anything. Preserve
+and `SHA256SUMS` under `dist/release-0.1.0a11`. It never publishes anything. Preserve
 the verified bundle unchanged and record its checksum when sharing it. The
 source archive includes `uv.lock`; the wheel carries the installation kit.
 

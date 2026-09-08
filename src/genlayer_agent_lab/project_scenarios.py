@@ -23,7 +23,7 @@ from .bindings import bounded_json
 MAX_SCENARIO_BYTES = 2 * 1024 * 1024
 NAME = r"^[a-zA-Z][a-zA-Z0-9_]{0,95}$"
 PATH = r"^[a-zA-Z_][a-zA-Z0-9_]*(?:\.(?:[a-zA-Z_][a-zA-Z0-9_]*|0|[1-9][0-9]{0,3})){0,15}$"
-BUILTIN_ACTIONS = {"appeal", "inspect_fees", "inspect_appeal", "read_evidence"}
+BUILTIN_ACTIONS = {"appeal", "inspect_fees", "inspect_appeal", "read_evidence", "submit_investigation"}
 _MISSING = object()
 
 
@@ -96,6 +96,17 @@ class Evidence(_Model):
     title: str = Field(min_length=1, max_length=160)
     content: str = Field(min_length=1, max_length=16000)
     provenance: str | None = Field(default=None, max_length=512)
+    data: dict[str, JsonValue] | None = Field(default=None, max_length=64)
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        # Existing reviewed scenarios retain their exact canonical content and
+        # digest. Structured records are opt-in; a new null default must not
+        # invalidate alpha10 approvals or change old evidence hashes.
+        value = handler(self)
+        if self.data is None:
+            value.pop("data", None)
+        return value
 
 
 class OperationPolicy(_Model):
@@ -109,8 +120,16 @@ class ProjectPolicy(_Model):
     operations: dict[str, OperationPolicy] = Field(default_factory=dict, max_length=64)
     allow_appeal: bool = False
     max_appeals: int = Field(default=0, ge=0, le=16)
+    appeal_constraints: list[Rule] = Field(default_factory=list, max_length=32)
     max_fee: int | None = Field(default=None, ge=0, le=2**256 - 1)
     max_total_fee: int | None = Field(default=None, ge=0, le=2**256 - 1)
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        value = handler(self)
+        if not self.appeal_constraints:
+            value.pop("appeal_constraints", None)
+        return value
 
     @model_validator(mode="after")
     def appeals_consistent(self):
@@ -212,6 +231,7 @@ class ProjectScenario(_Model):
                            for item in policy.require_finalized)):
                 raise ValueError("Finality prerequisites must name unique write operations")
             self._check_rules(policy.constraints, snapshot, name)
+        self._check_rules(self.policy.appeal_constraints, snapshot, "appeal")
         self._check_rules(self.expectations.rules, snapshot, None)
         reserved = {"policy_compliance", "transactions_finalized", "run_complete"}
         reserved.update("required_" + item for item in required)
@@ -381,13 +401,19 @@ def project_scenario_document(value: dict) -> dict:
 def agent_scenario_view(value: dict) -> dict:
     """Only public task data and tool policy; fixtures and grading never leak."""
     spec = validate_project_scenario(value)
-    return {
+    public = {
         "schema_version": 2, "profile": "project", "id": spec["id"],
         "title": spec["title"], "task": spec["task"], "context": copy.deepcopy(spec["context"]),
         "evidence": [{"id": item["id"], "title": item["title"]}
                      for item in spec["evidence"]],
         "policy": copy.deepcopy(spec["policy"]), "timeout_seconds": spec["timeout_seconds"],
     }
+    if "submit_investigation" in spec["policy"]["operations"]:
+        from .project_investigation import MAX_INVESTIGATIONS, InvestigationSubmission
+
+        public["investigation_submission_schema"] = InvestigationSubmission.model_json_schema()
+        public["investigation_limit"] = MAX_INVESTIGATIONS
+    return public
 
 
 def read_scenario_evidence(value: dict, evidence_id: str) -> dict:
@@ -469,7 +495,8 @@ def _finalized(record):
 
 
 def check_operation_policy(value: dict, operation: str, arguments: dict, *, state: dict,
-                           observation: dict, operations: list, fee: int | None = None) -> list[dict]:
+                           observation: dict, operations: list, fee: int | None = None,
+                           expected_decision_id: str | None = None) -> list[dict]:
     """Return violations only. Missing required proof prevents the operation.
 
     Fees use integer base units and the runtime's recorded deposit/reservation
@@ -483,7 +510,7 @@ def check_operation_policy(value: dict, operation: str, arguments: dict, *, stat
         if not policy["allow_appeal"]:
             return [_check("operation_allowed", "Appeal is permitted", "fail", "Appeals are disabled")]
         entry = {"max_calls": policy["max_appeals"], "require_finalized": [],
-                 "constraints": [], "max_fee": None}
+                 "constraints": policy.get("appeal_constraints", []), "max_fee": None}
     elif operation not in policy["operations"]:
         return [_check("operation_allowed", "Operation is permitted", "fail", "Operation is not allowed")]
     else:
@@ -498,7 +525,8 @@ def check_operation_policy(value: dict, operation: str, arguments: dict, *, stat
             checks.append(_check("finalized_" + prerequisite, "Required operation is finalized", "fail",
                                  f"Latest {prerequisite} lacks successful finalized execution"))
     inputs = {"context": spec["context"], "state": state, "arguments": arguments,
-              "observation": observation, "operation": {"operation": operation, "arguments": arguments}}
+              "observation": observation, "operation": {"operation": operation, "arguments": arguments,
+                                                         "expected_decision_id": expected_decision_id}}
     checks.extend(check for rule in entry["constraints"]
                   if (check := evaluate_rule(rule, inputs))["outcome"] != "pass")
     fee_bounds = [limit for limit in (entry["max_fee"], policy["max_fee"]) if limit is not None]
@@ -524,13 +552,29 @@ def check_operation_policy(value: dict, operation: str, arguments: dict, *, stat
 def evaluate_project_report(value: dict, observation: dict) -> list[dict]:
     """Grade backend observations, never instructions or a tested agent's verdict."""
     spec = validate_project_scenario(value)
-    bounded_json(observation)
+    # A run aggregates many individually bounded reads/results. The single
+    # authoring-document byte limit must not prevent an agent failure report.
+    bounded_json(observation, max_nodes=100000, max_bytes=64 * 1024 * 1024)
     operations = observation.get("operations", [])
     if type(operations) is not list or any(type(item) is not dict for item in operations):
         raise ValueError("Operation observations must be an array of objects")
     inputs = {"state": observation.get("state", {}), "context": spec["context"],
               "observation": observation}
-    checks = [evaluate_rule(rule, inputs) for rule in spec["expectations"]["rules"]]
+    checks = []
+    for rule in spec["expectations"]["rules"]:
+        check = evaluate_rule(rule, inputs)
+        if check["outcome"] == "inconclusive" and observation.get("status") == "completed":
+            missing = [ref for ref in (rule["left"], rule["right"])
+                       if ref is not None and _resolve(ref, inputs) is _MISSING]
+            # Completed runs have authoritative Lab-owned artifact/read journals.
+            # Missing agent submissions or citations are omissions, whereas a
+            # missing backend state value still leaves a rule inconclusive.
+            if missing and all(ref.get("source") == "observation" and ref["path"].split(".")[0]
+                               in {"investigations", "investigation_count", "evidence_reads"}
+                               for ref in missing):
+                check = _check(rule["id"], rule["label"], "fail",
+                               "A required investigation artifact or evidence read was omitted")
+        checks.append(check)
     for required in spec["expectations"]["required_actions"]:
         matches = [record for record in operations if record.get("operation") == required["operation"]
                    and (not required["successful"] or _successful(record))]

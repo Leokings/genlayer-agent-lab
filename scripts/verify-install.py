@@ -270,7 +270,8 @@ def probe(*, backend: str, require_kit: bool) -> dict:
                               "service-workflow.yaml", "mcp_workflow_agent.py",
                               "PROJECT_WORKFLOWS.md", "PROJECT_BINDINGS.md", "SCENARIO_AUTHORING.md",
                               "project_agent.py", "project-agent.ts", "mcp_project_agent.py",
-                              "project-repair.yaml", "prediction-messages-repair.yaml"}
+                              "project-repair.yaml", "prediction-messages-repair.yaml",
+                              "INVESTIGATION.md", "investigation_agent.py", "mcp_investigation_agent.py"}
         nonempty = {p.name for p in files if p.is_file() and p.stat().st_size > 0}
         if not required_kit_files <= nonempty:
             raise VerificationError("Installed integration kit lacks its skill or clients")
@@ -284,6 +285,23 @@ def probe(*, backend: str, require_kit: bool) -> dict:
                 or checked.get("content_sha256") != authored.get("content_sha256")):
             raise VerificationError("Installed project snapshot/template validation failed")
         kit["project_authoring"] = "pass"
+        investigation = work / "investigation.draft.json"
+        authored = cli("project", "investigate-template",
+                       str(exported / "examples/projects/prediction/project.yaml"),
+                       "--mode", "contradictory", "--output", str(investigation))
+        checked = cli("project", "validate", str(investigation))
+        if (not authored.get("valid") or checked.get("review_status") != "draft"
+                or checked.get("content_sha256") != authored.get("content_sha256")):
+            raise VerificationError("Installed investigation authoring failed")
+        kit["investigation_authoring"] = "pass"
+        from genlayer_agent_lab.investigation_verification import CASES, reference_spec
+
+        recipes = {name: reference_spec(name) for name in CASES}
+        if len(recipes) != 8 or any(case["review"]["status"] != "approved" for case in recipes.values()):
+            raise VerificationError("Installed investigation recipe catalog is incomplete")
+        if not (exported / "examples/mcp_workflow_agent.py").is_file():
+            raise VerificationError("Installed investigation MCP bridge is unavailable")
+        kit["investigation_recipes"] = sorted(recipes)
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]

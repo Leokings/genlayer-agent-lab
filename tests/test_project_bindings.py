@@ -87,6 +87,20 @@ def test_strict_operation_arguments_and_declared_target(snapshot):
         resolve_operation(snapshot, "withdraw", {}, ADDRESSES)
 
 
+@pytest.mark.parametrize("alias", [
+    "appeal", "inspect_fees", "inspect_appeal", "read_evidence", "submit_investigation",
+])
+def test_contract_aliases_cannot_be_intercepted_by_lab_builtins(tmp_path, alias):
+    path = local_project(tmp_path)
+
+    def collide(definition):
+        definition["operations"][alias] = definition["operations"].pop("record")
+
+    rewrite(path, collide)
+    with pytest.raises(ValueError, match="reserved Lab operation"):
+        load_project_binding(path)
+
+
 def test_nested_results_are_preserved_without_binary_projection(snapshot):
     value = {"market_id": "market-001", "outcome": "void", "confidence_bps": 4100,
              "revision": 2, "evidence_hash": "a" * 64}

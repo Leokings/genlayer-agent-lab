@@ -4,7 +4,12 @@ A self-hosted testing toolkit for agents that consume GenLayer decisions. Connec
 
 [Source repository](https://github.com/Leokings/genlayer-agent-lab) · [Release artifacts](https://github.com/Leokings/genlayer-agent-lab/releases) · [Installation](docs/INSTALL.md)
 
-**Version 0.1.0a10 — development candidate.** Test how agents use GenLayer with developer-supplied possible model responses. [Project workflows](docs/PROJECT_WORKFLOWS.md) support typed operations/results, multi-file contracts, defined multi-contract effects, actual local appeals and fee accounting, and recovery after a Lab interruption. Developers supply reviewed behavior rules and can add scenarios using templates or their own authoring agent. See [build status](docs/BUILD_STATUS.md) and the dated [verification record](docs/VERIFICATION.md) for passed and open gates. Contract-LLM judgment evaluation and public-network settlement are outside scope.
+**Version 0.1.0a11 — development candidate.** Test how agents use GenLayer with developer-supplied possible model responses. [Project workflows](docs/PROJECT_WORKFLOWS.md) support typed operations/results, multi-file contracts, defined multi-contract effects, actual local appeals and fee accounting, and recovery after a Lab interruption. Developers supply reviewed behavior rules and can add scenarios using templates or their own authoring agent. See [build status](docs/BUILD_STATUS.md) and the dated [verification record](docs/VERIFICATION.md) for passed and open gates. Contract-LLM judgment evaluation and public-network settlement are outside scope.
+
+[Investigation scenarios](docs/INVESTIGATION.md) test missing, stale, conflicting
+and misleading evidence, with decision-linked findings and concise agent
+summaries. The [build audit](docs/BUILD_AUDIT.md) maps requirements to implemented
+behavior and records the remaining VPS/developer validation.
 
 Install from a supplied wheel or source archive with the [installation guide](docs/INSTALL.md). The wheel includes a setup kit and all three agent examples.
 

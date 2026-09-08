@@ -207,6 +207,11 @@ def _add_workflow_tools(server: MCPServer, lab: LabClient, role: str, run_id: st
             Project runs also declare inspect_fees, inspect_appeal and read_evidence
             in their policy. Read observe() for method argument schemas and current
             decision identities. Fees are local test balances; grading is private.
+            If submit_investigation is permitted, observe() supplies its
+            investigation_submission_schema and investigation_limit. Cite evidence
+            already read in this run and supply the current successful decision's
+            expected_decision_id. Submission records a Lab report artifact only;
+            it does not submit a GenLayer appeal or contact a reviewer.
             """
             return _scoped_workflow_call(lab.workflow_invoke,
                 run_id, operation, arguments, idempotency_key, expected_decision_id,

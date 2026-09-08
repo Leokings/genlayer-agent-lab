@@ -66,6 +66,9 @@ run. It also creates a deployment dependency. `from_context` can instead name a
 typed scenario context value. These are data substitutions, never expressions.
 Unknown targets, circular dependencies and undeclared operation arguments fail
 validation. Agent-supplied addresses cannot override an operation's target.
+Contract operation aliases cannot be `appeal`, `inspect_fees`, `inspect_appeal`,
+`read_evidence` or `submit_investigation`: these names identify Lab operations.
+Use another alias to expose a contract method with one of those method names.
 
 ## Real GenVM packages and compatibility
 

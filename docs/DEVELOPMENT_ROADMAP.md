@@ -19,7 +19,9 @@ separate later validation activity.
 ## Combined Job 1 extension — September 8, 2026
 
 Implementation update: the bounded project interface, modern Studio backend,
-scenario authoring, clients and journal are implemented in alpha 10. Seven
+scenario authoring, clients and journal were implemented in alpha 10. Alpha 11
+adds the supplied-evidence investigation suite, decision-linked findings and
+the corrections documented in the [full build audit](BUILD_AUDIT.md). Seven
 actual Studio cases and the pending-transaction process recovery trial passed;
 see [the dated evidence](VERIFICATION.md#combined-project-workflows--september-8).
 Installed-artifact and user VPS evidence remain distinct from these source tests.
@@ -39,8 +41,8 @@ to build the combined scope before consolidated testing and their VPS trial.
 | 6 | Complete clients, dashboard, reports, setup and packaging for the combined scope | Consistent supported operations over HTTP, Python, TypeScript and MCP, clear coverage limits and one installable candidate |
 | 7 | Run consolidated verification, then user pilots | Main regression, real Studio/agent behavior, recovery and clean-install checks first; then a short laptop/VPS trial of the same candidate |
 
-These are additional deliverables, not a statement that implementation has
-finished. Focused tests during each step prevent carrying compatibility or
+This table records the agreed deliverables; current evidence is identified in
+the implementation update above. Focused tests during each step prevent carrying compatibility or
 correctness problems into the consolidated run; costly repeated VPS trials wait.
 Preserve the behavior coverage in sections 5–8 below, including distinct upheld
 and changed appeals, finality, permissions, investigation/remedy selection,
@@ -360,8 +362,8 @@ the first slice of Job 1. The September 8 combined scope now includes supported
 multi-file packaging, pinned dependencies and the additional capabilities in the
 new implementation sequence above, before the next consolidated pilot.
 
-The updated job remains recorded in [BACKLOG.md](BACKLOG.md). The first
-single-file workflow slice is implemented; the larger job is not complete. Work requiring
+The updated job remains recorded in [BACKLOG.md](BACKLOG.md). The original
+single-file slice and the bounded combined extension are implemented. Work requiring
 a developer's actual interface can use a reference example initially; external
 validation must still involve a real developer integration before that claim is
 made.

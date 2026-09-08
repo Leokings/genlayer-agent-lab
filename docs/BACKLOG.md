@@ -2,7 +2,11 @@
 
 ## Job 1: Support larger contract projects and protocol extensions
 
-Current implementation: alpha 10 contains the bounded project extension below.
+Current implementation: alpha 11 contains the bounded project extension below,
+plus [supplied-evidence investigation cases and findings](INVESTIGATION.md).
+The [build audit](BUILD_AUDIT.md) records coverage, corrected defects and remaining
+external validation. Historical first-slice status statements below do not
+describe the current implementation.
 See [project workflows](PROJECT_WORKFLOWS.md) and the
 [actual verification record](VERIFICATION.md#combined-project-workflows--september-8).
 Deployed-state import and unbounded protocol compatibility remain separate work.
