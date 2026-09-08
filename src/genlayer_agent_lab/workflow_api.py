@@ -58,7 +58,14 @@ class CreateWorkflow(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     spec: dict[str, Any] = Field(max_length=256)
 
-    _validate_spec = field_validator("spec")(bounded_json)
+    @field_validator("spec")
+    @classmethod
+    def bounded_spec(cls, value):
+        if value.get("schema_version") == 2:
+            from .project_scenarios import validate_project_scenario
+            from .project_wire import decode_project_wire
+            return validate_project_scenario(decode_project_wire(value), require_review=True)
+        return bounded_json(value)
 
 
 class WorkflowOperation(BaseModel):
@@ -85,6 +92,15 @@ def mount_workflow_routes(
 ) -> None:
     """Mount workflow routes without changing service authentication or error handling."""
 
+    def wire(value):
+        if type(value) is list:
+            return [wire(item) for item in value]
+        if type(value) is dict and (value.get("profile") == "project"
+                                   or str(value.get("run_id", "")).startswith("project-")):
+            from .project_wire import INTEGER_ENCODING, encode_project_wire
+            return encode_project_wire({**value, "integer_encoding": INTEGER_ENCODING})
+        return value
+
     def agent_access(
         run_id: WorkflowId,
         request: Request,
@@ -100,45 +116,49 @@ def mount_workflow_routes(
 
     @app.post("/v1/workflows", status_code=201, dependencies=[Depends(administrator)])
     def create_workflow(payload: CreateWorkflow, request: Request) -> dict:
-        return manager_getter(request).create(payload.spec)
+        return wire(manager_getter(request).create(payload.spec))
 
     @app.get("/v1/workflows", dependencies=[Depends(administrator)])
     def list_workflows(request: Request) -> list[dict]:
-        return manager_getter(request).list_runs()
+        return wire(manager_getter(request).list_runs())
 
     @app.get("/v1/workflows/{run_id}", dependencies=[Depends(administrator)])
     def get_workflow(run_id: WorkflowId, request: Request) -> dict:
-        return manager_getter(request).get(run_id)
+        return wire(manager_getter(request).get(run_id))
 
     @app.get("/v1/workflows/{run_id}/report", dependencies=[Depends(administrator)])
     def workflow_report(run_id: WorkflowId, request: Request) -> dict:
-        return manager_getter(request).report(run_id)
+        return wire(manager_getter(request).report(run_id))
 
     @app.post("/v1/workflows/{run_id}/cancel", dependencies=[Depends(administrator)])
     def cancel_workflow(run_id: WorkflowId, request: Request) -> dict:
-        return manager_getter(request).cancel(run_id)
+        return wire(manager_getter(request).cancel(run_id))
 
     @app.post("/v1/workflows/{run_id}/observe", dependencies=[Depends(agent_access)])
     def observe_workflow(run_id: WorkflowId, request: Request) -> dict:
-        return manager_getter(request).observe(run_id)
+        return wire(manager_getter(request).observe(run_id))
 
     @app.post("/v1/workflows/{run_id}/operations", dependencies=[Depends(agent_access)])
     def invoke_operation(
         run_id: WorkflowId, payload: WorkflowOperation, request: Request,
     ) -> dict:
-        return manager_getter(request).invoke(
-            run_id, payload.operation, payload.arguments, payload.idempotency_key,
+        arguments = payload.arguments
+        if run_id.startswith("project-"):
+            from .project_wire import decode_project_wire
+            arguments = decode_project_wire(arguments)
+        return wire(manager_getter(request).invoke(
+            run_id, payload.operation, arguments, payload.idempotency_key,
             expected_decision_id=payload.expected_decision_id,
-        )
+        ))
 
     @app.post("/v1/workflows/{run_id}/appeals", dependencies=[Depends(agent_access)])
     def appeal_decision(run_id: WorkflowId, payload: WorkflowAppeal, request: Request) -> dict:
-        return manager_getter(request).appeal(
+        return wire(manager_getter(request).appeal(
             run_id, payload.idempotency_key, payload.expected_decision_id,
-        )
+        ))
 
     @app.post("/v1/workflows/{run_id}/finish", dependencies=[Depends(agent_access)])
     def finish_workflow(run_id: WorkflowId, request: Request) -> dict:
         result = manager_getter(request).finish(run_id)
         # Finish may produce an administrator report; agents receive no grading oracle.
-        return {key: result.get(key) for key in ("run_id", "status")}
+        return wire({key: result.get(key) for key in ("run_id", "status")})

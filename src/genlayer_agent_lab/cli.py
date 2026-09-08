@@ -154,6 +154,9 @@ def build_parser() -> argparse.ArgumentParser:
             operation.add_argument("run_id")
         if name == "report":
             operation.add_argument("--output", type=Path)
+    project = command("project", "Author and run supported multi-contract GenLayer scenarios")
+    from .project_cli import add_project_arguments
+    add_project_arguments(project, _common)
     return parser
 
 
@@ -456,6 +459,11 @@ def main(argv: list[str] | None = None, *, engine_factory: Any = None) -> int:
             if args.workflow_operation == "verify":
                 return {"pass": 0, "fail": 1}.get(result.get("verification"), 2)
             return 0
+        if args.command == "project":
+            from .project_cli import execute_project, project_exit_code
+            result = execute_project(args)
+            _json(result)
+            return project_exit_code(args.project_operation, result)
         if args.command == "worker":
             if args.url:
                 raise ValueError("Worker commands operate on this machine only. Omit --url and LAB_URL.")

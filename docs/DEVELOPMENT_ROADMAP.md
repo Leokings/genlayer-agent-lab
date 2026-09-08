@@ -8,11 +8,50 @@ in the development candidate; [Studio workflow documentation](STUDIO_WORKFLOWS.m
 describes its actual scope. The remaining items below are gates, not automatic
 claims of completion.
 
-The immediate validation target is an expanded Studio workflow installed on the
-user's Windows laptop, followed by a Linux VPS. These are two pilot environments;
+The September 8 decision is to finish the combined Job 1 extension described
+below, then perform consolidated testing before the next laptop/VPS pilot.
+Focused implementation checks still accompany changes. The pilot target is the
+same expanded candidate on the user's Windows laptop and a Linux VPS. These are two pilot environments;
 if the user operates both, they are one participating developer. See the
 [pilot checklist](PILOT_TESTING.md). Independent external onboarding remains a
 separate later validation activity.
+
+## Combined Job 1 extension — September 8, 2026
+
+Implementation update: the bounded project interface, modern Studio backend,
+scenario authoring, clients and journal are implemented in alpha 10. Seven
+actual Studio cases and the pending-transaction process recovery trial passed;
+see [the dated evidence](VERIFICATION.md#combined-project-workflows--september-8).
+Installed-artifact and user VPS evidence remain distinct from these source tests.
+
+This scope and order supersede the earlier first-slice deferrals and permission
+to continue pilot trials concurrently. Existing alpha 9 evidence remains valid
+for its recorded profile; it does not verify the new extension. The user agreed
+to build the combined scope before consolidated testing and their VPS trial.
+
+| Order | Work | Required evidence before the consolidated candidate is ready |
+|---|---|---|
+| 1 | Prove a compatible fee-enabled local Studio/GenVM/SDK profile and required contract interaction capabilities | Actual local fee/appeal accounting and supported cross-contract operations; no replacement of missing backend behavior with invented observations |
+| 2 | Generalize workflow operations, structured results, permissions and expected outcomes; add explicit multi-file/dependency manifests and developer binding validation | Existing workflow preserved plus a materially different complete workflow, with actual deployment/execution of a supported multi-file project and pinned dependency |
+| 3 | Add defined multi-contract orchestration and fee/bond tools | Separate contract and transaction identities, observed dependent effects and partial failures; agent limits and appeal decisions checked against actual supported local costs/results |
+| 4 | Implement durable Lab workflow recovery | Interrupt the Lab with Studio state intact, restart and reconcile pending transactions without duplicate submissions/effects; keep uncertain outcomes explicit |
+| 5 | Add supported scenario templates/variations and optional LLM-assisted authoring | Draft validation, developer-reviewed expectations, hidden grading fixtures and saved replayable cases; the developer's existing agent/model can author files without a mandatory additional model service |
+| 6 | Complete clients, dashboard, reports, setup and packaging for the combined scope | Consistent supported operations over HTTP, Python, TypeScript and MCP, clear coverage limits and one installable candidate |
+| 7 | Run consolidated verification, then user pilots | Main regression, real Studio/agent behavior, recovery and clean-install checks first; then a short laptop/VPS trial of the same candidate |
+
+These are additional deliverables, not a statement that implementation has
+finished. Focused tests during each step prevent carrying compatibility or
+correctness problems into the consolidated run; costly repeated VPS trials wait.
+Preserve the behavior coverage in sections 5–8 below, including distinct upheld
+and changed appeals, finality, permissions, investigation/remedy selection,
+stale observations, lost replies and independent outcome checks.
+
+The scenario authoring model, when used, drafts test inputs. Studio still executes
+the supported operations, and reports grade observed agent behavior using the
+reviewed rules. Generated fixtures do not invent consensus statuses or establish
+that every possible case is covered. Contract-LLM judgment evaluation stays out
+of scope. Arbitrary deployed-state import, unsupported protocol behavior, Studio
+database-loss recovery and full-machine reboot trials remain separate work.
 
 ## Product purpose and selected approach
 
@@ -237,11 +276,13 @@ binding/scenario identifiers and capability limits for replay and comparison.
 Infrastructure failure or an unsupported feature needs a separate outcome from
 agent failure. A pass applies to the recorded cases and profile.
 
-## Implementation order and acceptance gates
+## Original first-slice implementation order and acceptance gates
 
-Testing accompanies each step; it is not postponed until all expansion is done.
-Complete phases 1–6 below before beginning the full expanded-workflow pilot.
-Existing alpha installation checks may continue while that work is in progress.
+This table records the original first-slice gates. The combined extension table
+above now governs remaining work and pilot sequencing. Preserve the original
+gates as regression requirements rather than treating them as proof of the new
+extension. Focused tests accompany implementation; consolidate the complete
+candidate verification before further user pilot trials.
 
 | Phase | Deliverable | Completion evidence |
 |---|---|---|
@@ -280,12 +321,14 @@ Lab service with accounts/billing, a public MCP hosting service, or an
 OpenClaw-only integration. Public Studionet access and real funds are not needed
 for the local Studio pilot.
 
-**Defer until a concrete integration needs them:** multi-file contract loading,
-additional dependencies, deployed-state import, broad multi-contract orchestration,
-exhaustive scenario generation and public-network compatibility. Modern bond and
-fee accounting is a separate backend capability: if unsupported in the chosen
-profile, report that limit and omit the corresponding coverage claim. A locally
-enforced agent budget is not proof of protocol bond settlement.
+**Included in the combined extension:** supported multi-file projects and pinned
+dependencies, defined multi-contract workflows, durable Lab recovery, verified
+local fee/bond behavior and bounded scenario authoring. Modern bond and fee
+accounting requires the separate backend proof above; a locally enforced agent
+budget is not proof of protocol bond settlement.
+
+**Still deferred:** deployed-state import, arbitrary multi-contract/protocol
+support, exhaustive scenario generation and public-network compatibility.
 
 Broad evidence-investigation libraries and every possible decision shape are
 also unnecessary before the first pilot. Include a small supplied-evidence case
@@ -295,8 +338,8 @@ checks, not prerequisites for this focused functional pilot.
 
 First backend work should be headless and small, so compatibility problems are
 resolved before UI expansion. Existing GLSim cases remain regression checks.
-Existing installation trials can proceed concurrently, but do not validate new
-features that have not been implemented.
+Consolidated installation trials follow the combined candidate; old installation
+evidence does not validate features that have not been implemented.
 
 Do not rent the VPS before the candidate is ready. Measure the chosen Studio
 profile's resource use and confirm the required Docker environment first. The
@@ -312,13 +355,12 @@ monetary accounting are separate capability gates.
 
 ## How this relates to Job 1
 
-The structured-result, multi-operation and protocol-extension improvements are
-the relevant first slice of Job 1. They should be developed with the Studio agent
-workflow above. Multi-file packaging and additional dependencies follow when a
-concrete developer integration needs them; they are not prerequisites for the
-first complete single-file example.
+The structured-result, multi-operation and protocol-extension improvements were
+the first slice of Job 1. The September 8 combined scope now includes supported
+multi-file packaging, pinned dependencies and the additional capabilities in the
+new implementation sequence above, before the next consolidated pilot.
 
-The larger deferred job remains recorded in [BACKLOG.md](BACKLOG.md). The first
+The updated job remains recorded in [BACKLOG.md](BACKLOG.md). The first
 single-file workflow slice is implemented; the larger job is not complete. Work requiring
 a developer's actual interface can use a reference example initially; external
 validation must still involve a real developer integration before that claim is

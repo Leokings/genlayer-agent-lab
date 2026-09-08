@@ -1,10 +1,17 @@
-# Deferred jobs
+# Jobs and scope decisions
 
 ## Job 1: Support larger contract projects and protocol extensions
 
-Recorded September 7, 2026. **Deferred until the current developer version is
-finished.** The user may then choose whether to pursue this expansion; recording
-it does not authorize starting the implementation now.
+Current implementation: alpha 10 contains the bounded project extension below.
+See [project workflows](PROJECT_WORKFLOWS.md) and the
+[actual verification record](VERIFICATION.md#combined-project-workflows--september-8).
+Deployed-state import and unbounded protocol compatibility remain separate work.
+
+Recorded September 7, 2026. **Scope and sequencing updated September 8, 2026:**
+the user confirmed combining the remaining Job 1 extension and the additional
+local Studio capabilities below before consolidated testing and the VPS pilot.
+This supersedes the earlier decision to defer the expansion until after pilots.
+The scope is agreed; the extensions are not thereby implemented or verified.
 
 Extend the Lab beyond the current single-file GenLayer contract binding and
 three built-in protocol models:
@@ -36,20 +43,49 @@ not replace observing Studio's real appeal lifecycle. See the consolidated
 [development roadmap](DEVELOPMENT_ROADMAP.md), which supersedes the earlier
 controlled-appeal-first recommendation.
 
-Recommended first slice: incremental Studio execution, structured results and
+The original first slice was incremental Studio execution, structured results and
 action/state bindings from items 2–3 above, built and tested through one workflow.
-Multi-file projects, extra dependencies and deployed-state import can follow
-later. Existing-alpha installation trials can continue; each new capability needs
-its own verification and an agent integration trial. Completing all of Job 1 is
-not a prerequisite to starting those tests.
+That first-slice sequencing is historical; the September 8 scope below governs
+the remaining work and the next consolidated pilot.
 
 The user subsequently authorized implementation of this selected first slice.
 The `service_release` workflow is now built and has live HTTP/Studio evidence;
-see [its supported scope](STUDIO_WORKFLOWS.md). The broader multi-file,
-dependency and deployed-state work remains deferred. This does not mark all of
+see [its supported scope](STUDIO_WORKFLOWS.md). This does not mark all of
 Job 1 complete.
 
-**Reminder:** When the current developer version is explicitly recorded as
-finished, remind the user about Job 1 and ask whether they want to revisit it.
-An existing alpha release or a passing CI run alone is not that completion
-milestone. Keep this job deferred until the user elects to resume it.
+### Combined extension agreed September 8, 2026
+
+Build Job 1 as a bounded extension of testing how agents use GenLayer:
+
+1. General workflow/action definitions, richer developer-defined results and
+   behavior rules, multi-file contract projects with explicitly supported pinned
+   dependencies, reusable bindings and developer validation/examples. Preserve
+   the existing workflow and demonstrate a materially different second workflow.
+2. Defined multi-contract workflows in local Studio: deployment dependencies,
+   separate contract/transaction identities, child effects, partial failures and
+   agent behavior when decisions change. This is not arbitrary protocol import.
+3. Fees and appeal-bond behavior on a verified fee-enabled local Studio/SDK
+   profile. Prove actual local accounting and its exposed operations before
+   claiming coverage; application budgets or gasless runs are insufficient.
+4. Durable Lab workflow recovery: save operation identities and required run
+   context, reconcile with surviving Studio state after a Lab interruption and
+   avoid duplicate submissions/effects. Studio database loss and full OS reboot
+   remain separate disaster-recovery work.
+5. Scenario authoring from supported templates and variations, plus a documented
+   optional LLM-assisted drafting route using the developer's own agent/model.
+   Validate drafts against schemas, backend capabilities and developer-reviewed
+   expected behavior. Save reusable scenarios; no claim of exhaustive generation
+   or requirement for a centrally paid model service.
+6. Carry the supported operations through HTTP, Python, TypeScript and MCP;
+   update dashboard evidence, reports, setup instructions and packaging.
+
+Run focused checks during implementation to resolve concrete risks. Once the
+combined candidate is built, perform consolidated regression, actual Studio,
+agent behavior, recovery and clean-install verification. Then the user can run
+the simpler laptop/VPS pilot against the same candidate. Do not rent a VPS or
+start repeated paid onboarding trials before that gate.
+
+Contract-LLM judgment evaluation remains outside scope. Deployed-state import,
+unbounded protocol support, public-network parity and independent external
+developer validation remain separate work. See the updated
+[implementation sequence](DEVELOPMENT_ROADMAP.md#combined-job-1-extension--september-8-2026).

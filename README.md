@@ -4,7 +4,7 @@ A self-hosted testing toolkit for agents that consume GenLayer decisions. Connec
 
 [Source repository](https://github.com/Leokings/genlayer-agent-lab) · [Release artifacts](https://github.com/Leokings/genlayer-agent-lab/releases) · [Installation](docs/INSTALL.md)
 
-**Version 0.1.0a9 — development candidate.** Test bundled or custom GenLayer contracts with controlled model responses. The new [Studio workflows](docs/STUDIO_WORKFLOWS.md) let an agent read provisional decisions, appeal and call a contract's release method, with structured results and verified test-unit state. The original 18 scenarios remain available through GLSim or Studio with scripted consumer events. Live-model judgment evaluation and public-network settlement are outside this profile. See [build status](docs/BUILD_STATUS.md) and the dated [verification record](docs/VERIFICATION.md).
+**Version 0.1.0a10 — development candidate.** Test how agents use GenLayer with developer-supplied possible model responses. [Project workflows](docs/PROJECT_WORKFLOWS.md) support typed operations/results, multi-file contracts, defined multi-contract effects, actual local appeals and fee accounting, and recovery after a Lab interruption. Developers supply reviewed behavior rules and can add scenarios using templates or their own authoring agent. See [build status](docs/BUILD_STATUS.md) and the dated [verification record](docs/VERIFICATION.md) for passed and open gates. Contract-LLM judgment evaluation and public-network settlement are outside scope.
 
 Install from a supplied wheel or source archive with the [installation guide](docs/INSTALL.md). The wheel includes a setup kit and all three agent examples.
 
@@ -13,7 +13,34 @@ the expected passing and failing results and a report template. For an owned
 Studio stack, `studio verify-recovery` checks finalized results and a new write
 across a controlled container restart; see [Studio recovery checks](docs/STUDIO.md#verify-recovery-from-a-controlled-restart).
 
-## Start from this checkout
+## Start the project profile
+
+Use Python 3.12, [uv](https://docs.astral.sh/uv/getting-started/installation/), Git
+and Docker with Linux containers on your laptop or VPS. From this checkout:
+
+```sh
+uv sync --locked --python 3.12
+uv run gl-agent-lab init
+uv run gl-agent-lab project studio-build
+uv run gl-agent-lab serve
+```
+
+The first Studio build downloads its pinned runtime. In another terminal:
+
+```sh
+uv run gl-agent-lab project verify --case prediction --url http://127.0.0.1:8765
+```
+
+This runs a scripted installation check with no paid model. Connect your own
+agent using the [project integration guide](docs/PROJECT_WORKFLOWS.md), which
+also explains dashboard access through an SSH tunnel from a VPS. The project
+Studio RPC uses loopback port 8796. Subsequent starts use `project studio-up`.
+For a short server installation check, use [the VPS quickstart](docs/VPS_QUICKSTART.md).
+
+The original 18 scenarios and `service_release` workflows remain available as
+separate compatibility profiles. Their commands are below.
+
+## Original GLSim quickstart
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if necessary, then run these commands from this project directory:
 

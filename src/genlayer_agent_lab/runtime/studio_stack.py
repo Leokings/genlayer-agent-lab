@@ -263,9 +263,18 @@ def _build(data_dir: Path, *, port: int, progress, checkout: Path | None) -> Non
 
 
 def compose_config(state: dict) -> dict:
+    state = _validated_state(state)
+    return compose_services(state)
+
+
+def compose_services(state: dict) -> dict:
+    """Generate the shared isolated topology from already validated profile metadata.
+
+    Alternate pinned profiles validate their own metadata before calling this
+    helper. Legacy callers continue through ``compose_config`` above.
+    """
     from .studio_fixtures import validator_config
 
-    state = _validated_state(state)
     image = state.get("image_id")
     if not image:
         raise RuntimeError("Build Studio before starting it")
@@ -428,9 +437,9 @@ def _inventory(endpoint: str, state: dict, *, deadline=None) -> dict:
                         for name in ("database", "vm-cache")}}
 
 
-def _assert_owned(inventory: dict, state: dict) -> None:
+def _assert_owned(inventory: dict, state: dict, *, config=None) -> None:
     project = f"gl-agent-lab-{state['owner']}"
-    services = set(compose_config(state)["services"])
+    services = set((config if config is not None else compose_config(state))["services"])
     seen = set()
     for container in inventory["containers"]:
         labels = container.get("Config", {}).get("Labels") or {}
@@ -457,7 +466,8 @@ def _memory_bytes(value: str) -> int:
 
 
 def _verify_runtime(endpoint: str, state: dict, inventory: dict,
-                    *, diagnostic: dict | None = None, deadline=None) -> bool:
+                    *, diagnostic: dict | None = None, deadline=None,
+                    config=None, source_commit=STUDIO_COMMIT) -> bool:
     """Fail closed on actual runtime configuration, not ps display strings."""
     def fail(code: str, service: str | None = None) -> bool:
         if diagnostic is not None:
@@ -466,8 +476,8 @@ def _verify_runtime(endpoint: str, state: dict, inventory: dict,
                 diagnostic["service"] = service
         return False
 
-    _assert_owned(inventory, state)
-    config = compose_config(state)
+    config = config if config is not None else compose_config(state)
+    _assert_owned(inventory, state, config=config)
     project = config["name"]
     network_name = project + "_isolated"
     network = inventory["network"]
@@ -507,7 +517,7 @@ def _verify_runtime(endpoint: str, state: dict, inventory: dict,
             return fail("image_identity_invalid")
         if reference == state["image_id"] and (
             image["Id"] != reference
-            or (image.get("Config", {}).get("Labels") or {}).get(COMMIT_LABEL) != STUDIO_COMMIT
+            or (image.get("Config", {}).get("Labels") or {}).get(COMMIT_LABEL) != source_commit
         ):
             return fail("backend_source_mismatch")
         if reference == state["image_id"] and (

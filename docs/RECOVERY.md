@@ -25,6 +25,21 @@ closing becomes interrupted with unresolved cleanup; restoring the Lab database
 does not recover its memory-only signer or the Studio validator configuration.
 See [workflow boundaries](STUDIO_WORKFLOWS.md#backend-and-recovery-boundaries).
 
+Schema 2 may also contain `project_runs`. Completed project reports survive
+backup/restore and their old run credentials are revoked. Portable archives
+remove the encrypted private signer and prepared signed envelopes from the
+copied database; the source installation is unchanged. An unfinished project
+restores as inconclusive with `interrupted_by_restore` and unresolved cleanup.
+It cannot automatically resume or start a new run over unknown Studio effects.
+
+This differs from restarting the same installation after stopping or crashing
+the Lab. Project workflows retain an encrypted signing journal there, reconcile
+the same transaction identities against surviving Studio state, and resume.
+Keep that installation's original `admin.token`: the journal key derives from
+it. Arbitrarily replacing the token prevents journal decryption. A supported
+token rotation that also migrates active journals is not implemented. Preserving
+the Lab directory alone still does not preserve Docker's Studio volumes.
+
 Only the SQLite database is included. Recovery does **not** copy `admin.token`,
 environment files, build logs, service registrations, daemon configuration,
 exported files, container images, or the rest of the data directory.

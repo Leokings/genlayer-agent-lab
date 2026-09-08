@@ -2,6 +2,14 @@
 
 These are **scripted reference agents**, not demonstrations of a particular AI model's ability. They connect through public HTTP or MCP only; none imports engine internals. Replace their policy loop with your model/framework to evaluate your own agent.
 
+For expanded multi-contract project scenarios, use
+[project workflows](../docs/PROJECT_WORKFLOWS.md). The runnable clients are
+`python/project_agent.py`, `typescript/project-agent.ts` and
+`mcp_project_agent.py`; all use `LAB_URL`, `LAB_RUN_ID` and a run-only `LAB_TOKEN`.
+Examples under `projects/` define contracts and operations. Recipes under
+`project-scenarios/` define conditions and reviewed behavior expectations.
+These are separate from the original clients and service-release profile below.
+
 For agent-driven Studio transactions and appeals, follow
 [Studio workflows](../docs/STUDIO_WORKFLOWS.md). The new examples are
 `python/workflow_agent.py`, `typescript/workflow-agent.ts`,

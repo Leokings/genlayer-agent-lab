@@ -10,10 +10,12 @@ its [release artifacts](https://github.com/Leokings/genlayer-agent-lab/releases)
 This alpha is not published on PyPI. Do not install a similarly named package
 from a registry. A supplied source archive or wheel also works.
 
-The expanded Studio workflows require the alpha 9 development candidate or
-later. Published alpha 8 artifacts contain the earlier scenario features.
-Use the supplied candidate wheel's actual filename in the wheel commands below;
-the alpha 8 filenames illustrate installation of that published release.
+The expanded project workflows require the alpha 10 candidate. Use the supplied
+candidate wheel or source's actual version; earlier artifacts do not include
+these project interfaces. For the combined build's terminal setup, Studio
+startup and VPS dashboard tunnel, follow [project workflows](PROJECT_WORKFLOWS.md).
+Its Docker-based Studio profile is required for project runs. The lightweight
+GLSim commands below remain a separate installation check.
 
 ## From the source checkout or extracted source archive
 
@@ -48,7 +50,7 @@ uv venv --python 3.12 .lab-env
 On Linux/macOS:
 
 ```sh
-uv pip install --python .lab-env/bin/python /path/to/genlayer_agent_lab-0.1.0a8-py3-none-any.whl
+uv pip install --python .lab-env/bin/python /path/to/genlayer_agent_lab-0.1.0a10-py3-none-any.whl
 .lab-env/bin/gl-agent-lab kit --output lab-kit
 .lab-env/bin/gl-agent-lab doctor
 .lab-env/bin/gl-agent-lab run escrow-normal --agent safe
@@ -58,7 +60,7 @@ uv pip install --python .lab-env/bin/python /path/to/genlayer_agent_lab-0.1.0a8-
 On Windows PowerShell:
 
 ```powershell
-uv pip install --python .lab-env/Scripts/python.exe C:/path/to/genlayer_agent_lab-0.1.0a8-py3-none-any.whl
+uv pip install --python .lab-env/Scripts/python.exe C:/path/to/genlayer_agent_lab-0.1.0a10-py3-none-any.whl
 .lab-env/Scripts/gl-agent-lab.exe kit --output lab-kit
 .lab-env/Scripts/gl-agent-lab.exe doctor
 .lab-env/Scripts/gl-agent-lab.exe run escrow-normal --agent safe

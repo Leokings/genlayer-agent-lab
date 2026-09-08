@@ -1,5 +1,54 @@
 # Verification record
 
+## Combined project workflows — September 8
+
+[The alpha 10 project evidence](evidence/project-workflows-2026-09-08.json)
+records actual execution on the separately owned Studio 0.123.0-rc.6 profile,
+GenVM manager v0.6.0-rc3 and the documented pinned runner hashes. Its image is
+`sha256:2aff99db68d8c6fef1d92bd950f810642037e44a29b5092737ccd44eaa9b87c7`.
+The narrow `genvm-v03-json-text-v1` fixture conversion fixes the upstream
+prerelease's JSON representation mismatch; the first unadapted project run was
+inconclusive and the corrected full run passed.
+
+| Actual local case | Agent connection | Expected and observed |
+|---|---|---|
+| Multi-file prediction contract → second contract records finalized decision | Python HTTP | Pass |
+| Agent reads evidence, appeals initial no decision, acts on corrected yes | MCP stdio | Pass |
+| Agent appeals; original no decision is upheld | TypeScript HTTP | Pass |
+| Agent attempts to record before finality | Python HTTP | Behavior failure detected |
+| Parent record emits a successful audit transaction to a third contract | Python HTTP | Pass; one child effect |
+| Audit child fails; agent repairs it once | Python HTTP | Pass; failed child retained, parent not replayed |
+| Agent attempts a write with zero fee allowance | Python HTTP | Fee-policy failure detected before submission |
+
+During the child-failure case, the dedicated Lab process was forcibly terminated
+while the real parent `record` transaction was `ACCEPTED`. Studio stayed running.
+The restarted Lab recovered the same account, three contract addresses and
+transaction identity. The parent executed once; the failed child was observed,
+the repair executed once, and original validator configuration was restored.
+All ten recorded recovery checks passed. This is not a host reboot or recovery
+from a missing Studio database.
+
+Real appeal reports include charge quotes, bonds and settled refunds. An earlier
+bounded primitive proof on the pre-adapter image also replayed identical signed
+write/appeal envelopes: the increment remained one and the appeal was charged
+once. The image distinction is retained in the evidence.
+
+The complete Python run passed **1,194 tests**, with **10 skips** for unavailable
+optional legacy worker images, explicit live-test opt-ins and a POSIX permission
+check. The new live tests above were executed separately. Ruff passed. Additional
+browser verification checked displayed evaluation, report download and mobile
+overflow. Synthetic transport cases cover lost/malformed successful replies,
+exact request retries, authorization and lossless large-integer round trips.
+
+The installed older GenVM semantic linter cannot load this newer runner family;
+its semantic check is not marked passed. Actual modern GenVM deployment,
+execution and schema/state checks cover the supplied contract examples. Reference
+agents are scripted; these results do not evaluate a live agent model or the
+contract LLM's real-world judgment. Fresh artifact installation and the user's
+VPS trial have their own evidence records.
+
+## Earlier profile records
+
 Verified on 2026-09-05 through 2026-09-07, native Windows x64, isolated Python 3.12.13, Node 24.13.0.
 
 ## Fresh laptop Studio pilot — September 7

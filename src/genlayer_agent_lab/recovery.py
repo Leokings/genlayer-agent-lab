@@ -24,6 +24,8 @@ MAX_ROW_BYTES = 16 * 1024 * 1024
 SCHEMAS = {1, 2}
 ARCHIVE_FORMAT = "genlayer-agent-lab-sqlite-backup"
 _WORKFLOW_TERMINAL = {"completed", "cancelled", "inconclusive", "interrupted"}
+_PROJECT_TERMINAL = {"completed", "cancelled", "inconclusive"}
+_OPTIONAL_RUN_TABLES = ("workflow_runs", "project_runs")
 
 
 def _path(value: Path) -> Path:
@@ -98,17 +100,18 @@ def _inspect_database(path: Path) -> dict:
             raise ValueError("Database schema is unsupported by this recovery release")
         tables = {"runs", "scenarios"} | ({"bindings"} if version == 2 else set())
         objects = db.execute("SELECT name, type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'").fetchall()
-        if version == 2 and ("workflow_runs", "table") in objects:
-            tables.add("workflow_runs")
-            sql = db.execute("SELECT sql FROM sqlite_master WHERE name = 'workflow_runs'").fetchone()[0]
-            # This is one optional additive schema-2 table, not permission for
-            # arbitrary extensions, foreign keys, generated columns or checks.
-            if not re.fullmatch(
-                r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?workflow_runs\s*\(\s*"
-                r"id\s+TEXT\s+PRIMARY\s+KEY\s*,\s*body\s+TEXT\s+NOT\s+NULL\s*\)\s*",
-                sql or "", re.IGNORECASE,
-            ):
-                raise ValueError("Database workflow table layout is unsupported")
+        for table in _OPTIONAL_RUN_TABLES:
+            if version == 2 and (table, "table") in objects:
+                tables.add(table)
+                sql = db.execute("SELECT sql FROM sqlite_master WHERE name = ?", (table,)).fetchone()[0]
+                # Only these exact additive schema-2 tables are supported, not
+                # arbitrary extensions, foreign keys, generated columns or checks.
+                if not re.fullmatch(
+                    rf"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?{table}\s*\(\s*"
+                    r"id\s+TEXT\s+PRIMARY\s+KEY\s*,\s*body\s+TEXT\s+NOT\s+NULL\s*\)\s*",
+                    sql or "", re.IGNORECASE,
+                ):
+                    raise ValueError("Database workflow table layout is unsupported")
         if set(objects) != {(name, "table") for name in tables}:
             raise ValueError("Database contains unexpected tables, views, indexes or triggers")
         counts = {}
@@ -162,6 +165,40 @@ def _snapshot(source: Path, destination: Path):
         db.close()
 
 
+def _strip_project_secrets(run: dict) -> bool:
+    """Portable history cannot continue a journal encrypted by the original token."""
+    changed = "private_account" in run
+    run.pop("private_account", None)
+    intents = run.get("intents")
+    if isinstance(intents, dict):
+        for intent in intents.values():
+            if isinstance(intent, dict) and "prepared" in intent:
+                intent.pop("prepared")
+                changed = True
+    return changed
+
+
+def _retire_project_journals(path: Path):
+    """Strip signing material from an inspected copy, without touching its source."""
+    db = sqlite3.connect(path)
+    try:
+        db.execute("PRAGMA trusted_schema = OFF")
+        db.execute("PRAGMA secure_delete = ON")
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name = 'project_runs' AND type = 'table'").fetchone():
+            return
+        with db:
+            for identifier, body in db.execute("SELECT id, body FROM project_runs").fetchall():
+                run = json.loads(body)
+                if _strip_project_secrets(run):
+                    db.execute("UPDATE project_runs SET body = ? WHERE id = ?",
+                               (json.dumps(run, ensure_ascii=True), identifier))
+        db.execute("PRAGMA journal_mode = DELETE")
+    except sqlite3.Error:
+        raise ValueError("Recovery could not remove private project signing journals") from None
+    finally:
+        db.close()
+
+
 def backup(data_dir: Path, output: Path) -> dict:
     """Back up an existing, stopped Lab installation without changing its schema."""
     root, output = _path(data_dir), _path(output)
@@ -176,6 +213,7 @@ def backup(data_dir: Path, output: Path) -> dict:
         snapshot = Path(temporary) / "lab.sqlite3"
         _snapshot(source, snapshot)
         inspected = _inspect_database(snapshot)
+        _retire_project_journals(snapshot)
         manifest = {
             "format": ARCHIVE_FORMAT, "format_version": 1, "toolkit_version": __version__,
             "created_at": datetime.now(UTC).isoformat(),
@@ -183,7 +221,8 @@ def backup(data_dir: Path, output: Path) -> dict:
                          "sha256": _sha256(snapshot), **inspected},
             "scope": "Lab SQLite only; Studio volumes, images, accounts, credentials and logs are excluded",
             "restore_auth": ("Fresh administrator token; saved per-run credential hashes revoked; "
-                             "unfinished workflows interrupted without resuming Studio"),
+                             "unfinished workflows interrupted without resuming Studio; "
+                             "project signing journals excluded"),
         }
         encoded = json.dumps(manifest, indent=2).encode("utf-8")
         created = False
@@ -262,12 +301,13 @@ def _revoke_run_tokens(path: Path) -> int:
         db.execute("PRAGMA secure_delete = ON")
         with db:
             tables = ["runs"]
-            if db.execute("SELECT 1 FROM sqlite_master WHERE name = 'workflow_runs' AND type = 'table'").fetchone():
-                tables.append("workflow_runs")
+            for table in _OPTIONAL_RUN_TABLES:
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name = ? AND type = 'table'", (table,)).fetchone():
+                    tables.append(table)
             for table in tables:
                 for identifier, body in db.execute(f"SELECT id, body FROM {table}").fetchall():
                     run = json.loads(body)
-                    fields = ("agent_hash", "token_sha256") if table == "workflow_runs" else ("agent_hash",)
+                    fields = ("agent_hash", "token_sha256") if table in _OPTIONAL_RUN_TABLES else ("agent_hash",)
                     credentials = [field for field in fields if field in run]
                     changed = bool(credentials)
                     for field in credentials:
@@ -279,6 +319,15 @@ def _revoke_run_tokens(path: Path) -> int:
                         run.update(status="interrupted", cleanup="unresolved",
                                    error_code="interrupted_by_restore")
                         changed = True
+                    if table == "project_runs":
+                        # Also remove journals from older archives. New archives
+                        # already omit these fields, but restoration always retires
+                        # the key and must never launch a recovery worker with it.
+                        changed = _strip_project_secrets(run) or changed
+                        if run.get("status") not in _PROJECT_TERMINAL:
+                            run.update(status="inconclusive", cleanup="unresolved",
+                                       error_code="interrupted_by_restore")
+                            changed = True
                     if changed:
                         db.execute(f"UPDATE {table} SET body = ? WHERE id = ?",
                                    (json.dumps(run, ensure_ascii=True), identifier))

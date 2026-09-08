@@ -27,15 +27,21 @@ _IDENTITY = ("address", "stake", "provider", "model", "config", "plugin")
 class StudioFixtureLease:
     """Nonblocking process-wide lease, shared with Studio lifecycle operations."""
 
-    def __init__(self, data_dir: Path):
+    def __init__(self, data_dir: Path, *, subdirectory="studio"):
+        if subdirectory not in {"studio", "studio-modern"}:
+            raise ValueError("Unsupported fixture lease directory")
         self.data_dir = Path(data_dir)
+        self.subdirectory = subdirectory
         self._handle = None
 
     def acquire(self):
         if self._handle is not None:
             raise StudioError("fixture_lease_already_acquired")
         try:
-            root = studio_stack._root(self.data_dir)
+            root = (studio_stack._root(self.data_dir) if self.subdirectory == "studio"
+                    else self.data_dir.resolve() / self.subdirectory)
+            if root.is_symlink():
+                raise StudioError("invalid_fixture_lease")
             root.mkdir(parents=True, exist_ok=True)
             path = root / "fixture.lock"
             if path.is_symlink():

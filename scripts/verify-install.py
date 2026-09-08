@@ -267,12 +267,23 @@ def probe(*, backend: str, require_kit: bool) -> dict:
                               "INSTALL.md", "SERVICES.md", "RECOVERY.md", "STUDIO.md",
                               "EXTERNAL_ONBOARDING.md", "STUDIO_WORKFLOWS.md", "workflow_agent.py",
                               "workflow-agent.ts", "partial-release.json", "appeal-overturn.json",
-                              "service-workflow.yaml", "mcp_workflow_agent.py"}
+                              "service-workflow.yaml", "mcp_workflow_agent.py",
+                              "PROJECT_WORKFLOWS.md", "PROJECT_BINDINGS.md", "SCENARIO_AUTHORING.md",
+                              "project_agent.py", "project-agent.ts", "mcp_project_agent.py",
+                              "project-repair.yaml", "prediction-messages-repair.yaml"}
         nonempty = {p.name for p in files if p.is_file() and p.stat().st_size > 0}
         if not required_kit_files <= nonempty:
             raise VerificationError("Installed integration kit lacks its skill or clients")
         kit = {"exported": True, "file_count": sum(p.is_file() for p in files),
                "required_files": sorted(required_kit_files)}
+        draft = work / "project.draft.json"
+        authored = cli("project", "template", str(exported / "examples/projects/prediction/project.yaml"),
+                       "--output", str(draft))
+        checked = cli("project", "validate", str(draft))
+        if (not authored.get("valid") or checked.get("review_status") != "draft"
+                or checked.get("content_sha256") != authored.get("content_sha256")):
+            raise VerificationError("Installed project snapshot/template validation failed")
+        kit["project_authoring"] = "pass"
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]

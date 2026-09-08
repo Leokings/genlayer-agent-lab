@@ -94,6 +94,12 @@ class _RunBoundMCPClient:
             raise LabError("MCP returned invalid workflow data")
         if payload.get("run_id") != self.run_id:
             raise LabError("MCP returned a different workflow", 400)
+        if payload.get("profile") == "project" or self.run_id.startswith("project-"):
+            from genlayer_agent_lab.project_wire import decode_project_wire
+            try:
+                payload = decode_project_wire(payload)
+            except ValueError:
+                raise LabError("MCP returned invalid project wire data", 400) from None
         return payload
 
     def _call(self, run_id: str, name: str, arguments: dict) -> dict:
@@ -143,7 +149,8 @@ class _RunBoundMCPClient:
 
 async def run_mcp_workflow_agent(url: str, token: str, run_id: str, mode: str = "safe",
                                  timeout_seconds: float = 600, *, cleanup_timeout: float = 45,
-                                 poll_interval: float = 0.5) -> dict:
+                                 poll_interval: float = 0.5, driver=None,
+                                 driver_options: dict | None = None) -> dict:
     """Start agent-only stdio MCP, run the common policy, and return its outcome.
 
     Run and cleanup deadlines are separate. MCP requests have a 35-second bound;
@@ -175,9 +182,12 @@ async def run_mcp_workflow_agent(url: str, token: str, run_id: str, mode: str = 
                 return {**result, "outcome": "mcp_toolset_mismatch"}
             result["tools"] = sorted(TOOLS)
             adapter = _RunBoundMCPClient(connection, asyncio.get_running_loop(), run_id)
+            policy = driver or run_workflow_agent
+            options = ({"mode": mode, "timeout_seconds": timeout_seconds,
+                        "poll_interval": poll_interval, "cleanup_timeout": cleanup_timeout}
+                       if driver is None else dict(driver_options or {}))
             task = asyncio.create_task(asyncio.to_thread(
-                run_workflow_agent, adapter, run_id, mode=mode, timeout_seconds=timeout_seconds,
-                poll_interval=poll_interval, cleanup_timeout=cleanup_timeout,
+                policy, adapter, run_id, **options,
             ))
             try:
                 outcome = await asyncio.shield(task)
@@ -191,7 +201,8 @@ async def run_mcp_workflow_agent(url: str, token: str, run_id: str, mode: str = 
                 except Exception:
                     pass
                 raise
-            return {key: outcome[key] for key in ("run_id", "status", "outcome")} | {
+            return {key: outcome[key] for key in ("run_id", "status", "outcome", "driver")
+                    if key in outcome} | {
                 "tools": sorted(TOOLS),
             }
     except Exception:

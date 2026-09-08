@@ -2,17 +2,18 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Studio workflows · GenLayer Agent Lab</title><link rel="stylesheet" href="styles.css"><script src="workflows.js" defer></script></head>
 <body class="workflow-page"><main style="margin:0 auto;max-width:1200px">
-  <header><div><span class="eyebrow">GENLAYER AGENT LAB</span><h1>Studio workflows</h1><p>Test how your agent reads decisions, appeals and updates a contract.</p></div><a href="/">Scenario dashboard</a></header>
+  <header><div><span class="eyebrow">GENLAYER AGENT LAB</span><h1>Studio workflows</h1><p>Test how your agent reads decisions, appeals and acts across contracts.</p></div><a href="/">Scenario dashboard</a></header>
   <div id="notice" class="notice" role="alert" hidden></div>
   <section id="auth" class="panel"><h2>Connect to this installation</h2><form id="auth-form"><label for="token">Administrator token</label><input id="token" type="password" autocomplete="off" required><button>Connect</button></form><p>The service runs on your laptop or VPS. Use your existing SSH tunnel to view a VPS dashboard.</p></section>
   <div id="workspace" hidden>
     <section class="panel"><div class="section-heading"><h2>Create a workflow</h2><button id="disconnect" class="secondary">Disconnect</button></div>
       <p>Start the owned local Studio stack first. Supply the contract responses and expected behavior, then connect the agent being tested with the run credential.</p>
+      <label for="load-spec">Load a reviewed scenario JSON file</label><input id="load-spec" type="file" accept=".json,application/json">
       <form id="create-form"><label for="spec">Workflow specification (JSON)</label><textarea id="spec" rows="16" spellcheck="false" required></textarea><button id="create">Create agent run</button></form>
-      <p class="helper">The bundled contract records test units. No real tokens move. Reports distinguish contract execution, finalization, appeal outcome and agent actions.</p>
+      <p class="helper">Project scenarios use your owned fee-enabled Studio profile and local test balances. The original service workflow uses a contract ledger of test units. Reports distinguish execution, finality, appeals and observed effects.</p>
       <div id="connection" class="connection" hidden><h3>Connect your agent</h3><p>Copy this credential now. It only controls this run. For MCP, launch gl-agent-lab-mcp with these environment variables.</p><textarea id="credential" rows="5" readonly></textarea></div>
     </section>
     <section class="panel"><div class="section-heading"><h2>Workflow runs</h2><button id="refresh" class="secondary">Refresh</button></div><div id="runs"></div></section>
-    <section id="detail" class="panel" hidden><div class="section-heading"><h2 id="title">Run</h2><button id="cancel" class="danger secondary">Cancel workflow</button></div><p id="status"></p><h3>Current decision</h3><pre id="decision"></pre><h3>Finalized contract state</h3><pre id="state"></pre><h3>Agent operations</h3><div id="operations"></div><h3>Evaluation</h3><pre id="evaluation"></pre><button id="download" class="secondary">Download report JSON</button><details><summary>Full recorded evidence</summary><pre id="evidence"></pre></details></section>
+    <section id="detail" class="panel" hidden><div class="section-heading"><h2 id="title">Run</h2><button id="cancel" class="danger secondary">Cancel workflow</button></div><p id="status"></p><div id="project-detail" hidden><h3>Deployed contracts</h3><pre id="contracts"></pre><h3>Local fee accounting</h3><pre id="accounting"></pre><h3>Recovery</h3><pre id="recovery"></pre></div><h3>Decisions and transactions</h3><pre id="decision"></pre><h3>Finalized contract state</h3><pre id="state"></pre><h3>Agent operations</h3><div id="operations"></div><h3>Evaluation</h3><pre id="evaluation"></pre><button id="download" class="secondary">Download report JSON</button><details><summary>Full recorded evidence</summary><pre id="evidence"></pre></details></section>
   </div>
 </main></body></html>

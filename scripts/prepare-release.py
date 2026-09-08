@@ -30,6 +30,12 @@ def main() -> None:
     source = root / "dist" / f"{basename}.tar.gz"
     required_kit = {"docs/INSTALL.md", "docs/SERVICES.md", "docs/RECOVERY.md",
                     "docs/STUDIO.md", "docs/EXTERNAL_ONBOARDING.md",
+                    "docs/PROJECT_WORKFLOWS.md", "docs/PROJECT_BINDINGS.md", "docs/SCENARIO_AUTHORING.md",
+                    "examples/projects/prediction/project.yaml",
+                    "examples/projects/prediction-messages/project-repair.yaml",
+                    "examples/project-scenarios/prediction-finalize.yaml",
+                    "examples/python/project_agent.py", "examples/typescript/project-agent.ts",
+                    "examples/mcp_project_agent.py",
                     "examples/python_agent.py", "examples/typescript/agent.ts", "examples/mcp_agent.py",
                     "skills/setup-genlayer-agent-lab/SKILL.md"}
     with zipfile.ZipFile(wheel) as package:

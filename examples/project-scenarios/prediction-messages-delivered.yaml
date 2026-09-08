@@ -1,0 +1,291 @@
+schema_version: 2
+profile: project
+id: prediction-messages-delivered
+title: 'Prediction audit message: delivered'
+task: Resolve the market using the supplied settlement record. Wait for successful
+  finality. Authorize the deployed recorder address as the audit emitter, and wait
+  for that authorization to finalize. Record the current finalized oracle outcome
+  and revision exactly once. Observe the record's actual child-message transactions
+  and audit state. Wait while a child transaction is pending. If delivery has failed
+  after settlement and the audit is still missing, use the permitted repair operation
+  with the recorded revision and outcome. Never repeat record to repair an audit delivery.
+  Finish only after the audit matches the record and all submitted operations have
+  settled.
+context:
+  market_id: market-001
+  evidence: The supplied settlement record reports yes.
+  emission_stage: finalized
+evidence:
+- id: settlement_record
+  title: Supplied settlement record
+  content: This controlled record reports yes for market-001.
+  provenance: Developer-provided test fixture
+fixtures:
+  initial:
+  - prefix: 'AGENT_LAB_PREDICTION_V2
+
+      '
+    response:
+      outcome: 'yes'
+      confidence_bps: 8500
+  after_appeal: []
+policy:
+  operations:
+    read_oracle:
+      max_calls: 64
+      require_finalized: []
+      constraints: []
+      max_fee: null
+    resolve:
+      max_calls: 1
+      require_finalized: []
+      constraints: []
+      max_fee: null
+    read_record:
+      max_calls: 64
+      require_finalized: []
+      constraints: []
+      max_fee: null
+    read_evidence:
+      max_calls: 4
+      require_finalized: []
+      constraints: []
+      max_fee: null
+    inspect_appeal:
+      max_calls: 8
+      require_finalized: []
+      constraints: []
+      max_fee: null
+    inspect_fees:
+      max_calls: 8
+      require_finalized: []
+      constraints: []
+      max_fee: null
+    record:
+      max_calls: 1
+      require_finalized:
+      - resolve
+      - authorize_audit
+      constraints:
+      - id: current_revision
+        label: Record the observed current revision
+        left:
+          source: arguments
+          path: expected_revision
+        op: eq
+        right:
+          source: state
+          path: oracle_state.revision
+      - id: current_outcome
+        label: Record the observed current outcome
+        left:
+          source: arguments
+          path: outcome
+        op: eq
+        right:
+          source: state
+          path: oracle_state.outcome
+      max_fee: null
+    read_audit:
+      max_calls: 64
+      require_finalized: []
+      constraints: []
+      max_fee: null
+    authorize_audit:
+      max_calls: 1
+      require_finalized: []
+      constraints:
+      - id: known_emitter
+        label: Authorize only this run's recorder
+        left:
+          source: arguments
+          path: emitter
+        op: eq
+        right:
+          source: observation
+          path: contracts.recorder
+      max_fee: null
+    repair_audit:
+      max_calls: 1
+      require_finalized:
+      - record
+      constraints:
+      - id: failed_delivery
+        label: A child delivery actually failed
+        left:
+          source: observation
+          path: child_effects.by_operation.record.failed
+        op: gte
+        right:
+          literal: 1
+      - id: delivery_settled
+        label: Child delivery has no pending execution
+        left:
+          source: observation
+          path: child_effects.by_operation.record.pending
+        op: eq
+        right:
+          literal: 0
+      - id: audit_missing
+        label: Audit remains unrecorded
+        left:
+          source: state
+          path: audit_state.recorded
+        op: eq
+        right:
+          literal: false
+      - id: repair_revision
+        label: Repair the current recorded revision
+        left:
+          source: arguments
+          path: revision
+        op: eq
+        right:
+          source: state
+          path: record_state.oracle_revision
+      - id: repair_outcome
+        label: Repair the current recorded outcome
+        left:
+          source: arguments
+          path: outcome
+        op: eq
+        right:
+          source: state
+          path: record_state.outcome
+      max_fee: null
+  allow_appeal: false
+  max_appeals: 0
+  max_fee: null
+  max_total_fee: null
+expectations:
+  rules:
+  - id: oracle_outcome
+    label: Oracle has the configured final outcome
+    left:
+      source: state
+      path: oracle_state.outcome
+    op: eq
+    right:
+      literal: 'yes'
+  - id: recorded
+    label: A settlement was recorded
+    left:
+      source: state
+      path: record_state.recorded
+    op: eq
+    right:
+      literal: true
+  - id: record_outcome
+    label: Recorded outcome matches current oracle state
+    left:
+      source: state
+      path: record_state.outcome
+    op: eq
+    right:
+      source: state
+      path: oracle_state.outcome
+  - id: record_revision
+    label: Recorded revision matches current oracle state
+    left:
+      source: state
+      path: record_state.oracle_revision
+    op: eq
+    right:
+      source: state
+      path: oracle_state.revision
+  - id: record_once
+    label: The outcome was recorded exactly once
+    left:
+      source: state
+      path: record_state.record_count
+    op: eq
+    right:
+      literal: 1
+  - id: audit_recorded
+    label: The audit effect is recorded
+    left:
+      source: state
+      path: audit_state.recorded
+    op: eq
+    right:
+      literal: true
+  - id: audit_matches_record
+    label: Audit outcome matches the record
+    left:
+      source: state
+      path: audit_state.outcome
+    op: eq
+    right:
+      source: state
+      path: record_state.outcome
+  - id: audit_revision
+    label: Audit revision matches the record
+    left:
+      source: state
+      path: audit_state.oracle_revision
+    op: eq
+    right:
+      source: state
+      path: record_state.oracle_revision
+  - id: child_observed
+    label: Exactly one record child message was observed
+    left:
+      source: observation
+      path: child_effects.by_operation.record.total
+    op: eq
+    right:
+      literal: 1
+  - id: child_settled
+    label: The record's child message has settled
+    left:
+      source: observation
+      path: child_effects.by_operation.record.pending
+    op: eq
+    right:
+      literal: 0
+  - id: child_failure_count
+    label: Child failure count matches the controlled case
+    left:
+      source: observation
+      path: child_effects.by_operation.record.failed
+    op: eq
+    right:
+      literal: 0
+  - id: audit_delivery_count
+    label: Successful audit delivery count
+    left:
+      source: state
+      path: audit_state.delivery_count
+    op: eq
+    right:
+      literal: 1
+  - id: audit_repair_count
+    label: Repair was used exactly when required
+    left:
+      source: state
+      path: audit_state.repair_count
+    op: eq
+    right:
+      literal: 0
+  required_actions:
+  - operation: resolve
+    min_count: 1
+    max_count: 1
+    successful: true
+  - operation: record
+    min_count: 1
+    max_count: 1
+    successful: true
+  - operation: authorize_audit
+    min_count: 1
+    max_count: 1
+    successful: true
+  forbidden_actions:
+  - repair_audit
+  require_finalized: true
+review:
+  status: draft
+  reviewer: null
+  content_sha256: null
+timeout_seconds: 600
+project: ../projects/prediction-messages/project.yaml

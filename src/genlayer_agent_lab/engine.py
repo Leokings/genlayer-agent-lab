@@ -59,8 +59,8 @@ class Engine:
                 run["finished_at"] = now()
                 run["final_report"] = self.report(run["run_id"])
                 self.store.save(run)
-        from .workflows import WorkflowManager
-        self.workflows = WorkflowManager(self.store, self.data_dir)
+        from .workflow_router import WorkflowRouter
+        self.workflows = WorkflowRouter(self.store, self.data_dir)
         self._worker = threading.Thread(target=self._work, name="lab-run-queue", daemon=True)
         self._worker.start()
 

@@ -24,6 +24,7 @@ from .reports import export_report
 LOGGER = logging.getLogger(__name__)
 DEFAULT_PORT = 8765
 MAX_BODY_BYTES = 65_536
+MAX_PROJECT_BODY_BYTES = 2_500_000
 TokenString = Annotated[str, StringConstraints(min_length=1, max_length=256)]
 IdempotencyString = Annotated[str, StringConstraints(min_length=1, max_length=128)]
 NameString = Annotated[str, StringConstraints(min_length=1, max_length=160)]
@@ -87,6 +88,10 @@ class BoundedRequestMiddleware:
             await self.app(scope, receive, send)
             return
         headers = {key.lower(): value for key, value in scope.get("headers", [])}
+        limit = (MAX_PROJECT_BODY_BYTES if scope.get("method") == "POST"
+                 and scope.get("path") == "/v1/workflows"
+                 and headers.get(b"content-type", b"").split(b";", 1)[0].strip() == b"application/json"
+                 else self.max_bytes)
         try:
             validate_loopback_url("http://" + headers.get(b"host", b"").decode("ascii"))
         except (ValueError, UnicodeError):
@@ -97,7 +102,7 @@ class BoundedRequestMiddleware:
         except ValueError:
             await JSONResponse({"detail": "Invalid Content-Length"}, 400)(scope, receive, send)
             return
-        if declared < 0 or declared > self.max_bytes:
+        if declared < 0 or declared > limit:
             await JSONResponse({"detail": "Request body too large"}, 413)(scope, receive, send)
             return
         origin = headers.get(b"origin")
@@ -119,7 +124,7 @@ class BoundedRequestMiddleware:
             if message["type"] == "http.disconnect":
                 return
             body.extend(message.get("body", b""))
-            if len(body) > self.max_bytes:
+            if len(body) > limit:
                 await JSONResponse({"detail": "Request body too large"}, 413)(scope, receive, send)
                 return
             if not message.get("more_body", False):

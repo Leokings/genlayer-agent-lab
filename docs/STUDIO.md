@@ -1,5 +1,38 @@
 # Local Studio and GenVM
 
+## Expanded project profile (alpha 10)
+
+Use [project workflows](PROJECT_WORKFLOWS.md) for agents invoking typed operations
+across a declared contract graph. The commands are `project studio-build`,
+`project studio-up`, `project studio-status` and `project studio-down`. They own
+`studio-modern/` under the selected Lab data directory and separate Docker
+volumes. The project RPC defaults to loopback port 8796; the Lab dashboard/API
+can use its usual loopback port 8765. Stopping this profile preserves its data.
+
+The profile pins Studio `0.123.0-rc.6` at
+`6551995be232d093144f2c32b6775757a010ab3c` and GenVM manager `v0.6.0-rc3`.
+It includes the exact single-file, multi-file and standard-library runner hashes
+listed in [project bindings](PROJECT_BINDINGS.md). Studio's JSON fixture
+serialization is adapted to the JSON text required by that GenVM decoder;
+`json_fixture_wire: genvm-v03-json-text-v1` records the adapter. It does not
+replace execution, validator votes or appeal processing.
+
+Project fee quotes come from actual local execution estimates. Submitted
+envelopes and appeal requests use the pinned consensus ABI. Reports distinguish
+deposits from observed charges, refunds and appeal bonds in local GEN base
+units. These are test balances, not purchased public-network funds. Modern
+public-network parity is not established by this local profile.
+
+The first build can download several gigabytes and precompile GenVM. Allow
+space for Docker images, build cache and persistent VM/database volumes. The
+configured service limits total roughly 5 GiB plus Docker and the agent itself;
+an 8 GiB Linux host provides more room than a small 1–2 GiB VPS. This is planning
+guidance, not a measured minimum. The Lab startup service does not implicitly
+build or start Studio. Run `project studio-up` and confirm readiness before
+starting or resuming project tests.
+
+## Original Studio profile
+
 The optional `studio` backend deploys and executes the contract in GenVM through
 an owned local GenLayer Studio stack. GLSim remains the faster default. Studio
 uses controlled model responses; this does not measure a live model's reasoning.

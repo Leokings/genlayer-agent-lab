@@ -1,6 +1,69 @@
 /** Public HTTP client. Node.js 24 executes this TypeScript without a build step. */
 import { isIP } from "node:net";
 
+/** Lossless v2 project JSON. BigInt is encoded explicitly; strings stay strings. */
+export function encodeProjectWire(value: any): any {
+  let remaining = 100000;
+  function visit(item: any, depth: number, parents: Set<any>): any {
+    if (--remaining < 0 || depth > 48) throw new Error("Project JSON exceeds its structural limit");
+    if (typeof item === "bigint") {
+      if (item.toString().replace("-", "").length > 256) throw new Error("Project integer exceeds its digit limit");
+      return item >= -9007199254740991n && item <= 9007199254740991n ? Number(item) : {$lab_integer: item.toString()};
+    }
+    if (typeof item === "number") {
+      if (!Number.isFinite(item) || (Number.isInteger(item) && !Number.isSafeInteger(item))) throw new Error("Use BigInt or an exact decimal string for large project integers");
+      return item;
+    }
+    if (item === null || typeof item === "string" || typeof item === "boolean") return item;
+    if (typeof item !== "object" || parents.has(item)) throw new Error("Project JSON must be acyclic data");
+    const next = new Set(parents); next.add(item);
+    if (Array.isArray(item)) return item.map(child => visit(child, depth + 1, next));
+    const entries = Object.entries(item).map(([key, child]) => [key, visit(child, depth + 1, next)]);
+    const result = Object.fromEntries(entries);
+    return entries.length === 1 && ["$lab_integer", "$lab_object"].includes(entries[0][0] as string) ? {$lab_object: result} : result;
+  }
+  return visit(value, 0, new Set());
+}
+
+export function decodeProjectWire(value: any): any {
+  let remaining = 100000;
+  function visit(item: any, depth: number): any {
+    if (--remaining < 0 || depth > 48) throw new Error("Project JSON exceeds its structural limit");
+    if (item === null || typeof item !== "object") return item;
+    if (Array.isArray(item)) return item.map(child => visit(child, depth + 1));
+    const keys = Object.keys(item);
+    if (keys.length === 1 && keys[0] === "$lab_integer") {
+      const text = item.$lab_integer;
+      if (typeof text !== "string" || text.replace("-", "").length > 256 || !/^(0|-[1-9][0-9]*|[1-9][0-9]*)$/.test(text)) throw new Error("Invalid exact integer tag");
+      const number = BigInt(text);
+      return number >= -9007199254740991n && number <= 9007199254740991n ? Number(number) : number;
+    }
+    if (keys.length === 1 && keys[0] === "$lab_object") {
+      const original = item.$lab_object;
+      if (!original || Array.isArray(original) || typeof original !== "object" || Object.keys(original).length !== 1 || !["$lab_integer", "$lab_object"].includes(Object.keys(original)[0])) throw new Error("Invalid escaped project object");
+      return Object.fromEntries(Object.entries(original).map(([key, child]) => [key, visit(child, depth + 2)]));
+    }
+    return Object.fromEntries(Object.entries(item).map(([key, child]) => [key, visit(child, depth + 1)]));
+  }
+  return visit(value, 0);
+}
+
+export function parseProjectJson(text: string): any {
+  // Node 24 and current browsers expose the original token to the reviver.
+  const parsed = JSON.parse(text, (_key: string, value: any, context: any) => {
+    if (typeof value === "number" && Number.isInteger(value) && !Number.isSafeInteger(value)) {
+      if (!context?.source || !/^-?(0|[1-9][0-9]*)$/.test(context.source) || context.source.replace("-", "").length > 256) throw new Error("Cannot read this large integer exactly; use the tagged project format");
+      return BigInt(context.source);
+    }
+    return value;
+  });
+  return decodeProjectWire(parsed);
+}
+
+export function stringifyProjectJson(value: any, spaceOrReplacer?: any, space?: number): string {
+  return JSON.stringify(encodeProjectWire(value), null, typeof spaceOrReplacer === "number" ? spaceOrReplacer : space);
+}
+
 export type Decision = {
   decision_id: string;
   verdict: "approve" | "deny";
@@ -58,13 +121,14 @@ export class LabClient {
     return `/v1/runs/${encodeURIComponent(runId)}`;
   }
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const project = path.startsWith("/v1/workflows/project-") || (path === "/v1/workflows" && (body as any)?.spec?.schema_version === 2);
     const response = await fetch(`${this.baseUrl}${path}`, {
       method, redirect: "error", signal: AbortSignal.timeout(30_000),
       headers: {Authorization: `Bearer ${this.token}`, ...(body === undefined ? {} : {"Content-Type": "application/json"})},
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : project ? stringifyProjectJson(body) : JSON.stringify(body),
     });
     let content: any;
-    try { content = await response.json(); }
+    try { content = project ? parseProjectJson(await response.text()) : await response.json(); }
     catch { throw new LabError("Lab returned an invalid JSON response", response.status); }
     if (!response.ok) {
       const detail = String(content.detail ?? "Request rejected").replaceAll(this.token, "[redacted]").slice(0, 1000);
@@ -94,6 +158,8 @@ export class LabClient {
     return `/v1/workflows/${encodeURIComponent(runId)}`;
   }
   workflowCreate(spec: Record<string, unknown>): Promise<{run_id: string; agent_token: string; status: string}> {
+    // Pass parsed documents from parseProjectJson; remove their file marker.
+    if (spec.integer_encoding === "lab-tagged-decimal-v1") spec = Object.fromEntries(Object.entries(spec).filter(([key]) => key !== "integer_encoding"));
     return this.request("POST", "/v1/workflows", {spec});
   }
   workflowList(): Promise<Record<string, unknown>[]> { return this.request("GET", "/v1/workflows"); }

@@ -1,20 +1,35 @@
 # Build status
 
-This checkout is the alpha 9 development candidate. Status follows executable
-behavior, not the original release target. Published alpha 8 evidence remains
-historical; it is not automatic verification of the new workflow extension.
+This checkout is the alpha 10 development candidate for the combined
+[Job 1 implementation](DEVELOPMENT_ROADMAP.md#combined-job-1-extension--september-8-2026).
+Its project interfaces, authoring, clients and durable journal are implemented.
+The consolidated source/runtime checks passed: 1,194 Python tests, seven actual
+Studio reference cases with the expected results, MCP and TypeScript appeals,
+desktop/mobile report inspection, and forced Lab interruption during a pending
+three-contract workflow. [The evidence](evidence/project-workflows-2026-09-08.json)
+retains run identities, actual fees, child outcomes and recovery checks.
 
-Deferred expansion: [Job 1 — larger contract projects and protocol extensions](BACKLOG.md#job-1-support-larger-contract-projects-and-protocol-extensions).
-Revisit with the user after the current developer version is finished; it is
-outside the current build scope.
+Installed-wheel verification and the OS package matrix are separate artifact
+gates recorded with the candidate release. The user's short
+[VPS onboarding trial](VPS_QUICKSTART.md) and independent external developer
+validation remain unverified; source checks do not substitute for those trials.
 
-Current improvement plan: [agents using GenLayer](DEVELOPMENT_ROADMAP.md).
-It consolidates the relevant Job 1 workflow improvements and uses owned local
-Studio as the primary backend for agent appeal and GenLayer-function tests.
-The first `service_release` workflow implementation is now built. See
-[Studio workflows](STUDIO_WORKFLOWS.md) for the actual commands, supported
-integration format and boundaries. The larger Job 1 remains deferred.
-Supporting research: [agent investigation, appeals and decision workflows](AGENT_WORKFLOW_RESEARCH.md).
+Read [project workflows](PROJECT_WORKFLOWS.md), [project bindings](PROJECT_BINDINGS.md)
+and [scenario authoring](SCENARIO_AUTHORING.md) for the expanded interfaces.
+Developers supply possible model responses and reviewed behavior rules. Actual
+local Studio runs the contracts; reports assess how the agent reacts and acts.
+Contract-LLM judgment quality evaluation is outside scope.
+
+The project profile has its own fee-enabled Studio 0.123.0-rc.6 stack, separate
+from the legacy installation. Its GenVM JSON fixture conversion is adapted to
+the pinned decoder's text format. This changes serialization, not decisions or
+consensus outcomes. See [verification](VERIFICATION.md) for actual evidence.
+
+## Historical alpha 9 evidence
+
+The following records describe the earlier `service_release` profile. They do
+not independently verify alpha 10 project workflows or close its release gates.
+See [legacy Studio workflows](STUDIO_WORKFLOWS.md) for those supported commands.
 
 Scope clarification, September 7: developers supply possible contract model
 responses and workflow rules; local Studio processes the actual supported

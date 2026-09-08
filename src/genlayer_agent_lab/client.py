@@ -73,6 +73,14 @@ class LabClient:
         self.close()
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        payload = kwargs.get("json")
+        project = (path.startswith("/v1/workflows/project-") or
+                   path == "/v1/workflows" and type(payload) is dict and
+                   type(payload.get("spec")) is dict and payload["spec"].get("schema_version") == 2)
+        if project and payload is not None:
+            from .project_wire import encode_project_wire
+
+            kwargs["json"] = encode_project_wire(payload)
         try:
             response = self._http.request(method, path, **kwargs)
         except httpx.RequestError as exc:
@@ -85,7 +93,12 @@ class LabClient:
             message = str(detail).replace(self._token, "[redacted]")[:1000]
             raise LabError(f"Lab HTTP {response.status_code}: {message}", response.status_code)
         try:
-            return response.json()
+            result = response.json()
+            if project or type(result) is dict and result.get("integer_encoding") == "lab-tagged-decimal-v1":
+                from .project_wire import decode_project_wire
+
+                return decode_project_wire(result)
+            return result
         except ValueError:
             raise LabError("Lab returned an invalid JSON response", response.status_code) from None
 
@@ -151,6 +164,10 @@ class LabClient:
         return f"/v1/workflows/{quote(run_id, safe='')}"
 
     def workflow_create(self, spec: dict[str, Any]) -> dict:
+        if spec.get("integer_encoding") == "lab-tagged-decimal-v1":
+            from .project_wire import decode_project_wire
+
+            spec = decode_project_wire({key: value for key, value in spec.items() if key != "integer_encoding"})
         return self._request("POST", "/v1/workflows", json={"spec": spec})
 
     def workflow_list(self) -> list[dict]:

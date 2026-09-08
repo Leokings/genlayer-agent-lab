@@ -28,6 +28,10 @@ If the runtime check fails, inspect its error before proceeding. Distinguish nat
 
 ## Verify execution and start the service
 
+For the expanded multi-contract project profile, use the project setup below.
+The original GLSim smoke test in this section is useful when that backend is
+requested; it does not verify project Studio readiness.
+
 Choose an identifier returned by `scenarios` and run:
 
 ```console
@@ -58,7 +62,63 @@ The lightweight native runtime runs bundled contracts with mocked evidence. Alph
 
 Report whether an actual container executed, separately from passing interface/unit tests.
 
-## Optional Studio runtime
+## Project Studio: expanded agent workflows
+
+For agents reacting to structured decisions, appeals, fees and declared
+multi-contract effects, read `docs/PROJECT_WORKFLOWS.md`. This profile requires
+Docker with Linux containers and uses a separately owned modern Studio stack.
+When Docker is missing, install Docker Engine and its Compose plugin using the
+official host-platform instructions within the requested setup authorization.
+Use Engine on a headless Linux VPS; confirm daemon access for the installation
+user before building. A new VPS may need these dependencies even when the Lab
+Python package installs successfully.
+From source, initialize the chosen data directory and run:
+
+```console
+uv run --locked gl-agent-lab project studio-build --port 8796
+uv run --locked gl-agent-lab project studio-status
+uv run --locked gl-agent-lab serve --port 8765
+```
+
+Pass the same `--data-dir PATH` to each command if using a custom directory. For
+an installed wheel, use its installed command and exported kit. The first build
+downloads pinned dependencies; let the command finish without repeated rebuilds.
+Subsequent starts use `project studio-up`. The Lab user service starts the Lab;
+it does not build or start Studio implicitly. Check Studio readiness separately.
+
+Use `project verify --case prediction --timeout 900 --url http://127.0.0.1:8765`
+for a bounded installation smoke test. Use the complete verifier only when a
+full verification run is requested. It requires no model key: contract model
+responses are controlled fixtures and reference agents are scripted. The tested
+developer agent keeps its own model. Do not claim it has been tested merely
+because a reference agent passed.
+
+Project bindings define source files, pinned dependencies, contract addresses
+within the created run, typed operations and state reads. Read
+`docs/PROJECT_BINDINGS.md` and `docs/SCENARIO_AUTHORING.md` when adapting a
+developer project. Generated scenarios are drafts; the developer reviews the
+expected behavior before approving their exact content digest. This is not an
+assessment of whether the contract's LLM reached a correct real-world judgment.
+
+The existing HTTP, Python, TypeScript and run-scoped MCP workflow interfaces
+also accept project runs. Set `LAB_MODE=workflow` for agent MCP. Project numeric
+values use the documented lossless integer encoding; use the supplied clients
+instead of rounding fees or interpreting every decimal-looking string as a
+number. The workflow dashboard imports approved scenario JSON files and shows
+the resulting contract states, fees, child effects and reports.
+
+On a VPS, bind the Lab and Studio to loopback and open the dashboard through an
+SSH tunnel, as described in `docs/PROJECT_WORKFLOWS.md`. Installing on the
+developer's VPS does not require an account on a shared Lab hosting service.
+
+Project workflows journal signed submission identity and reconcile after a Lab
+process interruption with Studio state intact. Preserve the installation's
+`admin.token`, which protects that journal, and the Studio volumes. Follow
+`docs/RECOVERY.md` for backups and restored histories; a restored archive is
+different from restarting the same installation. Require observed finality,
+execution success and completed appeal rounds before reporting verification.
+
+## Legacy Studio runtime
 
 When GenVM execution or local appeal checks are requested, read `docs/STUDIO.md`.
 Use this installation's `studio build`, `studio up`, `studio status` and

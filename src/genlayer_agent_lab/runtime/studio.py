@@ -178,10 +178,11 @@ def _snapshot(raw: dict, tx_id: str) -> dict:
 
 
 class _LoopbackProvider(BaseProvider):
-    def __init__(self, endpoint: str, remaining):
+    def __init__(self, endpoint: str, remaining, *, request_timeout=10.0):
         super().__init__()
         self.url = endpoint
         self._remaining = remaining
+        self._request_timeout = request_timeout
         self._http = httpx.Client(trust_env=False, follow_redirects=False)
         self._sequence = 0
         self.on_submission = None
@@ -193,7 +194,7 @@ class _LoopbackProvider(BaseProvider):
         payload = {"jsonrpc": "2.0", "id": self._sequence, "method": str(method), "params": params}
         try:
             body = bytearray()
-            timeout = httpx.Timeout(min(remaining, 10.0))
+            timeout = httpx.Timeout(min(remaining, self._request_timeout))
             if method == "eth_sendRawTransaction" and self.on_submission_attempt is not None:
                 self.on_submission_attempt()
             with self._http.stream("POST", self.url, json=payload, timeout=timeout) as response:

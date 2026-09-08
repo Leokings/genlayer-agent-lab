@@ -1,10 +1,29 @@
-# Alpha 8 release checklist
+# Developer alpha release checklist
 
 This is a developer alpha with controlled model responses. It is suitable for
 reproducible agent integration experiments within the documented interfaces.
 It does not certify an agent's general safety or performance with live models.
 
-## What changed after alpha 7
+## Alpha 10 candidate
+
+The combined project profile adds typed contract projects and operation bindings,
+reviewed behavioral scenarios, actual local fees/appeals/child effects, and a
+durable signing journal. HTTP, Python, TypeScript and MCP expose the same scoped
+workflow capabilities. The dashboard and installation kit include these paths.
+See [the current build status](BUILD_STATUS.md) for the actual completed gates.
+
+The candidate's main checks are regression, actual project Studio runs through
+the language/MCP clients, an interrupted Lab run with Studio intact, and a fresh
+wheel installation. The user's short [VPS trial](VPS_QUICKSTART.md) follows that
+candidate. It is separate from independent external developer validation.
+
+The pinned Studio prerelease includes a narrow JSON fixture serialization
+adapter for GenVM v0.3. Record its source/image/adapter identity. The installed
+older GenVM semantic linter cannot load this runner family; do not report that
+check as passed. Actual execution in the pinned GenVM verifies the supplied
+contract examples. Python Ruff and ordinary test checks still apply.
+
+## Historical change after alpha 7
 
 - A fresh Windows 11 guest exposed a missing issuer certificate while downloading
   the pinned GenVM bundle. The downloader now adds Certifi's public roots to
@@ -34,7 +53,7 @@ uv run --locked python scripts/prepare-release.py --source-commit VERIFIED_40_CH
 
 The final command requires a new destination, audits the wheel/source file lists,
 then assembles the wheel, source archive, initial setup instructions, setup skill
-and `SHA256SUMS` under `dist/release-0.1.0a8`. It never publishes anything. Preserve
+and `SHA256SUMS` under `dist/release-0.1.0a10`. It never publishes anything. Preserve
 the verified bundle unchanged and record its checksum when sharing it. The
 source archive includes `uv.lock`; the wheel carries the installation kit.
 

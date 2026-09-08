@@ -4,12 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "genlayer-agent-lab"
-version = "0.1.0a9"
+version = "0.1.0a10"
 description = "Self-hosted scenario testing for agents consuming GenLayer decisions"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = "MIT"
 dependencies = [
+  "cryptography==50.0.1",
   "certifi==2026.7.22",
   "fastapi==0.141.1",
   "uvicorn==0.52.4",

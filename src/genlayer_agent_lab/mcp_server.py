@@ -7,9 +7,34 @@ import sys
 from typing import Any, Literal
 
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from genlayer_agent_lab import __version__
-from genlayer_agent_lab.client import LabClient
+from genlayer_agent_lab.client import LabClient, LabError
+
+
+def _scoped_workflow_call(action, *args):
+    """Preserve only retry classification across MCP's expected tool errors."""
+    try:
+        return _workflow_tool_result(action(*args))
+    except LabError as exc:
+        # MCP 2 hides unexpected exception messages. Raising ToolError makes the
+        # bounded classification available without exposing provider responses.
+        code = exc.status_code
+        if type(code) is int and 100 <= code <= 599:
+            raise ToolError(f"Lab HTTP {code}: workflow request failed") from None
+        raise ToolError("Lab connection failed (transport)") from None
+
+
+def _workflow_tool_result(value):
+    """MCP clients may parse JSON numbers through JavaScript's number type."""
+    if type(value) is list:
+        return [_workflow_tool_result(item) for item in value]
+    if type(value) is dict and (value.get("profile") == "project"
+                               or str(value.get("run_id", "")).startswith("project-")):
+        from .project_wire import encode_project_wire
+        return encode_project_wire(value)
+    return value
 
 
 def build_server(
@@ -142,27 +167,27 @@ def _add_workflow_tools(server: MCPServer, lab: LabClient, role: str, run_id: st
         @server.tool(structured_output=True)
         def list_workflows() -> list[dict[str, Any]]:
             """List workflow run summaries without credentials."""
-            return lab.workflow_list()
+            return _scoped_workflow_call(lab.workflow_list)
 
         @server.tool(structured_output=True)
         def start_workflow(spec: dict[str, Any]) -> dict[str, Any]:
             """Create a workflow from its administrator-provided specification."""
-            return lab.workflow_create(spec)
+            return _scoped_workflow_call(lab.workflow_create, spec)
 
         @server.tool(structured_output=True)
         def get_workflow(run_id: str) -> dict[str, Any]:
             """Read workflow progress without advancing it."""
-            return lab.workflow_get(run_id)
+            return _scoped_workflow_call(lab.workflow_get, run_id)
 
         @server.tool(structured_output=True)
         def get_workflow_report(run_id: str) -> dict[str, Any]:
             """Read workflow evidence, provenance and evaluator results."""
-            return lab.workflow_report(run_id)
+            return _scoped_workflow_call(lab.workflow_report, run_id)
 
         @server.tool(structured_output=True)
         def cancel_workflow(run_id: str) -> dict[str, Any]:
             """Cancel a workflow while retaining recorded evidence."""
-            return lab.workflow_cancel(run_id)
+            return _scoped_workflow_call(lab.workflow_cancel, run_id)
 
     else:
         assert run_id is not None
@@ -170,27 +195,32 @@ def _add_workflow_tools(server: MCPServer, lab: LabClient, role: str, run_id: st
         @server.tool(structured_output=True)
         def observe() -> dict[str, Any]:
             """Observe this workflow's task, available operations and current public state."""
-            return lab.workflow_observe(run_id)
+            return _scoped_workflow_call(lab.workflow_observe, run_id)
 
         @server.tool(structured_output=True)
         def invoke_operation(
             operation: str, arguments: dict[str, Any], idempotency_key: str,
             expected_decision_id: str | None = None,
         ) -> dict[str, Any]:
-            """Invoke an available workflow operation; retain the same key and arguments on retry."""
-            return lab.workflow_invoke(
+            """Invoke a declared operation with the same key/arguments on retry.
+
+            Project runs also declare inspect_fees, inspect_appeal and read_evidence
+            in their policy. Read observe() for method argument schemas and current
+            decision identities. Fees are local test balances; grading is private.
+            """
+            return _scoped_workflow_call(lab.workflow_invoke,
                 run_id, operation, arguments, idempotency_key, expected_decision_id,
             )
 
         @server.tool(structured_output=True)
         def appeal_decision(idempotency_key: str, expected_decision_id: str) -> dict[str, Any]:
             """Appeal the identified active decision. This does not upload new evidence."""
-            return lab.workflow_appeal(run_id, idempotency_key, expected_decision_id)
+            return _scoped_workflow_call(lab.workflow_appeal, run_id, idempotency_key, expected_decision_id)
 
         @server.tool(structured_output=True)
         def finish() -> dict[str, Any]:
             """Finish this workflow; evaluation remains available to its administrator."""
-            return lab.workflow_finish(run_id)
+            return _scoped_workflow_call(lab.workflow_finish, run_id)
 
 
 def main() -> None:
