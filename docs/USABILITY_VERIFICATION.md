@@ -48,13 +48,24 @@ mobile failure. It omits credentials, private scenario fixtures and raw receipts
 | Browser report and export | Both saved reports passed final desktop/mobile display, readable HTML export and no-page-error checks; exports contained no tokens | Read-only rechecks of the two actual completed runs after the layout correction; no additional workflow mutations |
 | Mobile connection layouts | **All 8 combinations passed**: MCP/Python/TypeScript/HTTP × same computer/SSH tunnel | Mocked creation response pointing to an existing completed run; each 390-pixel layout had scroll width 390, no page errors and no actual workflow mutations |
 | Local built-wheel onboarding probe | **Passed** | Fresh virtual environment outside the checkout, cached dependencies, isolated imports, installed template/review checks, setup help and exact dashboard asset hashes; [receipt](evidence/usability-wheel-local-2026-09-08.json). This targeted probe did not start Studio |
-| Alpha 12 remote package CI | **Result not recorded yet** | Alpha 11's passing matrix belongs to that historical artifact |
+| Alpha 12 remote package CI | **macOS passed; Linux and Windows failed synthetic workflow cleanup tests** | [Run 34247358475](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34247358475); the test-budget correction below awaits remote confirmation |
 | Alpha 12 artifact publication | **Not published** | The local wheel receipt is not a published-artifact or clean-OS installation claim |
 
 The regression skips cover an unavailable optional Linux worker image, explicit
 live Studio opt-ins and a platform-specific permissions check. The warning is
 the upstream Starlette/AnyIO deprecation. Separate actual Studio runs must carry
 their own evidence rather than being inferred from this regression count.
+
+On September 8, 2026, remote run `34247358475` at `5d19a52` passed the macOS
+package and fresh installed-wheel checks. Linux failed one legacy synthetic
+workflow test and Windows failed four: their shared 150-millisecond cleanup
+budget could expire during durable persistence, producing an unresolved-cleanup
+report despite finalized transactions. The normal test cleanup budget is now
+three seconds, with explicit expired-budget and unfinished-transaction refusal
+checks retained. Production cleanup behavior is unchanged. The focused workflow
+suite passed locally (**39 passed in 7.87 seconds**) and lint passed; the corrected
+Linux/Windows remote gates remain pending. Their wheel probes were skipped after
+the test failures, so this record does not claim they passed.
 
 ## Review findings addressed
 

@@ -25,7 +25,7 @@ def spec(**changes):
             "timeout_seconds": 5, **changes}
 
 
-def wait(function, predicate=lambda value: bool(value), timeout=3):
+def wait(function, predicate=lambda value: bool(value), timeout=5):
     deadline = time.monotonic() + timeout
     value = None
     while time.monotonic() < deadline:
@@ -188,8 +188,11 @@ def lab(tmp_path):
     client = FakeClient(store)
     cohort = FakeCohort(client)
     manager = WorkflowManager(store, tmp_path, client_factory=lambda *_: client,
-                              cohort_factory=lambda *_: cohort, poll_interval=.005, cleanup_timeout=.15)
+                              cohort_factory=lambda *_: cohort, poll_interval=.005, cleanup_timeout=3)
     yield manager, client, cohort, store
+    # Tests may leave a deliberately unfinalized transaction. Bound teardown
+    # separately from successful cleanup, which includes durable SQLite writes.
+    manager._cleanup_timeout = .15
     manager.close()
     store.close()
 
@@ -407,9 +410,32 @@ def test_cancel_does_not_restore_cohort_under_live_transaction(lab):
     manager, _, cohort, _ = lab
     run_id = start(lab)["run_id"]
     decision(lab, run_id)
+    manager._cleanup_timeout = .15
     manager.cancel(run_id)
     result = wait(lambda: manager.report(run_id), lambda value: value["status"] == "inconclusive")
     assert result["cleanup"] == "unresolved" and not cohort.restored and cohort.abandoned
+
+
+def test_expired_cleanup_budget_does_not_claim_restoration(lab, monkeypatch):
+    manager, _, cohort, _ = lab
+    run_id = start(lab)["run_id"]
+    decision(lab, run_id, finalize=True)
+    original_save = manager._save
+    elapsed = [0]
+    monkeypatch.setattr("genlayer_agent_lab.workflows.time", SimpleNamespace(
+        monotonic=lambda: time.monotonic() + elapsed[0], sleep=time.sleep,
+    ))
+
+    def exhaust_cleanup_budget(run):
+        original_save(run)
+        if run["status"] == "closing":
+            elapsed[0] += manager._cleanup_timeout + 1
+
+    monkeypatch.setattr(manager, "_save", exhaust_cleanup_budget)
+    manager.finish(run_id)
+    result = wait(lambda: manager.report(run_id), lambda value: value["status"] == "inconclusive")
+    assert result["cleanup"] == "unresolved" and cohort.abandoned and not cohort.restored
+    assert result["error_code"] == "studio_cleanup_unresolved"
 
 
 def test_cancel_drains_finalization_before_restoring_once(lab):
