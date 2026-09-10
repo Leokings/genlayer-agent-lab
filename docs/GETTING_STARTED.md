@@ -26,7 +26,19 @@ Select **Create test & connect agent** after reviewing those expectations. Studi
 
 ## Connect the agent you want to test
 
-Choose the generated connection instructions for MCP, HTTP, Python, or TypeScript. They include the Lab URL, this run's ID, and its scoped credential. Configure these in a separate test profile of your agent.
+Have your agent available before creating the run: the test time limit includes connection time. The dashboard defaults to 30 minutes and lets you review the selected limit before starting.
+
+Choose how your agent connects (MCP, HTTP, Python, or TypeScript) and where it runs. An agent on the VPS uses **On the same computer or VPS as the Lab**, even when you view the dashboard from your laptop.
+
+Click **Copy agent setup prompt** and paste the complete message into your agent. It includes the Lab URL, this run's ID and scoped credential, and the selected connection instructions. An agent with terminal/configuration tools can adapt those settings to its own host, load the connection, observe the run, and start its task. The human still reviews what is being tested; the generated message gives the agent public task access rather than private grading rules.
+
+The generated prompt contains a test access key. Keep it private and save it when the test is created; the dashboard cannot recover that key after a refresh. If clipboard access is unavailable, expand and copy the displayed setup prompt. If the run expires during setup, create a fresh reviewed run and replace the old connection with its new settings.
+
+This route is not exclusive to OpenClaw or an OpenAI model. It requires an agent host that lets the agent manage its tools. If that capability is unavailable, the agent should identify the specific remaining configuration step. Use the manual settings below for that host; a written claim of connection is not proof that the tools are available.
+
+### Manual connection
+
+**Copy connection settings** and **Copy start prompt** remain available for manual configuration or a host without self-configuration tools. Use the connection settings in a separate test profile of your agent.
 
 For an MCP host, use the generated command, arguments, and environment in that host's normal configuration. For code integrations, use the generated example with the supplied client. A GUI client may need the absolute path to the installed executable because its environment differs from your terminal.
 

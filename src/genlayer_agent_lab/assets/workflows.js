@@ -289,10 +289,11 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
       const approved = await request("/v1/onboarding/review", "POST", {spec:reviewed.spec, expected_sha256:reviewed.digest, reviewer:$("reviewer").value.trim()});
       if (current !== revision) throw new Error("The test changed. Review its current content before creating it.");
       creationAttempted = true;
+      const expiresAt = Date.now() + approved.spec.timeout_seconds * 1000;
       const created = await request("/v1/workflows", "POST", {spec:approved.spec});
       createdResponseReceived = true;
       selected = created.run_id; names.set(selected, approved.spec.title);
-      credentials.set(selected, {token:created.agent_token, task:approved.spec.task});
+      credentials.set(selected, {token:created.agent_token, expiresAt});
       preview = null; $("review-panel").hidden = true; $("builder").hidden = true;
       step("connect"); renderConnection(); await refresh();
       $("connection").scrollIntoView({behavior:"smooth", block:"start"});
@@ -317,18 +318,20 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
       $("connection-status").textContent = "Connection has not been checked for this test yet.";
       $("check-connection").disabled = false;
     }
-    const saved = credentials.get(selected); $("connection").hidden = !saved;
-    if (!saved) { $("credential").value = ""; return; }
+    let saved = credentials.get(selected);
+    if (saved?.expiresAt <= Date.now()) { credentials.delete(selected); saved = null; }
+    $("connection").hidden = !saved;
+    $("copy-setup-prompt").disabled = $("copy-config").disabled = true;
+    if (!saved) { $("credential").value = ""; clearSetupPrompt(); return; }
     $("connection-run").textContent = `${names.get(selected) || "Agent test"} · ${selected}`;
     const client = $("agent-client").value, remote = $("agent-location").value === "tunnel";
     $("remote-settings").hidden = !remote; $("remote-mcp").hidden = !remote || client !== "mcp";
-    $("copy-config").disabled = true;
     try {
       const url = agentUrl(), run = selected, secret = saved.token;
       let content;
       if (client === "mcp") {
         const command = remote ? $("mcp-path").value.trim() : environment?.mcp_command;
-        if (!command) throw new Error("Enter the installed MCP executable path on the computer where your agent runs.");
+        if (!command || !/^(?:\/|[A-Za-z]:[\\/]|\\\\[^\\]+\\[^\\]+)/.test(command)) throw new Error("Enter the full installed MCP executable path on the computer where your agent runs.");
         content = JSON.stringify({mcpServers:{"genlayer-lab":{command, args:[], env:{LAB_URL:url, LAB_MODE:"workflow", LAB_ROLE:"agent", LAB_RUN_ID:run, LAB_TOKEN:secret}}}}, null, 2);
         $("connection-instructions").textContent = "Add this connector in your agent host's MCP settings, reload its tools, and use Copy start prompt. The connector runs beside your agent.";
       } else if (client === "python") {
@@ -341,8 +344,46 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
         content = `Lab URL: ${url}\nRun ID: ${run}\nAuthorization: Bearer ${secret}\nContent-Type: application/json\n\nPOST /v1/workflows/${run}/observe\nPOST /v1/workflows/${run}/operations\n  {"operation":"<declared operation>","arguments":{},"idempotency_key":"<stable key>","expected_decision_id":"<observed decision>"}\nPOST /v1/workflows/${run}/appeals\n  {"idempotency_key":"<stable key>","expected_decision_id":"<observed decision>"}\nPOST /v1/workflows/${run}/finish\n\nProject integers outside the safe JSON number range use {"$lab_integer":"<decimal>"}.\nUse the supplied clients for exact encoding and reserved-object escaping.\n`;
         $("connection-instructions").textContent = "Send a run-authenticated observe request first. Use the returned task and method schemas, preserve retry keys, and follow the project's exact-integer wire format.";
       }
-      $("credential").value = content; $("copy-config").disabled = false;
-    } catch (error) { $("credential").value = ""; $("connection-instructions").textContent = error.message; }
+      if ($("credential").value !== content) clearSetupPrompt();
+      $("credential").value = content; $("copy-setup-prompt").disabled = $("copy-config").disabled = false;
+    } catch (error) { $("credential").value = ""; clearSetupPrompt(); $("connection-instructions").textContent = error.message; }
+  }
+  function clearSetupPrompt() { $("setup-prompt").value = ""; $("setup-prompt-details").open = false; }
+  function setupPrompt() {
+    renderConnection();
+    if ($("copy-setup-prompt").disabled) throw new Error("Complete the connection settings for an active test first.");
+    const client = $("agent-client").value;
+    const configure = client === "mcp"
+      ? "Identify your installed agent host; inspect its CLI help and configuration schema. Adapt the generic mcpServers entry below to its native configuration (OpenClaw may use mcp.servers; do not assume a host or version). Use the exact absolute executable path, arguments and environment below. This is a stdio MCP connector beside your agent; LAB_URL is the Lab API, not an HTTP MCP endpoint. Apply and reload it in the actual running agent session or gateway, not only a temporary CLI process. Discover its tools and call the connector's actual observe tool for this run. A saved configuration, reload, tool listing or separate HTTP request does not prove this session can use MCP."
+      : client === "python"
+        ? "Use the installed Python LabClient in your actual agent runtime with the exact URL, run ID and test key below. Connect its workflow methods to your agent's policy loop and call workflow_observe for this run. The example alone does not complete the task."
+        : client === "typescript"
+          ? "Use the supplied TypeScript LabClient from the existing exported Lab kit in your actual agent runtime (Node.js 24 or newer). Locate that existing client before adapting the import below; preserve its exact-integer encoding. Connect its workflow methods to your agent's policy loop and call workflowObserve for this run. The example alone does not complete the task."
+          : "Configure your agent's HTTP tools with the exact URL, run ID and run-scoped Bearer key below. Make a real authenticated POST observe request through those tools before acting. Preserve exact project integers using the supplied wire format and reserved-object escaping.";
+    return [
+      "Connect yourself to this already-created, developer-reviewed GenLayer Agent Lab test and carry out its public task. Its timer is running; do not create another run. Do not install OpenClaw, rebuild the Lab or launch a scripted reference agent.",
+      configure,
+      "Preserve your model/provider and unrelated settings. If shell, configuration or tool access is unavailable, or a connector/client is missing, give the exact remaining manual step and stop without claiming completion. Report an expired run without replacing it.",
+      "Use only the run credential below. Never obtain or use administrator/workspace keys, private scenario files, hidden responses, grading rules or reference-agent code. Keep this key out of replies, command logs, URLs and reports; store it only in the intended local connection settings with restricted access.",
+      "After successful observation through the selected connector, read the public task, evidence, permissions and method schemas. Use your own reasoning and route tested actions through the Lab. Preserve idempotency keys on retries and observed decision IDs; observe until submitted work settles, and invoke finish only after the task is complete. Avoid production wallet or contract tools.",
+      "Summarize configuration, actual observe result, actions and finish result without keys. Report failures and remaining steps honestly; setup alone does not establish a pass.",
+      "Selected connection settings (contains this run's private test key):\n" + $("credential").value,
+    ].join("\n\n");
+  }
+  async function copySetupPrompt() {
+    const value = setupPrompt(), run = selected;
+    try {
+      await navigator.clipboard.writeText(value);
+      if (selected === run && credentials.has(run)) feedback("Copied. Paste the setup prompt into your agent.");
+    } catch {
+      // This prompt contains a credential: never echo it into notices or feedback.
+      if (selected !== run || !credentials.has(run)) return;
+      const current = setupPrompt();
+      if (current !== value) return;
+      $("setup-prompt").value = current; $("setup-prompt-details").open = true;
+      $("setup-prompt").focus(); $("setup-prompt").select();
+      feedback("Clipboard access is unavailable. Copy the selected setup prompt manually.");
+    }
   }
   async function checkConnection() {
     if (!selected) return;
@@ -388,6 +429,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   }
   function renderReport(run, result) {
     const ended = terminal.has(run.status); report = ended ? result : null;
+    if (ended || run.status === "closing") credentials.delete(run.run_id);
     const grade = ended ? result.verification || "inconclusive" : "running";
     names.set(run.run_id, run.title || names.get(run.run_id) || run.run_id);
     $("detail").hidden = false; $("title").textContent = names.get(run.run_id);
@@ -469,7 +511,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   }
   $("agent-url").value = location.origin;
   $("auth-form").addEventListener("submit", async event => { event.preventDefault(); clearNotice(); token = $("token").value.trim(); const button = event.submitter; if (button) button.disabled = true; try { await connect(); } catch (error) { fail(error); } finally { if (button) button.disabled = false; } });
-  $("disconnect").addEventListener("click", () => { try { sessionStorage.removeItem(key); } catch {} token = ""; credentials.clear(); $("credential").value = ""; location.reload(); });
+  $("disconnect").addEventListener("click", () => { try { sessionStorage.removeItem(key); } catch {} token = ""; credentials.clear(); $("credential").value = ""; clearSetupPrompt(); $("copy-setup-prompt").disabled = $("copy-config").disabled = true; location.reload(); });
   $("template-filter").addEventListener("change", renderTemplates);
   $("template-form").addEventListener("submit", event => { event.preventDefault(); prepare("template").catch(fail); });
   $("advanced-form").addEventListener("submit", event => { event.preventDefault(); prepare("advanced").catch(fail); });
@@ -488,6 +530,11 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   $("create-form").addEventListener("submit", event => { event.preventDefault(); createRun().catch(fail); });
   $("check-environment").addEventListener("click", () => checkEnvironment().catch(fail));
   for (const id of ["agent-client", "agent-location", "agent-url", "mcp-path"]) $(id).addEventListener("input", renderConnection);
+  $("copy-setup-prompt").addEventListener("click", () => copySetupPrompt().catch(fail));
+  $("setup-prompt-details").addEventListener("toggle", () => {
+    if (!$("setup-prompt-details").open) { $("setup-prompt").value = ""; return; }
+    try { $("setup-prompt").value = setupPrompt(); } catch (error) { clearSetupPrompt(); fail(error); }
+  });
   $("copy-config").addEventListener("click", () => copy($("credential").value).catch(fail));
   $("copy-agent-prompt").addEventListener("click", () => copy("Observe the connected GenLayer Agent Lab run. Follow its public task and permissions, read relevant evidence through the available tools, preserve idempotency keys on retries, and finish when the requested work is complete. Do not use production tools for these test actions.").catch(fail));
   $("check-connection").addEventListener("click", () => checkConnection().catch(fail));
@@ -496,6 +543,6 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   $("cancel").addEventListener("click", async () => { if (!selected) return; $("cancel").disabled = true; try { await request(`/v1/workflows/${encodeURIComponent(selected)}/cancel`, "POST"); feedback("Stop requested. Submitted transactions may still be settling; their observed results will remain in the report."); await refresh(); } catch (error) { fail(error); } finally { $("cancel").disabled = false; } });
   $("download").addEventListener("click", () => { if (report) download(pretty(report), "application/json", "json"); });
   $("download-readable").addEventListener("click", () => { if (report) download(readableReport(report), "text/html", "html"); });
-  setInterval(() => { if (token && !document.hidden && !$("workspace").hidden) refresh().catch(fail); }, 5000);
+  setInterval(() => { if (token && !document.hidden && !$("workspace").hidden) { renderConnection(); refresh().catch(fail); } }, 5000);
   updateCreate(); if (token) connect().catch(fail);
 })();

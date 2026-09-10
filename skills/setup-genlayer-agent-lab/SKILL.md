@@ -1,13 +1,27 @@
 ---
 name: setup-genlayer-agent-lab
-description: Set up or reopen GenLayer Agent Lab on the developer's machine or VPS, diagnose prerequisites, and help connect their own agent to a reviewed project Studio test through MCP or HTTP.
+description: Install or reopen GenLayer Agent Lab, or configure an agent's tools from the Lab's generated setup prompt and connect it to a reviewed GenLayer test.
 ---
 
 # Set up GenLayer Agent Lab
 
+Choose the requested task first. If the user supplies the dashboard's generated agent setup prompt or a reviewed run's connection settings, use **Connect an existing reviewed run** below. A connection request to an already running Lab does not require installing Studio, authoring a new scenario, or retrieving workspace administrator access.
+
 Read `docs/INSTALL.md` and `docs/GETTING_STARTED.md` from the supplied checkout or exported installation kit. Use the developer's supplied artifact or the official repository at `https://github.com/Leokings/genlayer-agent-lab`. The candidate is not published on PyPI; do not install a similarly named registry package. Report the actual installed version and source revision when available.
 
 This skill's source URL is `https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md`. Agents with a local skill mechanism can install the supplied file through that mechanism. On later requests such as “Start my existing GenLayer Agent Lab,” reuse the known installation and data directory instead of reinstalling.
+
+## Connect an existing reviewed run
+
+Use the supplied connection settings and the installed agent host's supported configuration tools. This path requires terminal/configuration access; the prompt itself does not grant missing permissions or add tool support to a chat-only client. If a needed capability is unavailable, identify the exact remaining host-setting action for the user.
+
+For MCP, check the installed host's help/schema, then merge the supplied server definition into its native configuration. For example, the Lab's generic `mcpServers["genlayer-lab"]` entry maps to current OpenClaw's `mcp.servers["genlayer-lab"]`; other hosts use their own format. Retain the supplied absolute command, arguments, and `LAB_MODE`, `LAB_ROLE`, `LAB_URL`, `LAB_RUN_ID`, and run-scoped `LAB_TOKEN`. The bridge is stdio; its `LAB_URL` is the Lab HTTP API, not a remote MCP transport endpoint. Preserve unrelated settings and the user's chosen model.
+
+Apply configuration to the actual agent runtime/session, following that installed host's reload or restart mechanism. A CLI command that reloads only its own process does not establish that the running agent has new tools. If a new chat turn or host-managed approval is required, explain that specific step. Verify an actual `observe` request through the selected connection rather than treating saved configuration or MCP tool discovery as success.
+
+For HTTP or supplied Python/TypeScript clients, use the generated adapter with the agent's existing tool/policy loop. Keep the role and credential scoped to this run. The agent performs the test itself using public observations and declared operations; do not substitute a scripted reference policy or read workspace administrator credentials, private scenario files, or grading rules. Do not print credentials in replies or logs.
+
+After connecting, follow the public task and permissions, preserve retry keys, and finish the run when the requested work is complete. Report observed actions and the run identifier without claiming access to the developer's private grade. If the run has expired, tell the user to provide a fresh reviewed run's settings rather than silently creating a replacement with administrator access.
 
 ## Use one primary setup path
 
@@ -42,7 +56,7 @@ Use the guided dashboard: **Choose a test**, **Review test**, **Create test & co
 
 Help the developer review the task, supplied conditions, permissions, and independently expected behavior. Honor review or approval already given for the exact content. Changes to a custom draft's evidence, policy, sources, or expectations require the scenario's normal review process; do not approve a newly model-generated draft merely because it parses. Use the current session's stated expectations when sufficient and ask only when a consequential expected behavior is actually unspecified.
 
-Create a fresh run for the agent trial and use the generated MCP, HTTP, Python, or TypeScript instructions. Give the tested agent only its run credential, run ID, and Lab URL. Agent MCP uses `LAB_MODE=workflow`, `LAB_ROLE=agent`, `LAB_RUN_ID`, `LAB_TOKEN`, and `LAB_URL`, with an absolute installed executable path when the host requires it. Keep administrator tools in a separate developer connection.
+Have the tested agent ready before creating a fresh run: the deadline includes connection time. Select the actual connection method and agent location, then use **Copy agent setup prompt** as the primary handoff to an agent that can manage its tool configuration. It includes the scoped settings and instructions to configure, observe, and begin. The manual **Copy connection settings** and **Copy start prompt** actions remain alternatives. Give the tested agent only its run credential, run ID, Lab URL, and selected adapter settings. Agent MCP uses `LAB_MODE=workflow`, `LAB_ROLE=agent`, `LAB_RUN_ID`, `LAB_TOKEN`, and `LAB_URL`, with an absolute installed executable path when the host requires it. Keep administrator tools in a separate developer connection.
 
 Connect the developer's existing agent through its normal tool configuration or supported client adapter. OpenClaw is not required. A separate test profile should route the relevant operations into the Lab; installing MCP does not reroute arbitrary hardcoded RPC, wallet, or production calls. Report unsupported tool or contract shapes precisely and implement only the integration within the requested scope.
 

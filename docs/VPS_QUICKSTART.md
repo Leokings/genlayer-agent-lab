@@ -6,6 +6,8 @@ You need an existing VPS account, SSH access, Git, [uv](https://docs.astral.sh/u
 
 The Lab does not provision a VPS account or purchase server resources. Its scripted installation check needs no paid AI model or public GenLayer tokens. Your own agent uses its chosen model and provider.
 
+If your agent already has terminal access to this VPS, you can give it the [setup prompt](INSTALL.md#setup-with-an-agent) to perform the following installation and access steps. After you review a test, **Copy agent setup prompt** in the dashboard lets your agent configure its own supported connection and begin. Terminal and manual connection instructions remain available below.
+
 ## Start the installation
 
 In your VPS terminal:
@@ -37,7 +39,7 @@ uv run gl-agent-lab init --show-token
 
 Enter that administrator token in the dashboard. If you selected a custom data directory, include the same `--data-dir PATH` when retrieving it. Use a private terminal for this command and keep the token out of shared logs. Public ports 8765 and 8796 do not need to be opened.
 
-Follow [your first agent test](GETTING_STARTED.md): choose a template, review its expected behavior, create a test, and use its generated connection instructions. Give the tested agent that run's credential, not the administrator token.
+Follow [your first agent test](GETTING_STARTED.md): choose a template, review its expected behavior, create a test, and paste **Copy agent setup prompt** into your agent. Have the agent ready before creating the timed run. Give the tested agent that run's credential, not the administrator token.
 
 An agent on your computer uses the tunnel address, `http://127.0.0.1:8875`. An agent running directly on the VPS uses `http://127.0.0.1:8765`. A separate container needs a reachable route to the Lab host; its own loopback address is not the host. The dashboard's connection check records actual run-scoped requests so you can see whether the configured agent reached the run.
 

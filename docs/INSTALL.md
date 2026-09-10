@@ -2,6 +2,8 @@
 
 The primary setup runs the Lab and its owned project Studio stack on your machine. After installation, follow [your first agent run](GETTING_STARTED.md). For a remote Linux machine, use [the VPS quickstart](VPS_QUICKSTART.md).
 
+An agent with terminal and configuration access can perform the installation and connection steps for you. Use the [setup prompt below](#setup-with-an-agent). Once you review a test in the dashboard, **Copy agent setup prompt** gives your tested agent its own connection settings and instructions to configure its tools and start.
+
 ## Before you start
 
 | Requirement | What to check |
@@ -71,13 +73,15 @@ uv pip install --python .lab-env/Scripts/python.exe C:/path/to/supplied-wheel.wh
 
 The artifact must include the commands described in this guide; check its actual version and `setup --help`. The kit contains documentation, the setup skill, contracts, and runnable examples. Open `lab-kit/docs/GETTING_STARTED.md`. For example commands, replace `uv run gl-agent-lab` and `uv run python` with the installed environment's absolute executable paths, and use paths inside the exported kit. The source archive includes `uv.lock`; wheel installation resolves transitive dependencies through the package index.
 
-## Setup with a coding agent
+## Setup with an agent
 
 Ask your agent to read the local [setup skill](../skills/setup-genlayer-agent-lab/SKILL.md), or give it [the source URL](https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md):
 
-> Use setup-genlayer-agent-lab to install this checkout, check the prerequisites, start the dashboard, and help me connect my own agent for a first test.
+> Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. Reuse my existing installation if present. Check the requirements, start the Lab, help me open its dashboard, and guide me through reviewing my first test. Then help me use the Lab's generated agent setup prompt to connect the agent I want to test.
 
-An agent that supports local skills can install the supplied file using its normal mechanism. For later sessions, “Start my existing GenLayer Agent Lab” is enough context once the installation is known. The skill works with coding agents that can read instructions and run local commands; OpenClaw is not required.
+An agent that supports local skills can install the supplied file using its normal mechanism. For later sessions, “Start my existing GenLayer Agent Lab” is enough context once the installation is known. The skill works with agents that can read instructions and run local commands; OpenClaw is not required. It does not grant those capabilities to a chat-only agent or provision a cloud account.
+
+When the installation is ready, review and create a test, select how and where your agent connects, and click **Copy agent setup prompt**. Send the complete generated message to the agent you want to test. It carries that run's scoped settings, so you do not need to translate the MCP configuration manually. Keep the generated message private. If the agent cannot edit its host configuration, use the dashboard's manual connection settings for that host.
 
 ## Check the installation, then test your agent
 

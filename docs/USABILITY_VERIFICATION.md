@@ -93,6 +93,17 @@ complete onboarding without help.
 
 ## Remaining validation
 
+On September 10, 2026, the agent connection flow gained a generated **Copy agent
+setup prompt** action, with matching setup-skill and installation guidance.
+Focused onboarding tests passed (**48 passed**, one existing upstream
+deprecation warning). The isolated Chromium connection check passed its prompt,
+selected-client, clipboard fallback, run-change, expiry and workspace-lock
+assertions, with **zero live Lab requests**. These checks use synthetic browser
+responses and establish UI behavior; they do not establish that a real agent
+host accepted the configuration or completed a test. The updated setup skill
+also passed its structural validator. The actual OpenClaw/VPS connection trial
+remains pending.
+
 No paid model or live LLM-agent trial has been performed for this usability
 candidate. A scripted safe or faulty control is a workflow check, not a measure
 of an arbitrary model's ability. The user's VPS/selected-agent pilot and the two
