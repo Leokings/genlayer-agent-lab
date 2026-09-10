@@ -400,6 +400,8 @@ def project_scenario_document(value: dict) -> dict:
 
 def agent_scenario_view(value: dict) -> dict:
     """Only public task data and tool policy; fixtures and grading never leak."""
+    from .project_builtin_tools import builtin_operation_contracts
+
     spec = validate_project_scenario(value)
     public = {
         "schema_version": 2, "profile": "project", "id": spec["id"],
@@ -407,6 +409,7 @@ def agent_scenario_view(value: dict) -> dict:
         "evidence": [{"id": item["id"], "title": item["title"]}
                      for item in spec["evidence"]],
         "policy": copy.deepcopy(spec["policy"]), "timeout_seconds": spec["timeout_seconds"],
+        "builtin_operations": builtin_operation_contracts(spec),
     }
     if "submit_investigation" in spec["policy"]["operations"]:
         from .project_investigation import MAX_INVESTIGATIONS, InvestigationSubmission

@@ -273,8 +273,12 @@ def test_output_limit_terminates_real_client_process():
 
 
 def test_timeout_terminates_real_client_process():
-    with pytest.raises(RuntimeError, match="timed out"):
-        container._bounded_process([sys.executable, "-c", "import time; time.sleep(10)"], timeout=.1)
+    with pytest.raises(RuntimeError, match="timed out") as caught:
+        container._bounded_process([sys.executable, "-c",
+            "import time; print('last startup output', flush=True); time.sleep(10)"], timeout=.5)
+    assert b"last startup output" in caught.value.stdout
+    assert "last startup output" not in str(caught.value)
+    assert caught.value.returncode is not None
 
 
 @pytest.fixture

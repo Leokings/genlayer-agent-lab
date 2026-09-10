@@ -12,8 +12,12 @@ class WorkflowRouter:
     def _manager(self, run_id):
         return self.projects if run_id.startswith("project-") else self.legacy
 
-    def create(self, spec):
+    def create(self, spec, *, wait_for_agent=False):
         manager = self.projects if spec.get("schema_version") == 2 else self.legacy
+        if wait_for_agent:
+            if manager is self.legacy:
+                raise ValueError("Connection preparation requires a project workflow")
+            return manager.create(spec, wait_for_agent=True)
         return manager.create(spec)
 
     def list_runs(self):

@@ -3,6 +3,8 @@
 // --report=RUN_ID checks a saved report without creating another run.
 // --connection-fixture checks connection UI in a browser with fully intercepted
 // local assets/API fixtures. It uses synthetic credentials and no running Lab.
+// --report-fixture checks report refresh, selection, explanations and exports
+// with synthetic evidence. Both fixture flags may be run together.
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -11,14 +13,16 @@ const {spawn} = require('node:child_process');
 const {chromium} = require('playwright');
 
 const connectionFixture = process.argv.includes('--connection-fixture');
+const reportFixture = process.argv.includes('--report-fixture');
+const fixtureMode = connectionFixture || reportFixture;
 const dataDir = path.resolve(process.env.LAB_DATA_DIR || path.join(os.homedir(), '.genlayer-agent-lab'));
-const baseURL = connectionFixture ? 'http://127.0.0.1:8999' : process.env.LAB_URL || 'http://127.0.0.1:8765';
-const adminToken = connectionFixture ? 'fixture-workspace-secret' : fs.readFileSync(path.join(dataDir, 'admin.token'), 'utf8').trim();
+const baseURL = fixtureMode ? 'http://127.0.0.1:8999' : process.env.LAB_URL || 'http://127.0.0.1:8765';
+const adminToken = fixtureMode ? 'fixture-workspace-secret' : fs.readFileSync(path.join(dataDir, 'admin.token'), 'utf8').trim();
 const live = process.argv.includes('--live');
 const unsafe = process.argv.includes('--unsafe');
 const reportRunId = process.argv.find(arg => arg.startsWith('--report='))?.slice('--report='.length);
 const output = path.resolve(process.env.LAB_BROWSER_OUTPUT || path.join(dataDir, 'usability'));
-if (!connectionFixture) fs.mkdirSync(output, {recursive:true});
+if (!fixtureMode) fs.mkdirSync(output, {recursive:true});
 let testToken = '';
 const redact = value => [adminToken, testToken].filter(Boolean).reduce((text, secret) => text.replaceAll(secret, '[redacted]'), String(value));
 
@@ -49,7 +53,10 @@ async function verifyConnectionFixture(browser, checks) {
     project_snapshot:{definition:{contracts:{example:{}}}},fixtures:{},context:{},evidence:[],
     expectations:{rules:[{label:'Private fixture canary',op:'exists'}],required_actions:[],forbidden_actions:[],require_finalized:true},
     policy:{allow_appeal:false,operations:{},max_fee:null,max_total_fee:null}};
-  let creations = 0, status = 'running';
+  let creations = 0, status = 'awaiting_agent', phase = 'setup', remaining = 3600;
+  const setupDeadline = Math.floor(Date.now() / 1000) + 3600;
+  const timing = () => ({phase, setup_deadline_at:setupDeadline, started_at:phase === 'test' ? setupDeadline - 1800 : null,
+    deadline_at:phase === 'test' ? setupDeadline : null, seconds_remaining:remaining});
   const page = await browser.newPage({viewport:{width:1280,height:900}});
   const errors = [], unexpected = [];
   page.on('pageerror', error => errors.push(redact(error.message)));
@@ -73,9 +80,10 @@ async function verifyConnectionFixture(browser, checks) {
       result = {spec,digest:'fixture-reviewed-digest',summary:[],rules:[],warnings:[]};
     } else if (url.pathname === '/v1/onboarding/review') result = {spec};
     else if (url.pathname === '/v1/workflows' && request.method() === 'POST') {
-      creations++; result = {run_id:runId,agent_token:fixtureToken,status:'preparing'};
+      assert.equal(request.postDataJSON().wait_for_agent, true);
+      creations++; result = {run_id:runId,agent_token:fixtureToken,status:'preparing',timing:timing()};
     } else if (url.pathname === '/v1/workflows') result = creations ? [{run_id:runId,title:spec.title,status}] : [];
-    else if (url.pathname === '/v1/workflows/' + runId || url.pathname === '/v1/workflows/' + runId + '/report') result = {run_id:runId,title:spec.title,status,profile:'project',operations:[],checks:[],verification:'inconclusive'};
+    else if (url.pathname === '/v1/workflows/' + runId || url.pathname === '/v1/workflows/' + runId + '/report') result = {run_id:runId,title:spec.title,status,profile:'project',operations:[],checks:[],verification:'inconclusive',timing:timing()};
     else if (url.pathname === '/v1/onboarding/connection/' + runId) result = {connected:false,detail:'No authenticated agent activity observed yet.'};
     else { unexpected.push(request.method() + ' ' + url.pathname); return route.abort(); }
     return route.fulfill({json:result,status:url.pathname === '/v1/workflows' && request.method() === 'POST' ? 201 : 200});
@@ -107,6 +115,15 @@ async function verifyConnectionFixture(browser, checks) {
   assert.match(prompt, /actual running agent session or gateway/);
   assert.match(prompt, /mcp\.servers/);
   assert.match(prompt, /actual observe tool/);
+  assert.match(prompt, /openclaw mcp reload affects only that CLI process/);
+  assert.match(prompt, /operator run openclaw gateway restart/);
+  assert.match(prompt, /fresh chat with this same named agent/);
+  assert.match(prompt, /native tool search/);
+  assert.match(prompt, /do not require a hardcoded/);
+  assert.match(prompt, /Do not repeatedly spawn child agents or use MCP Apps\/view APIs/);
+  assert.match(prompt, /chosen model\/provider, permission settings/);
+  assert.match(prompt, /read_evidence takes an id field/);
+  assert.match(prompt, /60-minute limit/);
   assert.match(prompt, /do not create another run/);
   assert.match(prompt, /invoke finish only after/);
   assert.equal(await page.locator('#setup-prompt').inputValue(), '');
@@ -114,6 +131,23 @@ async function verifyConnectionFixture(browser, checks) {
   assert(!await page.locator('#feedback').textContent().then(value => value.includes(fixtureToken)));
   assert.equal(await page.evaluate(secret => [localStorage,sessionStorage].some(storage => Object.values(storage).some(value => value.includes(secret))), fixtureToken), false);
   checks.setup_prompt_current_run_and_private_review_separation = 'pass';
+  assert.match(await page.locator('#connection-timing').textContent(), /Setup:/);
+  // A skewed browser clock and more than 30 minutes of setup must not consume
+  // the behavioral budget. The server's remaining seconds own the countdown.
+  await page.evaluate(() => { window.fixtureNow = Date.now; const offset = 2400000; Date.now = () => window.fixtureNow() + offset; });
+  remaining = 1200;
+  await page.locator('#refresh').click();
+  await page.waitForFunction(() => document.querySelector('#connection-timing').textContent.includes('20:00'));
+  assert.equal(await page.locator('#copy-setup-prompt').isDisabled(), false);
+  phase = 'test'; status = 'running'; remaining = 1800;
+  await page.locator('#refresh').click();
+  await page.waitForFunction(() => document.querySelector('#connection-timing').textContent.includes('Test time: 30:00'));
+  assert.equal(await page.locator('#copy-setup-prompt').isDisabled(), false);
+  await page.evaluate(() => { Date.now = window.fixtureNow; });
+  phase = 'setup'; status = 'awaiting_agent'; remaining = 3600;
+  await page.locator('#refresh').click();
+  await page.waitForFunction(() => document.querySelector('#connection-timing').textContent.includes('Setup: 60:00'));
+  checks.setup_time_separate_from_first_observe_budget_and_clock_skew = 'pass';
 
   await page.locator('#setup-prompt-details summary').click();
   await page.waitForFunction(() => document.querySelector('#setup-prompt').value.length > 0);
@@ -174,7 +208,7 @@ async function verifyConnectionFixture(browser, checks) {
   await createFixture();
   await page.locator('#setup-prompt-details summary').click();
   await page.waitForFunction(() => document.querySelector('#setup-prompt').value.length > 0);
-  await page.evaluate(() => { const expiredTime = Date.now() + 1801000; Date.now = () => expiredTime; });
+  await page.evaluate(() => { const expiredTime = Date.now() + 3601000; Date.now = () => expiredTime; });
   await page.locator('#copy-setup-prompt').click();
   await page.locator('#connection').waitFor({state:'hidden'});
   assert.equal(await page.locator('#setup-prompt').inputValue(), '');
@@ -198,13 +232,114 @@ async function verifyConnectionFixture(browser, checks) {
   await page.close();
 }
 
+async function verifyReportFixture(browser, checks) {
+  const page = await browser.newPage({viewport:{width:1280,height:900}}), errors = [], unexpected = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const runId = 'fixture-report-run';
+  let fetchFailure = false, revision = 0;
+  let run = {run_id:runId,title:'Recovered evidence request',status:'running',profile:'project',state:{},verification:'inconclusive',checks:[],
+    operations:[{operation:'read_evidence',idempotency_key:'bad-read',arguments:{evidence_id:'settlement_record'},status:'rejected',error_code:'invalid_evidence_request',
+      error_detail:'read_evidence requires id. Replace evidence_id with id.'},
+      {operation:'read_evidence',idempotency_key:'correct-read',arguments:{id:'settlement_record'},status:'completed',result:{content:'Evidence read successfully'}}],
+    investigations:[{submission_id:'findings-1',disposition:'accept',summary:'Checked the evidence.',findings:[],citations:['settlement_record']}]};
+  await page.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    const asset = {'/':'workflows.html','/assets/workflows.js':'workflows.js','/assets/styles.css':'styles.css','/assets/onboarding.css':'onboarding.css'}[url.pathname];
+    if (asset) return route.fulfill({path:path.resolve('src/genlayer_agent_lab/assets', asset),contentType:asset.endsWith('.js') ? 'text/javascript' : asset.endsWith('.css') ? 'text/css' : 'text/html'});
+    let result;
+    if (url.pathname === '/v1/onboarding/templates') result = {templates:[]};
+    else if (url.pathname === '/v1/onboarding/status') result = {ready:true,checks:[]};
+    else if (url.pathname === '/v1/workflows') {
+      if (fetchFailure) return route.abort('connectionrefused');
+      result = [{run_id:runId,title:run.title,status:run.status}];
+    } else if (url.pathname === '/v1/workflows/' + runId || url.pathname === '/v1/workflows/' + runId + '/report') result = {...run, fixture_revision:revision};
+    else if (url.pathname === '/v1/onboarding/connection/' + runId) result = {connected:true,detail:'Agent activity recorded.'};
+    else { unexpected.push(url.pathname); return route.abort(); }
+    return route.fulfill({json:result});
+  });
+  await page.goto(baseURL + '/#token=' + adminToken);
+  await page.locator('.run-card').click();
+  await page.locator('#detail').waitFor({state:'visible'});
+  await page.locator('#operations details').first().evaluate(el => { el.open = true; });
+  await page.locator('#investigations details').evaluate(el => { el.open = true; });
+  await page.locator('.technical-details').evaluate(el => { el.open = true; });
+  const selectedText = await page.locator('#operations pre').first().evaluate(el => {
+    window.fixtureOperation = el.closest('li'); const text = el.firstChild;
+    const start = text.textContent.indexOf('evidence_id');
+    getSelection().setBaseAndExtent(text,start,text,start + 'evidence_id'.length);
+    return getSelection().toString();
+  });
+  run.operations.push({operation:'resolve',idempotency_key:'resolution',status:'submitted',tx_id:'fixture-transaction'}); revision++;
+  await page.locator('#refresh').evaluate(el => el.click());
+  await page.waitForFunction(() => document.querySelectorAll('#operations li').length === 3);
+  assert.equal(await page.evaluate(() => window.fixtureOperation === document.querySelector('#operations li')), true);
+  assert.equal(await page.evaluate(() => getSelection().toString()), selectedText);
+  assert.equal(await page.locator('#operations details').first().evaluate(el => el.open), true);
+  assert.equal(await page.locator('#investigations details').evaluate(el => el.open), true);
+  assert.equal(await page.locator('.technical-details').evaluate(el => el.open), true);
+  await page.locator('#operations details').last().evaluate(el => { el.open = true; });
+  await page.locator('#operations pre').last().evaluate(el => {
+    const text = el.firstChild, start = text.textContent.indexOf('fixture-transaction');
+    getSelection().setBaseAndExtent(text,start,text,start + 'fixture-transaction'.length);
+  });
+  // Change a field after the selected token, so restoring its exact range is observable.
+  run.operations[2] = {...run.operations[2],execution_success:true}; revision++;
+  await page.locator('#refresh').evaluate(el => el.click());
+  await page.waitForFunction(() => document.querySelector('#operations li:last-child pre').textContent.includes('execution_success'));
+  assert.equal(await page.locator('#operations details').last().evaluate(el => el.open), true);
+  assert.equal(await page.evaluate(() => getSelection().toString()), 'fixture-transaction');
+  checks.active_report_disclosures_nodes_and_text_selection = 'pass';
+
+  run = {...run,status:'completed',verification:'fail',cleanup:'restored',checks:[
+    ...Array.from({length:11}, (_, index) => ({id:'passed-' + index,label:'Reviewed outcome ' + index,outcome:'pass',detail:'Expected result observed.'})),
+    {id:'policy_compliance',label:'Agent respected the visible policy',outcome:'fail',detail:'A policy violation was recorded'},
+    {id:'behavior',label:'Agent respected allowed actions',outcome:'fail',detail:['invalid_evidence_request']}]}; revision++;
+  await page.locator('#refresh').click();
+  await page.waitForFunction(() => document.querySelectorAll('#evaluation-cards article').length === 13);
+  const summary = await page.locator('#result-summary').textContent();
+  assert.match(summary, /11 checks passed · 2 checks failed/);
+  assert.match(summary, /Test completed means the run finished/);
+  assert.match(summary, /both include the same rejected request/);
+  assert.match(await page.locator('#operations').textContent(), /Replace evidence_id with id/);
+  assert.deepEqual(JSON.parse(await page.locator('#evidence').textContent()), {...run,fixture_revision:revision});
+  await page.evaluate(() => { window.fixtureSummary = document.querySelector('#result-summary h3'); });
+  await Promise.all([page.waitForResponse(response => response.url().endsWith('/connection/' + runId)), page.locator('#refresh').click()]);
+  assert.equal(await page.evaluate(() => window.fixtureSummary === document.querySelector('#result-summary h3')), true);
+  assert.equal(await page.locator('#operations details').first().evaluate(el => el.open), true);
+  checks.completed_report_totals_overlap_unchanged_dom_and_raw_evidence = 'pass';
+
+  fetchFailure = true;
+  await page.locator('#refresh').click();
+  await page.locator('#notice').waitFor({state:'visible'});
+  assert.match(await page.locator('#notice').textContent(), /Lab did not respond/);
+  fetchFailure = false;
+  await page.locator('#refresh').click();
+  await page.locator('#notice').waitFor({state:'hidden'});
+  checks.successful_refresh_clears_transient_network_warning = 'pass';
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#download-readable').click();
+  const downloaded = await downloadPromise, chunks = [];
+  for await (const chunk of await downloaded.createReadStream()) chunks.push(chunk);
+  const html = Buffer.concat(chunks).toString('utf8');
+  assert.match(html, /11 checks passed · 2 checks failed/);
+  assert.match(html, /both include the same rejected request/);
+  assert.match(html, /Replace evidence_id with id/);
+  assert(!html.includes(adminToken));
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  checks.readable_report_matches_explanations_and_mobile_layout = 'pass';
+  assert.deepEqual(errors, []); assert.deepEqual(unexpected, []);
+  await page.close();
+}
+
 (async () => {
   const browser = await chromium.launch({headless:true, ...(process.env.LAB_BROWSER_CHANNEL ? {channel:process.env.LAB_BROWSER_CHANNEL} : {})});
   let created;
   const checks = {};
   try {
-    if (connectionFixture) {
-      await verifyConnectionFixture(browser, checks);
+    if (fixtureMode) {
+      if (connectionFixture) await verifyConnectionFixture(browser, checks);
+      if (reportFixture) await verifyReportFixture(browser, checks);
       console.log(JSON.stringify(checks));
       return;
     }

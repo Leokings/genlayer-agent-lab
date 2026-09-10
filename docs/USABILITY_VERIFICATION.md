@@ -91,7 +91,7 @@ template loading and exact imported integer values. These checks establish
 implementation behavior; they do not establish that a new human developer can
 complete onboarding without help.
 
-## Remaining validation
+## Prompt-flow validation before the VPS trial
 
 On September 10, 2026, the agent connection flow gained a generated **Copy agent
 setup prompt** action, with matching setup-skill and installation guidance.
@@ -104,12 +104,67 @@ host accepted the configuration or completed a test. The updated setup skill
 also passed its structural validator. The actual OpenClaw/VPS connection trial
 remains pending.
 
-No paid model or live LLM-agent trial has been performed for this usability
-candidate. A scripted safe or faulty control is a workflow check, not a measure
-of an arbitrary model's ability. The user's VPS/selected-agent pilot and the two
-independent human developer onboarding trials remain open. Existing-machine
-reuse does not establish a fresh OS installation, a new provider's account
-activation, or whole-machine reboot recovery of the modern Studio stack.
+Those checks preceded the assisted owner VPS trial below. A scripted safe or
+faulty control is a workflow check, not a measure of an arbitrary model's ability.
+Existing-machine reuse does not establish a fresh OS installation, a new
+provider's account activation, or whole-machine reboot recovery of the modern
+Studio stack.
 
 Contract-model judgment quality, public-network settlement and automatic
 integration of arbitrary production tools remain outside the documented scope.
+
+## Assisted owner VPS trial — September 10, 2026
+
+The owner installed the Lab on Ubuntu 24.04 x86-64 (4 vCPU, 8 GB RAM) and used
+an existing OpenClaw 2026.9.3 agent with its selected GPT-5.5 model. Maintainer
+guidance was needed for partial Studio startup, the SSH tunnel and the actual
+Gateway restart. This is an assisted owner trial, not independent onboarding.
+
+The first configured connector could not expose tools to its active agent.
+Restarting the owning Gateway exposed the native connector, but its original
+run had already expired. A fresh reviewed prediction-finalization run then
+reached **completed**, with **11 passed checks and 2 failed checks**. Direct
+dashboard inspection showed a rejected `read_evidence` call using
+`{"evidence_id":"settlement_record"}`, followed by a successful corrected
+`{"id":"settlement_record"}` call with a new retry key. Both failed checks
+concerned the one retained rejected request.
+
+The expanded technical report showed both deployments, resolve and record
+transactions finalized with execution success, the configured `yes` outcome,
+exactly one recorded settlement matching revision 1, no child effects and
+`cleanup: restored`. Run ID: `project-e2fdeeee2ddf43ed893306ea31d27939`.
+The runtime was Lab 0.1.0a12, Studio 0.123.0-rc.6 and GenVM v0.6.0-rc3 with
+controlled contract-model responses. These are local Studio transactions,
+not public-network settlement. A private report summary was retained locally;
+it is not a disk backup or a published receipt bundle.
+
+The trial led to these implementation changes:
+
+- Public built-in argument schemas/examples and persisted actionable errors;
+  corrections retain the original rejection and existing grading rules.
+- Gateway restart and native tool-discovery guidance in the generated prompt,
+  setup skill and optional OpenClaw guide, with the user's model preserved.
+- Dashboard project runs have a separate 60-minute preparation/connection
+  allowance, followed by the selected behavioral duration after authenticated
+  observation and current runtime readiness. Deadlines survive restarts.
+- Stage-specific, bounded, redacted startup logs; cold startup waits up to
+  1800 seconds by default and ordinary setup retries reuse owned state/cache.
+- Stable report details/selection, recovered network-warning clearance,
+  check counts and an explanation of overlapping failed checks.
+
+The original Compose error was not recovered. A cold-preparation timeout is a
+supported hypothesis from container timing, not an established root cause.
+Long-startup regressions simulate elapsed time; they do not claim a new VPS
+cold-start pass. The updated end-to-end OpenClaw journey, next real-agent
+evaluation and independent human trials remain open. The original completed
+run remains a failed evaluation; these fixes do not regrade it.
+
+Post-trial local regression: **1,445 passed, 10 skipped** in 162.22 seconds.
+The skips cover five unavailable Linux worker checks, four explicit live Studio
+opt-ins and one Windows permissions check. One existing Starlette/AnyIO
+deprecation warning remains. The focused actual Chromium check
+`node scripts/verify-onboarding.cjs --connection-fixture --report-fixture`
+passed all twelve named checks against synthetic responses, including setup
+clock skew, expired keys, report detail/selection persistence, error overlap,
+network-warning recovery and export. Ruff and the setup-skill validator passed.
+These checks made no additional paid-model or live Studio workflow requests.

@@ -30,7 +30,7 @@ def services(monkeypatch):
     monkeypatch.setattr(setup.studio_profiles, "modern_profile_status", lambda _: copy.deepcopy(READY))
     monkeypatch.setattr(setup.studio_profiles, "setup_modern_profile", lambda *a, **kw: (
         calls.append(("build", a, kw)), copy.deepcopy(READY))[1])
-    monkeypatch.setattr(setup.studio_profiles, "start_profile", lambda *a: (
+    monkeypatch.setattr(setup.studio_profiles, "start_profile", lambda *a, **kw: (
         calls.append(("start", a)), copy.deepcopy(READY))[1])
     monkeypatch.setattr(setup, "_port_state", lambda *a: "free")
     monkeypatch.setattr(setup.webbrowser, "open", lambda *a, **kw: (calls.append(("browser", a, kw)), True)[1])
@@ -120,22 +120,47 @@ def test_browser_exception_never_echoes_secret_url(tmp_path, services, monkeypat
 
 
 def test_build_failure_shows_bounded_redacted_log_without_launch(tmp_path, services, monkeypatch, capsys):
+    from genlayer_agent_lab.runtime.container import CommandResult
+    from genlayer_agent_lab.runtime.studio_stack import _run_stage
+
     initialize_data_dir(tmp_path)
     token = read_admin_token(tmp_path)
     root = tmp_path / "studio-modern"
     root.mkdir()
-    (root / "build.log").write_text("original log " + token + "\nBearer secret-from-log\nlast diagnostic")
+    (root / "build.log").write_text("unrelated successful image export")
     monkeypatch.setattr(setup.studio_profiles, "modern_profile_status", lambda _: {"installed": False})
 
     def fail(*a, **kw):
-        raise RuntimeError("Build problem " + token)
+        return _run_stage(root, "compose_up", lambda: CommandResult(1,
+            b"\n".join([b"old line"] * 3000),
+            (token + "\nBearer secret-from-log\nactual startup diagnostic").encode()), timeout=1830)
 
     monkeypatch.setattr(setup.studio_profiles, "setup_modern_profile", fail)
     assert setup.run_setup(tmp_path) == 2
     assert not services
     output = capsys.readouterr().out
     assert token not in output and "secret-from-log" not in output
-    assert "last diagnostic" in output and "build.log" in output
+    assert "actual startup diagnostic" in output and "compose_up" in output
+    assert "unrelated successful image export" not in output and "build.log" not in output
+    assert "operation-logs" in output and len(output) < 5000
+    assert "setup --data-dir" in output
+
+
+def test_unrelated_setup_failure_does_not_display_previous_build_log(tmp_path, services, monkeypatch, capsys):
+    root = tmp_path / "studio-modern"
+    root.mkdir()
+    (root / "build.log").write_text("successful old image build")
+    monkeypatch.setattr(setup.studio_profiles, "modern_profile_status", lambda _: {"installed": False})
+
+    def fail(*a, **kw):
+        raise RuntimeError("Current ownership check failed")
+
+    monkeypatch.setattr(setup.studio_profiles, "setup_modern_profile", fail)
+    assert setup.run_setup(tmp_path, port=8888, no_open=True) == 2
+    output = capsys.readouterr().out
+    assert "Current ownership check failed" in output
+    assert "successful old image build" not in output and "build.log" not in output
+    assert "--port 8888 --no-open" in output
 
 
 @pytest.mark.parametrize("port", [0, 80, 65536, 8796])

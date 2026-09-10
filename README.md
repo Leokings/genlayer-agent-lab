@@ -14,6 +14,8 @@ An agent with terminal and configuration access can handle setup for you. Paste 
 
 After you review and create a test, the dashboard provides **Copy agent setup prompt**. Paste that message into the agent you want to test: it includes the connection settings and asks the agent to configure its tools and begin. This works with agents that can manage their tool configuration; a chat-only client may still need its owner's connection settings changed. Manual connection instructions remain available.
 
+Dashboard project runs allow up to 60 minutes for preparation and connection. The selected test time starts once Studio is ready and the agent has actually called `observe`. Saving connector settings alone does not start it.
+
 For terminal installation:
 
 You need Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), and a running Docker engine with Compose and Linux x86-64 containers. Setup uses Python 3.12. See [installation](docs/INSTALL.md) for platform details and resource guidance.
@@ -77,6 +79,6 @@ uv run ruff check src tests
 uv build
 ```
 
-The project disables `genlayer-test`'s automatic pytest plugins because contract checks run through owned worker processes. Browser checks use `npm ci` and `npx playwright install chromium`. Use `npm run verify:onboarding -- --connection-fixture` to check the connection prompt and credential lifecycle with synthetic browser responses and no running Lab. Use `npm run verify:onboarding` for guided authoring checks; add `-- --live` to create an actual local Studio run with a scripted reference. Set `LAB_DATA_DIR` and `LAB_URL` when using a nondefault installation. `-- --report=RUN_ID` checks a saved passing report without creating another run; add `--unsafe` for an expected failing report. `npm run verify:dashboard` checks the older compatibility dashboard.
+The project disables `genlayer-test`'s automatic pytest plugins because contract checks run through owned worker processes. Browser checks use `npm ci` and `npx playwright install chromium`. Use `npm run verify:onboarding -- --connection-fixture --report-fixture` to check connection timing, credential lifecycle and report behavior with synthetic browser responses and no running Lab. Use `npm run verify:onboarding` for guided authoring checks; add `-- --live` to create an actual local Studio run with a scripted reference. Set `LAB_DATA_DIR` and `LAB_URL` when using a nondefault installation. `-- --report=RUN_ID` checks a saved passing report without creating another run; add `--unsafe` for an expected failing report. `npm run verify:dashboard` checks the older compatibility dashboard.
 
 [Architecture](docs/ARCHITECTURE.md) · [Verification](docs/VERIFICATION.md) · [Third-party notices](THIRD_PARTY.md)

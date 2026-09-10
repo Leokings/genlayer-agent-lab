@@ -4,6 +4,25 @@ Lab recovery saves the local SQLite database and restores it into a **new data
 directory**. Stop the Lab service first. Both operations use the same exclusive
 directory lock as the Engine; they do not provide an online server endpoint.
 
+## Resume setup or start another test
+
+For an interrupted download or Studio startup, first inspect the existing setup terminal or reconnect to its tmux session. If setup has ended, return to the same checkout and resume:
+
+```sh
+uv run gl-agent-lab setup --no-open
+```
+
+Include the original `--data-dir PATH` if customized. Setup reuses the owned image, database, and completed precompile cache. Its current-stage diagnostic is under `studio-modern/operation-logs/`; inspect that stage's elapsed time, exit status, and redacted output. A Compose timeout can leave containers still preparing and is not evidence that the image build failed. Cold startup waits 1800 seconds by default; `LAB_STUDIO_STARTUP_TIMEOUT_SECONDS` accepts 60–3600 seconds, with a further 30-second Docker command allowance. See [unattended VPS setup](VPS_QUICKSTART.md#leave-setup-running-and-return-later).
+
+| What you need | Action |
+|---|---|
+| Continue a stopped Lab process | Run setup with its existing environment and data directory. |
+| Try your agent again | Review and create a fresh test; replace its run ID and scoped key in the agent connection. |
+| Recover after a VPS reboot | Start/reconnect the required services and run the same setup command; reopening the tunnel alone does not start the Lab. |
+| Move or roll back saved history | Use the offline backup/restore procedure below and account separately for Studio volumes. |
+
+An expired run remains expired. Dashboard project tests allow 60 minutes for preparation and connection, then start the full selected test duration once Studio is ready and an authenticated agent observation has occurred. Restarts do not reset either deadline. CLI/API runs retain immediate deadlines unless HTTP creation requests `wait_for_agent: true`. A fresh test uses the existing installation; deleting it also discards the history and cache you are trying to reuse.
+
 ## What the archive preserves
 
 The archive contains exactly `lab.sqlite3` and `manifest.json`. It preserves run

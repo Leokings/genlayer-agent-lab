@@ -194,7 +194,11 @@ def _add_workflow_tools(server: MCPServer, lab: LabClient, role: str, run_id: st
 
         @server.tool(structured_output=True)
         def observe() -> dict[str, Any]:
-            """Observe this workflow's task, available operations and current public state."""
+            """Observe this workflow's task, public state and operation contracts.
+
+            Project builtin_operations provides argument schemas and examples for
+            permitted Lab operations. binding.operations declares contract methods.
+            """
             return _scoped_workflow_call(lab.workflow_observe, run_id)
 
         @server.tool(structured_output=True)
@@ -205,13 +209,20 @@ def _add_workflow_tools(server: MCPServer, lab: LabClient, role: str, run_id: st
             """Invoke a declared operation with the same key/arguments on retry.
 
             Project runs also declare inspect_fees, inspect_appeal and read_evidence
-            in their policy. Read observe() for method argument schemas and current
+            in their policy. Read observe().builtin_operations for their argument
+            schemas and examples, and binding.operations for contract methods.
+            read_evidence takes arguments={"id": "<observe evidence ID>"}, not
+            {"evidence_id": "..."}. Keep expected_decision_id outside arguments.
+            Read observe() for current
             decision identities. Fees are local test balances; grading is private.
             If submit_investigation is permitted, observe() supplies its
             investigation_submission_schema and investigation_limit. Cite evidence
             already read in this run and supply the current successful decision's
             expected_decision_id. Submission records a Lab report artifact only;
             it does not submit a GenLayer appeal or contact a reviewer.
+            Rejected operations retain error_code and actionable error_detail in
+            observe().operations. Corrected arguments require a new idempotency
+            key; retries of the same request must preserve the original key.
             """
             return _scoped_workflow_call(lab.workflow_invoke,
                 run_id, operation, arguments, idempotency_key, expected_decision_id,

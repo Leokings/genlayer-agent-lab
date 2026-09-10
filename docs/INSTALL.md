@@ -33,7 +33,11 @@ If you already have the source, enter that directory and start at `uv sync`. Set
 
 `setup` initializes the selected data directory, builds or starts its project Studio stack, and starts the Lab in the foreground, or recognizes the same installation if it is already running. On a desktop it opens the workflow dashboard with a local authentication handoff. On an SSH session it prints headless connection instructions. Use `--no-open` to request that explicitly.
 
-The first Studio preparation can take tens of minutes. Let it finish and inspect the reported error if readiness fails. Later launches reuse the existing installation. A failure is a reason to inspect diagnostics, not erase history or repeatedly rebuild.
+The first Studio preparation can take tens of minutes. Setup reports the current stage and elapsed time every 30 seconds. Download, image build, and Compose startup each save a bounded, redacted diagnostic in `studio-modern/operation-logs/` under the data directory. A failure identifies its own stage, exit status, and log path.
+
+Cold runtime preparation and service startup have a default 1800-second wait. Set `LAB_STUDIO_STARTUP_TIMEOUT_SECONDS` to a whole number from 60 to 3600 to change that bounded wait. The Docker command has a further 30 seconds to exit. If preparation takes longer, inspect the failed stage and run ordinary `setup` again: it reuses the owned image, database, and completed precompile cache. A failed Compose wait alone does not identify its underlying cause.
+
+On an SSH server, use [tmux and the resume instructions](VPS_QUICKSTART.md#leave-setup-running-and-return-later) if you want to disconnect during preparation. Wait for setup to announce that the Lab is serving before opening the dashboard. `init --show-token` retrieves the workspace key; it does not start the Lab or establish readiness.
 
 ## Choose where it runs
 
@@ -82,6 +86,8 @@ Ask your agent to read the local [setup skill](../skills/setup-genlayer-agent-la
 An agent that supports local skills can install the supplied file using its normal mechanism. For later sessions, “Start my existing GenLayer Agent Lab” is enough context once the installation is known. The skill works with agents that can read instructions and run local commands; OpenClaw is not required. It does not grant those capabilities to a chat-only agent or provision a cloud account.
 
 When the installation is ready, review and create a test, select how and where your agent connects, and click **Copy agent setup prompt**. Send the complete generated message to the agent you want to test. It carries that run's scoped settings, so you do not need to translate the MCP configuration manually. Keep the generated message private. If the agent cannot edit its host configuration, use the dashboard's manual connection settings for that host.
+
+Dashboard-created project tests allow up to 60 minutes for Studio preparation and agent connection. The selected full test duration starts once Studio is ready and the agent has made an authenticated `observe` request. Saving configuration, discovering tools, and pressing **Check connection** do not start that timer. CLI/API-created runs keep their immediate timer by default; HTTP clients can opt into the separate setup allowance with `wait_for_agent: true` in the create request. If you use OpenClaw, follow [its short connection guide](OPENCLAW_QUICKSTART.md).
 
 ## Check the installation, then test your agent
 

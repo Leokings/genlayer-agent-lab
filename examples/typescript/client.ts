@@ -157,10 +157,11 @@ export class LabClient {
     if (!runId || runId.includes("/") || [".", ".."].includes(runId)) throw new Error("Invalid workflow identifier");
     return `/v1/workflows/${encodeURIComponent(runId)}`;
   }
-  workflowCreate(spec: Record<string, unknown>): Promise<{run_id: string; agent_token: string; status: string}> {
+  workflowCreate(spec: Record<string, unknown>, waitForAgent = false): Promise<{run_id: string; agent_token: string; status: string}> {
+    if (typeof waitForAgent !== "boolean") throw new Error("waitForAgent must be a boolean");
     // Pass parsed documents from parseProjectJson; remove their file marker.
     if (spec.integer_encoding === "lab-tagged-decimal-v1") spec = Object.fromEntries(Object.entries(spec).filter(([key]) => key !== "integer_encoding"));
-    return this.request("POST", "/v1/workflows", {spec});
+    return this.request("POST", "/v1/workflows", {spec, ...(waitForAgent ? {wait_for_agent: true} : {})});
   }
   workflowList(): Promise<Record<string, unknown>[]> { return this.request("GET", "/v1/workflows"); }
   workflowGet(runId: string): Promise<Record<string, unknown>> { return this.request("GET", this.workflowPath(runId)); }

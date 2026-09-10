@@ -123,7 +123,7 @@ def test_public_agent_view_has_no_fixture_expected_answer_source_or_review():
     value = approved(value)
     public = agent_scenario_view(value)
     assert set(public) == {"schema_version", "profile", "id", "title", "task", "context",
-                           "evidence", "policy", "timeout_seconds"}
+                           "evidence", "policy", "timeout_seconds", "builtin_operations"}
     assert public["evidence"] == [{"id": "settlement_record", "title": "Supplied settlement record"}]
     assert "content" not in public["evidence"][0]
     evidence = read_scenario_evidence(value, "settlement_record")

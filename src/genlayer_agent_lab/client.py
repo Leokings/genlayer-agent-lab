@@ -163,12 +163,18 @@ class LabClient:
             raise ValueError("Invalid workflow identifier")
         return f"/v1/workflows/{quote(run_id, safe='')}"
 
-    def workflow_create(self, spec: dict[str, Any]) -> dict:
+    def workflow_create(self, spec: dict[str, Any], *, wait_for_agent: bool = False) -> dict:
+        """Create a workflow, optionally reserving a project run's timer until connection."""
+        if type(wait_for_agent) is not bool:
+            raise ValueError("wait_for_agent must be a boolean")
         if spec.get("integer_encoding") == "lab-tagged-decimal-v1":
             from .project_wire import decode_project_wire
 
             spec = decode_project_wire({key: value for key, value in spec.items() if key != "integer_encoding"})
-        return self._request("POST", "/v1/workflows", json={"spec": spec})
+        payload = {"spec": spec}
+        if wait_for_agent:
+            payload["wait_for_agent"] = True
+        return self._request("POST", "/v1/workflows", json=payload)
 
     def workflow_list(self) -> list[dict]:
         return self._request("GET", "/v1/workflows")

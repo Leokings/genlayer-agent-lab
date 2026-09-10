@@ -186,7 +186,13 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
         if any(thread.is_alive() for thread in threads):
             failure = failure or "Docker command left an unclosed child pipe"
     if failure or overflow.is_set():
-        raise RuntimeError(failure or "Docker command exceeded its output limit")
+        error = RuntimeError(failure or "Docker command exceeded its output limit")
+        # Keep bounded diagnostics for callers that explicitly redact and save
+        # them. Never include process output in the exception message itself.
+        error.stdout = bytes(output[0])
+        error.stderr = bytes(output[1])
+        error.returncode = process.returncode
+        raise error
     return CommandResult(process.returncode, bytes(output[0]), bytes(output[1]))
 
 

@@ -180,7 +180,12 @@ def _redact(text, token=None):
     return text
 
 
-def _failure(exc, data_dir):
+def _resume_command(data_dir, port, no_open):
+    return (f"{_cli()} setup --data-dir {_shell_word(data_dir)} --port {port}"
+            + (" --no-open" if no_open else ""))
+
+
+def _failure(exc, data_dir, *, port=8765, no_open=False):
     from .api import read_admin_token
 
     try:
@@ -188,14 +193,16 @@ def _failure(exc, data_dir):
     except (OSError, RuntimeError):
         token = None
     _say("Setup could not complete: " + _redact(str(exc), token)[:1000])
-    log = data_dir / "studio-modern" / "build.log"
-    if log.is_file() and not log.is_symlink() and not log.parent.is_symlink():
-        _say(f"Studio build log: {log}")
-        with log.open("rb") as stream:
-            stream.seek(max(0, log.stat().st_size - 16000))
-            tail = "\n".join(stream.read().decode("utf-8", errors="replace").splitlines()[-20:])
-        _say("Recent build output:\n" + _redact(tail, token))
-    _say("Check the reported prerequisite or log, then run setup again. Existing installation data is preserved.")
+    # Only the exception's current stage may supply output. An old successful
+    # image build is unrelated evidence when a later Compose/startup step fails.
+    from .runtime.studio_stack import StudioOperationFailure
+
+    if isinstance(exc, StudioOperationFailure):
+        tail = "\n".join(exc.diagnostic["output_tail"].splitlines()[-20:])
+        if tail:
+            _say("Recent output from the failed stage:\n" + _redact(tail, token))
+    _say("Inspect the reported stage, then resume this installation; saved data and runtime cache are preserved:")
+    _say("  " + _resume_command(data_dir, port, no_open))
 
 
 def _serve(data_dir, port, on_ready):
@@ -270,7 +277,17 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False):
                             else f"port {port} is available"))
             _say("Prerequisites passed. Run setup without --check to open the Lab.")
             return 0
+        studio_profiles.startup_timeout()
         initialize_data_dir(data_dir)
+        headless = (no_open or bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
+                    or platform.system() == "Linux" and not any(
+                        os.environ.get(key) for key in ("DISPLAY", "WAYLAND_DISPLAY")))
+        if not state.get("ready"):
+            _say("Setup runs in this foreground terminal. To return later, resume with:")
+            _say("  " + _resume_command(data_dir, port, headless))
+            if headless and platform.system() == "Linux":
+                _say("For unattended SSH setup, start it inside tmux. Detach with Ctrl+B, then D; "
+                     "reconnect with `tmux attach`. Closing a plain SSH terminal can interrupt setup.")
         if state.get("ready") is True and state.get("runtime_verified") is True:
             _say("Project Studio is already ready; continuing with this owned stack.")
         elif needs_build:
@@ -279,16 +296,13 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False):
             state = studio_profiles.setup_modern_profile(data_dir, port=studio_port, progress=_say)
         else:
             _say("Starting this installation's existing project Studio services...")
-            state = studio_profiles.start_profile(data_dir)
+            state = studio_profiles.start_profile(data_dir, progress=_say)
         if any(state.get(key) is not True for key in ("ready", "runtime_verified", "network_internal", "fixture_ready")):
             raise RuntimeError("Project Studio has not passed its readiness checks. "
                                "Run `gl-agent-lab project studio-status` with this data directory for diagnostics.")
         if state.get("validator_count", 0) == 0:
             raise RuntimeError("Project Studio has no configured validator cohort. "
-                               "Complete its original `project studio-build` setup before creating runs.")
-        headless = (no_open or bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
-                    or platform.system() == "Linux" and not any(
-                        os.environ.get(key) for key in ("DISPLAY", "WAYLAND_DISPLAY")))
+                               "Inspect `project studio-status`, then resume setup after startup completes.")
         running = _port_state(data_dir, port)
         if running == "same_installation":
             _say("The Lab is already running for this installation.")
@@ -303,5 +317,5 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False):
         _say("The foreground Lab has stopped. Use `project studio-down` when you also want to stop Studio.")
         return 0
     except (OSError, RuntimeError, ValueError) as exc:
-        _failure(exc, data_dir)
+        _failure(exc, data_dir, port=port, no_open=no_open)
         return 2

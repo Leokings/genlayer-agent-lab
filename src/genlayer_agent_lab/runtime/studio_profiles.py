@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import tarfile
 import tempfile
@@ -31,6 +32,8 @@ CHAIN_ID = 61127
 FIXTURE_SUPPORT = "upstream-validator-config-v0123"
 JSON_FIXTURE_WIRE = "genvm-v03-json-text-v1"
 DEFAULT_PORT = 8796
+STARTUP_TIMEOUT_SECONDS = 1800
+STARTUP_TIMEOUT_ENV = "LAB_STUDIO_STARTUP_TIMEOUT_SECONDS"
 SOURCE_PATHS = ["backend", "asgi.py", "uvicorn_config.py", "LICENSE", "docker",
                 "third_party/genvm/version", "examples", "tests", ".e2e-genvm-prebuilt",
                 ".genvm-nix-closure"]
@@ -166,9 +169,10 @@ def build_profile(data_dir: Path, *, port=DEFAULT_PORT, checkout=None, progress=
         if not source.exists():
             if progress:
                 progress("Downloading pinned fee-enabled Studio source...")
-            legacy._checked(_bounded_process(["git", "clone", "--depth", "1", "--branch",
-                "v" + STUDIO_VERSION, legacy.STUDIO_REPOSITORY, str(source)], timeout=300),
-                "modern source download")
+            legacy._run_stage(root, "source_download", lambda: _bounded_process([
+                "git", "clone", "--depth", "1", "--branch", "v" + STUDIO_VERSION,
+                legacy.STUDIO_REPOSITORY, str(source)], timeout=300), timeout=300,
+                progress=progress, description="download pinned Studio source")
         actual = legacy._checked(_bounded_process(["git", "-C", str(source), "rev-parse", "HEAD"]),
                                   "modern source identity").stdout.decode().strip()
         if actual != STUDIO_COMMIT:
@@ -188,14 +192,14 @@ def build_profile(data_dir: Path, *, port=DEFAULT_PORT, checkout=None, progress=
                 handle.write("COPY lab-llm.lua /app/backend/node/llm.lua\n")
             if progress:
                 progress("Building fee-enabled Studio and downloading the pinned GenVM release...")
-            result = legacy._command(endpoint, ["build", "--target", "prod", "--label",
+            legacy._run_stage(root, "build_image", lambda: legacy._command(endpoint,
+                ["build", "--target", "prod", "--label",
                 f"{legacy.COMMIT_LABEL}={STUDIO_COMMIT}", "--label",
                 f"{legacy.PATCH_LABEL}={FIXTURE_SUPPORT}", "--label",
                 f"{legacy.OWNER_LABEL}={state['owner']}", "--tag", tag,
                 "--file", str(context / "docker/Dockerfile.backend"), str(context)],
-                timeout=1800, output_limit=8_388_608)
-            (root / "build.log").write_bytes(result.stdout + result.stderr)
-            legacy._checked(result, "modern image build (see studio-modern/build.log)")
+                timeout=1800, output_limit=8_388_608), timeout=1800, progress=progress,
+                description="build image and download pinned GenVM")
         image = _json_output(legacy._command(endpoint,
             ["image", "inspect", tag, "--format", "{{json .}}"]), "modern image inspection")
         labels = image.get("Config", {}).get("Labels", {})
@@ -207,7 +211,7 @@ def build_profile(data_dir: Path, *, port=DEFAULT_PORT, checkout=None, progress=
     return modern_profile_status(data_dir)
 
 
-def _compose(data_dir, args, *, timeout=30):
+def _compose(data_dir, args, *, timeout=30, progress=None):
     state = load_profile(data_dir)
     root = profile_root(data_dir)
     path = root / "compose.generated.json"
@@ -216,18 +220,36 @@ def _compose(data_dir, args, *, timeout=30):
         raise RuntimeError("Invalid generated modern Studio configuration")
     path.write_text(json.dumps(compose_config(state), indent=2).replace("$", "$$"), encoding="utf-8")
     empty.write_text("", encoding="utf-8")
-    return legacy._checked(legacy._command(_endpoint(), ["compose", "--env-file", str(empty),
+    stage = "compose_up" if args[0] == "up" else "compose_down"
+    description = ("prepare runtime cache and start services" if stage == "compose_up"
+                   else "stop owned services")
+    return legacy._run_stage(root, stage, lambda: legacy._command(_endpoint(),
+        ["compose", "--env-file", str(empty),
         "--project-directory", str(root), "--project-name", "gl-agent-lab-" + state["owner"],
         "--file", str(path), *args], timeout=timeout, output_limit=8_388_608),
-        "modern compose operation")
+        timeout=timeout, progress=progress, description=description)
 
 
-def start_profile(data_dir):
+def startup_timeout():
+    value = os.environ.get(STARTUP_TIMEOUT_ENV, str(STARTUP_TIMEOUT_SECONDS))
+    if not re.fullmatch(r"[0-9]{1,4}", value) or not 60 <= int(value) <= 3600:
+        raise ValueError(f"{STARTUP_TIMEOUT_ENV} must be a whole number from 60 to 3600 seconds.")
+    return int(value)
+
+
+def start_profile(data_dir, *, progress=None):
+    wait_seconds = startup_timeout()
     with _lock(data_dir):
         state = load_profile(data_dir)
         legacy._assert_owned(legacy._inventory(_endpoint(), state), state,
                              config=compose_config(state))
-        _compose(data_dir, ["up", "--detach", "--wait", "--wait-timeout", "600"], timeout=630)
+        if progress:
+            progress(f"Cold preparation and service readiness have a {wait_seconds}s wait budget. "
+                     "Completed precompilation is reused; keep this setup running while it prepares.")
+        _compose(data_dir, ["up", "--detach", "--wait", "--wait-timeout", str(wait_seconds)],
+                 timeout=wait_seconds + 30, progress=progress)
+    if progress:
+        progress("Studio stage: verify owned runtime, RPC and validator cohort.")
     return modern_profile_status(data_dir)
 
 
@@ -286,8 +308,9 @@ def modern_profile_status(data_dir):
 
 
 def setup_modern_profile(data_dir, *, port=DEFAULT_PORT, progress=None, checkout=None):
+    startup_timeout()  # Reject an invalid wait budget before downloading or building.
     build_profile(data_dir, port=port, progress=progress, checkout=checkout)
-    result = start_profile(data_dir)
+    result = start_profile(data_dir, progress=progress)
     if result.get("ready"):
         from .studio_fixtures import validator_config
         from .studio_modern import StudioModernClient

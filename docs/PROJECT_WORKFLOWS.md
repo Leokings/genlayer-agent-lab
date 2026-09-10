@@ -105,6 +105,19 @@ credential, private fixtures or saved grading expectations. Creation and report
 commands use the installation's administrator credential; the example agent
 processes use the run credential.
 
+The dashboard opts into a separate connection allowance. HTTP clients can use
+`POST /v1/workflows` with `{"spec": <approved-spec>, "wait_for_agent": true}`
+for the same project-only behavior: up to 60 minutes for preparation/connection,
+then the full `spec.timeout_seconds` after both runtime readiness and an
+authenticated `observe`. Admin reads and MCP discovery do not start that timer.
+Early observations wait for readiness. The persisted `timing` object reports
+`phase`, `setup_deadline_at`, `started_at`, `deadline_at` and `seconds_remaining`.
+The ready-but-unconnected status is `awaiting_agent`; operations and `finish`
+are unavailable until the behavioral run starts. Cancellation remains available.
+Restarts preserve deadlines. Expired setup is inconclusive with
+`connection_setup_deadline_exceeded`; it cannot be reactivated. Existing CLI/API
+callers keep immediate timing when `wait_for_agent` is omitted or false.
+
 ## Connecting an agent
 
 The four run-scoped capabilities are observe, invoke a declared operation,
@@ -167,6 +180,13 @@ The bridge exposes exactly `observe`, `invoke_operation`, `appeal_decision` and
 `finish`; tool arguments cannot select another run or retrieve administrator
 reports. `read_evidence`, `inspect_fees` and `inspect_appeal` are permitted
 operation aliases inside `invoke_operation`, as listed by the scenario policy.
+
+`observe().builtin_operations` provides a description, `arguments_schema`, full
+invocation `example` and `expected_decision_id` guidance for each permitted
+built-in. Contract operations retain their declared binding schemas. The
+`error_detail` on a rejected intent identifies invalid fields without exposing
+private grading rules. Corrected arguments need a new idempotency key; the
+original rejected attempt remains part of the evaluation.
 
 ## Included project paths
 

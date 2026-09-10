@@ -30,6 +30,7 @@ HEX64 = re.compile(r"0x[0-9a-fA-F]{64}\Z")
 HEX40 = re.compile(r"0x[0-9a-fA-F]{40}\Z")
 MAX_OPERATIONS = 128
 MAX_EVENTS = 1024
+CONNECTION_SETUP_TIMEOUT = 3600
 
 
 def _safe_error(exc):
@@ -110,10 +111,12 @@ class ProjectWorkflowManager:
                                         daemon=True, name="studio-project-workflow")
         self._thread.start()
 
-    def create(self, spec):
+    def create(self, spec, *, wait_for_agent=False):
         from .project_scenarios import validate_project_scenario
 
         spec = validate_project_scenario(spec, require_review=True)
+        if type(wait_for_agent) is not bool:
+            raise ValueError("wait_for_agent must be a boolean")
         with self._lock:
             if self._stop.is_set():
                 raise ValueError("Project manager is stopping")
@@ -127,7 +130,12 @@ class ProjectWorkflowManager:
                 "run_id": "project-" + uuid.uuid4().hex, "status": "preparing", "spec": spec,
                 "token_sha256": hashlib.sha256(token.encode()).hexdigest(),
                 "private_account": vault.seal(account), "account_address": account["address"],
-                "created_at": created, "deadline_at": created + spec["timeout_seconds"],
+                "created_at": created,
+                "deadline_at": None if wait_for_agent else created + spec["timeout_seconds"],
+                "wait_for_agent": wait_for_agent,
+                "setup_deadline_at": created + CONNECTION_SETUP_TIMEOUT if wait_for_agent else None,
+                "test_started_at": None if wait_for_agent else created,
+                "agent_connected_at": None, "prepared_at": None,
                 "contracts": {}, "state": {}, "transactions": {}, "intents": {},
                 "events": [], "event_count": 0, "behavior_failures": [], "backend_failures": [],
                 "fixture_state": None, "fixture_phase": None, "cleanup": "not_started",
@@ -141,7 +149,35 @@ class ProjectWorkflowManager:
             self._save(run)
             self._runs[run["run_id"]] = run
             self._start(run)
-            return {"run_id": run["run_id"], "agent_token": token, "status": "preparing"}
+            return {"run_id": run["run_id"], "agent_token": token, "status": "preparing",
+                    "timing": self._timing(run)}
+
+    @staticmethod
+    def _timing(run):
+        waiting = run.get("wait_for_agent") and run.get("test_started_at") is None
+        ended = run["status"] in TERMINAL or run["status"] == "closing"
+        deadline = run.get("setup_deadline_at") if waiting else run.get("deadline_at")
+        return {"phase": "ended" if ended else "setup" if waiting else "test",
+                "setup_deadline_at": run.get("setup_deadline_at"),
+                "started_at": run.get("test_started_at", run["created_at"]),
+                "deadline_at": run.get("deadline_at"),
+                "seconds_remaining": 0 if ended else max(0, int(deadline - time.time())) if deadline else None}
+
+    def _begin_connected_test(self, run):
+        """Called under the lock; the durable start is never renewed by retries."""
+        if (self._stop.is_set() or not run.get("wait_for_agent") or run.get("test_started_at") is not None
+                or run.get("agent_connected_at") is None or run.get("prepared_at") is None
+                or run["status"] not in {"awaiting_agent", "running"}
+                or run["finish_requested"] or run["cancel_requested"]):
+            return
+        now = time.time()
+        if now >= run["setup_deadline_at"]:
+            return
+        run["test_started_at"] = now
+        run["deadline_at"] = now + run["spec"]["timeout_seconds"]
+        run["status"] = "running"
+        self._event(run, "test_started", deadline_at=run["deadline_at"])
+        self._save(run)
 
     def authenticate(self, run_id, token):
         with self._lock:
@@ -153,7 +189,7 @@ class ProjectWorkflowManager:
     def _public_intent(intent):
         return {key: copy.deepcopy(intent.get(key)) for key in (
             "operation", "arguments", "idempotency_key", "status", "tx_id", "target_tx_id",
-            "result", "error_code", "execution_success", "fee", "decision_id", "transaction_status",
+            "result", "error_code", "error_detail", "execution_success", "fee", "decision_id", "transaction_status",
         )}
 
     def _observation(self, run):
@@ -162,6 +198,7 @@ class ProjectWorkflowManager:
         from .project_scenarios import agent_scenario_view
 
         return {"run_id": run["run_id"], "status": run["status"], "profile": "project",
+                "timing": self._timing(run),
                 **agent_scenario_view(run["spec"]),
                 "binding": project_binding_summary(run["spec"]["project_snapshot"]),
                 "contracts": copy.deepcopy(run["contracts"]), "state": copy.deepcopy(run["state"]),
@@ -193,7 +230,19 @@ class ProjectWorkflowManager:
 
     def observe(self, run_id):
         with self._lock:
-            return self._observation(self._runs[run_id])
+            run = self._runs[run_id]
+            # This path is run-authenticated at the API. Admin get/report and MCP
+            # tool discovery must not start the behavioral timer.
+            if (run.get("wait_for_agent") and run["status"] not in TERMINAL
+                    and run["status"] != "closing" and not run["cancel_requested"]
+                    and not run["finish_requested"] and run.get("agent_connected_at") is None
+                    and time.time() < run["setup_deadline_at"]):
+                run["agent_connected_at"] = time.time()
+                self._event(run, "agent_connected")
+                self._save(run)
+            self._begin_connected_test(run)
+            self._wake.set()
+            return self._observation(run)
 
     def get(self, run_id):
         with self._lock:
@@ -246,7 +295,8 @@ class ProjectWorkflowManager:
                     self._failure(run, "idempotency_conflict")
                     raise ValueError("Idempotency key was already used for different arguments")
                 return {"run_id": run_id, **self._public_intent(previous)}
-            if run["status"] not in {"running", "recovering"} or run["finish_requested"] or run["cancel_requested"]:
+            if (run["status"] not in {"running", "recovering"} or run["finish_requested"] or run["cancel_requested"]
+                    or run.get("wait_for_agent") and run.get("test_started_at") is None):
                 raise ValueError("Project workflow is not accepting operations")
             if len(run["intents"]) >= MAX_OPERATIONS:
                 self._failure(run, "operation_limit_exceeded")
@@ -269,6 +319,9 @@ class ProjectWorkflowManager:
     def finish(self, run_id):
         with self._lock:
             run = self._runs[run_id]
+            if (run["status"] not in TERMINAL and run.get("wait_for_agent")
+                    and run.get("test_started_at") is None):
+                raise ValueError("Observe the prepared workflow before completing its task")
             if run["status"] not in TERMINAL:
                 run["finish_requested"] = True
                 self._event(run, "finish_requested")
@@ -286,8 +339,8 @@ class ProjectWorkflowManager:
                 self._wake.set()
             return {"run_id": run_id, "status": run["status"]}
 
-    def _reject(self, run, intent, code):
-        intent.update(status="rejected", error_code=code, execution_success=False)
+    def _reject(self, run, intent, code, detail=None):
+        intent.update(status="rejected", error_code=code, error_detail=detail, execution_success=False)
         self._failure(run, code)
 
     def _fixture_save(self, run, state):
@@ -516,18 +569,30 @@ class ProjectWorkflowManager:
 
     def _execute(self, run, intent, client, cohort):
         from .project_bindings import resolve_operation, validate_project_result
+        from .project_builtin_tools import builtin_argument_error
         from .project_scenarios import read_scenario_evidence
 
         self._poll(run, client)
         self._read_states(run, client)
         with self._lock:
+            operation = intent["operation"]
+            permitted = (operation in run["spec"]["policy"]["operations"] or
+                         operation == "appeal" and run["spec"]["policy"]["allow_appeal"])
+            detail = builtin_argument_error(run["spec"], operation, intent["arguments"]) if permitted else None
+            if detail:
+                code = {"read_evidence": "invalid_evidence_request",
+                        "submit_investigation": "invalid_investigation_submission"}.get(
+                            operation, "invalid_operation_arguments")
+                self._reject(run, intent, code, detail)
+                return
             if self._policy(run, intent):
                 self._reject(run, intent, "operation_policy_violated")
                 return
             expected = intent["expected_decision_id"]
             decision = self._latest_decision(run, expected) if expected else None
             if expected and decision is None:
-                self._reject(run, intent, "stale_or_unknown_decision")
+                self._reject(run, intent, "stale_or_unknown_decision",
+                             "Observe again and use the current decision_id as expected_decision_id, outside arguments.")
                 return
         operation, arguments = intent["operation"], intent["arguments"]
         if operation == "submit_investigation":
@@ -538,7 +603,9 @@ class ProjectWorkflowManager:
                     decision=decision, operations=list(run["intents"].values()),
                     declared_evidence=run["spec"]["evidence"])
             except (ValueError, TypeError):
-                self._reject(run, intent, "invalid_investigation_submission")
+                self._reject(run, intent, "invalid_investigation_submission",
+                    "Use the current successfully executed decision's expected_decision_id; cite unique evidence IDs "
+                    "already read successfully in this run and stay within observe().investigation_limit.")
                 return
             with self._lock:
                 self._complete_read(run, intent, result)
@@ -547,13 +614,11 @@ class ProjectWorkflowManager:
                 self._save(run)
             return
         if operation == "read_evidence":
-            if set(arguments) != {"id"}:
-                self._reject(run, intent, "invalid_evidence_request")
-                return
             try:
                 result = read_scenario_evidence(run["spec"], arguments["id"])
             except ValueError:
-                self._reject(run, intent, "unknown_evidence")
+                self._reject(run, intent, "unknown_evidence",
+                             "Use an evidence ID listed in observe().evidence[].id as arguments.id.")
                 return
             self._complete_read(run, intent, result)
             return
@@ -561,7 +626,9 @@ class ProjectWorkflowManager:
             if operation == "inspect_appeal":
                 decision = self._latest_decision(run, arguments.get("decision_id"))
             if not decision:
-                self._reject(run, intent, "stale_or_unknown_decision")
+                self._reject(run, intent, "stale_or_unknown_decision",
+                    "Observe again. inspect_appeal uses arguments.decision_id; appeal uses an empty arguments "
+                    "object and expected_decision_id outside arguments. Use the current decision ID.")
                 return
             quote = client.appeal_quote(decision["tx_id"])
             if operation == "inspect_appeal":
@@ -682,15 +749,27 @@ class ProjectWorkflowManager:
                 self._poll(run, client)
                 if run["finish_requested"] or run["cancel_requested"]:
                     break
-                if time.time() >= run["deadline_at"]:
-                    raise StudioError("deadline_exceeded")
+                with self._lock:
+                    connecting = run.get("wait_for_agent") and run.get("test_started_at") is None
+                    deadline = run["setup_deadline_at"] if connecting else run["deadline_at"]
+                    if time.time() >= deadline:
+                        raise StudioError("connection_setup_deadline_exceeded" if connecting else "deadline_exceeded")
                 ready = self._deploy_next(run, client)
                 if ready:
-                    self._read_states(run, client)
+                    if not connecting or run.get("prepared_at") is None:
+                        self._read_states(run, client)
                     with self._lock:
-                        if run["status"] != "running":
-                            run["status"] = "running"
+                        if run.get("prepared_at") is None:
+                            run["prepared_at"] = time.time()
                             self._event(run, "ready")
+                            self._save(run)
+                        if run.get("wait_for_agent") and run.get("test_started_at") is None:
+                            if run["status"] != "awaiting_agent":
+                                run["status"] = "awaiting_agent"
+                                self._save(run)
+                            self._begin_connected_test(run)
+                        elif run["status"] != "running":
+                            run["status"] = "running"
                             self._save(run)
                         queued = next((i for i in run["intents"].values()
                                        if i["status"] == "queued" and not i["operation"].startswith("$")), None)

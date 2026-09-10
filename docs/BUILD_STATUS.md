@@ -6,6 +6,20 @@ run-scoped agent connection instructions and readable saved reports to the
 existing project workflow runtime. The [usability verification record](USABILITY_VERIFICATION.md)
 separates current source evidence from the historical release gates below.
 
+The September 10 assisted owner VPS trial reached a completed real OpenClaw
+agent run: **11 checks passed, 2 failed**, with finalized local Studio
+transactions and restored cleanup. The failed checks shared one malformed
+evidence request, exposing a missing public built-in argument schema. The
+resulting interface, setup, timing and report fixes are recorded in
+[the trial verification](USABILITY_VERIFICATION.md#assisted-owner-vps-trial--september-10-2026).
+The updated journey still needs its next real-agent trial. This does not close
+independent onboarding or published-artifact gates.
+
+Post-trial local regression passed **1,445 tests** with ten environment skips;
+twelve Chromium connection/report fixture checks, Ruff and the setup-skill
+validator passed. These establish the fixes locally, not another real-agent
+VPS run. The earlier candidate evidence below retains its original counts.
+
 The local Python regression passed **1,398 tests**, with ten explicit environment
 skips. Browser authoring checks passed sign-in, templates, changed-review
 invalidation, exact integers, escaped untrusted text and responsive review.
@@ -18,9 +32,9 @@ eight connection layouts passed with mocked creation and no extra mutations.
 [The evidence](evidence/usability-2026-09-08.json) preserves that distinction.
 The [local wheel onboarding probe](evidence/usability-wheel-local-2026-09-08.json)
 passed outside the checkout with cached dependencies. Remote package CI and the
-published-artifact gate remain unrecorded. No
-paid model, independent human onboarding or user VPS trial is claimed for this
-candidate.
+published-artifact gate remain unrecorded. These September 8 checks preceded the
+September 10 owner trial above; they did not include a paid model or independent
+human onboarding.
 
 ## Historical alpha 11 evidence
 
@@ -44,8 +58,9 @@ retains run identities, actual fees, child outcomes and recovery checks.
 
 Installed-wheel verification and the OS package matrix are passed artifact
 gates recorded with alpha 11. The user's short
-[VPS onboarding trial](VPS_QUICKSTART.md) and independent external developer
-validation remain unverified; source checks do not substitute for those trials.
+[VPS onboarding trial](VPS_QUICKSTART.md) now has the assisted September 10
+result above. Independent external developer validation remains unverified;
+source checks do not substitute for those trials.
 
 Read [project workflows](PROJECT_WORKFLOWS.md), [project bindings](PROJECT_BINDINGS.md)
 and [scenario authoring](SCENARIO_AUTHORING.md) for the expanded interfaces.

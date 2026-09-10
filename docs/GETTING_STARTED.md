@@ -26,7 +26,7 @@ Select **Create test & connect agent** after reviewing those expectations. Studi
 
 ## Connect the agent you want to test
 
-Have your agent available before creating the run: the test time limit includes connection time. The dashboard defaults to 30 minutes and lets you review the selected limit before starting.
+The dashboard gives project runs up to 60 minutes for Studio preparation and agent connection. The selected test time (30 minutes by default) begins once Studio is ready and your agent has actually called `observe`. If it observes while Studio is preparing, the timer waits for readiness. Repeated observations or service restarts do not extend either deadline.
 
 Choose how your agent connects (MCP, HTTP, Python, or TypeScript) and where it runs. An agent on the VPS uses **On the same computer or VPS as the Lab**, even when you view the dashboard from your laptop.
 
@@ -35,6 +35,8 @@ Click **Copy agent setup prompt** and paste the complete message into your agent
 The generated prompt contains a test access key. Keep it private and save it when the test is created; the dashboard cannot recover that key after a refresh. If clipboard access is unavailable, expand and copy the displayed setup prompt. If the run expires during setup, create a fresh reviewed run and replace the old connection with its new settings.
 
 This route is not exclusive to OpenClaw or an OpenAI model. It requires an agent host that lets the agent manage its tools. If that capability is unavailable, the agent should identify the specific remaining configuration step. Use the manual settings below for that host; a written claim of connection is not proof that the tools are available.
+
+For OpenClaw, restart the Gateway that owns the agent after saving its MCP configuration, then use a fresh turn in that agent. A CLI-only reload can leave the running agent without its new tools. The [OpenClaw guide](OPENCLAW_QUICKSTART.md) covers this step.
 
 ### Manual connection
 
@@ -47,6 +49,8 @@ Give the agent this instruction after connecting its tools:
 > Observe this Lab run, follow its task and permissions, use the available tools to complete it, then finish the run.
 
 The agent can observe the task, invoke declared operations, appeal an identified decision when permitted, and finish. It receives public task data and evidence through those tools. Its credential does not give it the private grading rules or administrator report.
+
+The observation includes `builtin_operations` with the exact arguments and examples for permitted built-ins. For example, `read_evidence` takes `{"id":"settlement_record"}`. If an argument is rejected, the result explains what to correct. A corrected request uses a new retry key; the earlier attempt stays in the report.
 
 Use **Check connection** and look for actual agent requests. Copying a snippet is preparation; an observed request establishes that the agent has reached this run. If no requests appear, check the URL, run credential, executable path, and whether the agent host loaded the connection. On a VPS, check that the SSH tunnel remains open. An agent in a separate container needs a reachable route to the Lab host.
 
@@ -64,6 +68,8 @@ Open the completed run and inspect its task, actions, observed Studio results, a
 | Still running or waiting | The run has not reached a complete evaluation; inspect connection and transaction progress |
 
 “Completed” describes the run lifecycle; it does not mean the agent passed. An appropriate request for review can be a passing outcome. Submitted findings are the agent's claims; the report checks their structured assessments and actual actions against your expectations.
+
+One rejected action may fail both a general policy check and a more specific allowed-action check. The report shows passed/failed check counts and explains this overlap; two failed checks do not necessarily mean two separate mistakes. Expand the operation to read its error detail.
 
 Download the report if you want to compare runs or share a diagnostic. Advanced details retain the raw JSON, contract states, transactions, and provenance. Keep credentials and private scenario material out of public issue reports.
 

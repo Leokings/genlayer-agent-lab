@@ -144,6 +144,25 @@ def test_workflow_client_rejects_invalid_run_identifiers_before_transport(run_id
             lab.workflow_observe(run_id)
 
 
+def test_python_client_wait_for_agent_is_opt_in_without_changing_default_payload():
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content))
+        assert request.url.path == "/v1/workflows" and request.method == "POST"
+        return httpx.Response(201, json={"run_id": "project-1", "status": "preparing"})
+
+    spec = {"title": "Connection preparation"}
+    with LabClient("http://localhost:8765", "admin-token", transport=httpx.MockTransport(handler)) as lab:
+        lab.workflow_create(spec)
+        lab.workflow_create(spec, wait_for_agent=False)
+        lab.workflow_create(spec, wait_for_agent=True)
+        with pytest.raises(ValueError, match="boolean"):
+            lab.workflow_create(spec, wait_for_agent="true")
+    assert seen == [{"spec": spec}, {"spec": spec}, {"spec": spec, "wait_for_agent": True}]
+    assert spec == {"title": "Connection preparation"}
+
+
 def test_typescript_workflow_client_preserves_scope_and_decision_binding():
     node = shutil.which("node")
     if not node:
@@ -193,6 +212,13 @@ try {{
   assert.ok(received.every(item => item.auth === 'Bearer scoped-token'));
   assert.throws(() => client.workflowObserve('../other-run'), /Invalid workflow identifier/);
   assert.equal(received.length, 10);
+  await client.workflowCreate({{title: 'Connection preparation'}}, false);
+  await client.workflowCreate({{title: 'Connection preparation'}}, true);
+  assert.deepEqual(received[10].body, {{spec: {{title: 'Connection preparation'}}}});
+  assert.deepEqual(received[11].body, {{spec: {{title: 'Connection preparation'}}, wait_for_agent: true}});
+  assert.ok(received.slice(10).every(item => item.method === 'POST' && item.path === '/v1/workflows'));
+  assert.throws(() => client.workflowCreate({{}}, 'true'), /boolean/);
+  assert.equal(received.length, 12);
 }} finally {{
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));

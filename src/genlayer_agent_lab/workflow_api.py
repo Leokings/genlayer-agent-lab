@@ -57,6 +57,7 @@ def bounded_json(value: dict[str, Any]) -> dict[str, Any]:
 class CreateWorkflow(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     spec: dict[str, Any] = Field(max_length=256)
+    wait_for_agent: bool = False
 
     @field_validator("spec")
     @classmethod
@@ -118,6 +119,8 @@ def mount_workflow_routes(
 
     @app.post("/v1/workflows", status_code=201, dependencies=[Depends(administrator)])
     def create_workflow(payload: CreateWorkflow, request: Request) -> dict:
+        if payload.wait_for_agent:
+            return wire(manager_getter(request).create(payload.spec, wait_for_agent=True))
         return wire(manager_getter(request).create(payload.spec))
 
     @app.get("/v1/workflows", dependencies=[Depends(administrator)])

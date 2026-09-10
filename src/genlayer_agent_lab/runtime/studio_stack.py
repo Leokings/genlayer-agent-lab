@@ -12,9 +12,11 @@ import os
 import re
 import tarfile
 import tempfile
+import threading
 import time
 import uuid
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .container import _bounded_process, _endpoint, _json_output, _linux_info
@@ -46,6 +48,136 @@ SOURCE_PATHS = ["backend", "asgi.py", "uvicorn_config.py", "LICENSE",
                 "docker/Dockerfile.backend", "docker/entrypoint-backend.sh"]
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_SOURCE_BYTES = 256 * 1024 * 1024
+OPERATION_OUTPUT_BYTES = 16_384
+
+
+class StudioOperationFailure(RuntimeError):
+    """Stage identity and safe guidance; command output stays in a redacted log."""
+
+    def __init__(self, diagnostic, log_path):
+        self.diagnostic = diagnostic
+        self.log_path = log_path
+        code = diagnostic["exit_code"]
+        result = diagnostic["category"]
+        if code is not None:
+            result += f", exit {code}"
+        saved = f" Diagnostics: {log_path}." if log_path else " Diagnostics could not be saved."
+        super().__init__(f"Studio {diagnostic['stage']} failed ({result}; "
+                         f"{diagnostic['elapsed_seconds']:g}s elapsed). "
+                         + diagnostic["hint"] + saved)
+
+
+def _redact_operation_output(value, root):
+    """Remove known credentials and credential-shaped values before persistence."""
+    text = value.decode("utf-8", errors="replace") if isinstance(value, bytes) else str(value)
+    values = [value for key, value in os.environ.items() if value and len(value) >= 6
+              and re.search(r"TOKEN|PASSWORD|SECRET|API_?KEY|PRIVATE_?KEY", key, re.I)]
+    token = root.parent / "admin.token"
+    try:
+        if not token.is_symlink() and token.stat().st_size <= 4096:
+            values.append(token.read_text(encoding="utf-8").strip())
+    except (OSError, UnicodeError):
+        pass
+    for secret in sorted(set(filter(None, values)), key=len, reverse=True):
+        text = text.replace(secret, "[redacted]")
+    text = re.sub(r"(?i)(bearer\s+)[^\s\"']+", r"\1[redacted]", text)
+    text = re.sub(r"([a-zA-Z][a-zA-Z0-9+.-]*://)[^/@\s]+:[^/@\s]+@",
+                  r"\1[redacted]@", text)
+    text = re.sub(r"(?i)([\"']?(?:[A-Z0-9_]*(?:token|password|secret|api_?key|private_?key))"
+                  r"[\"']?\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s&,;]+)",
+                  r"\1[redacted]", text)
+    # Strip terminal control sequences, including cursor movement and OSC links.
+    text = re.sub(r"\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]", "", text)
+    text = "".join(char for char in text if char in "\n\t" or ord(char) >= 32)
+    return text.encode("utf-8")[-OPERATION_OUTPUT_BYTES:].decode("utf-8", errors="replace")
+
+
+def _save_operation_log(root, diagnostic, path=None):
+    try:
+        directory = root / "operation-logs"
+        if root.is_symlink() or directory.is_symlink():
+            return None
+        directory.mkdir(mode=0o700, exist_ok=True)
+        if path is None:
+            path = directory / f"{diagnostic['stage']}-{uuid.uuid4().hex}.json"
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        else:
+            if path.is_symlink():
+                return None
+            flags = os.O_WRONLY | os.O_TRUNC
+        descriptor = os.open(path, flags | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(diagnostic, handle, ensure_ascii=True, indent=2)
+            handle.write("\n")
+        return path
+    except (OSError, ValueError):
+        return None
+
+
+def _run_stage(root, stage, operation, *, timeout, progress=None, description=None):
+    """Run once with a bounded command, stage progress, and a redacted output tail."""
+    description = description or stage.replace("_", " ")
+    diagnostic = {"schema_version": 1, "stage": stage, "status": "running",
+                  "started_at": datetime.now(UTC).isoformat(), "timeout_seconds": timeout,
+                  "elapsed_seconds": 0, "exit_code": None, "category": None,
+                  "hint": "", "output_tail": "", "output_tail_truncated": False,
+                  "output_policy": "Known credentials redacted; final 16384 UTF-8 bytes only."}
+    log_path = _save_operation_log(root, diagnostic)
+    if progress:
+        progress(f"Studio stage: {description} (limit {timeout:g}s).")
+        if log_path:
+            progress(f"Stage diagnostic: {log_path}")
+    started = time.monotonic()
+    stopped = threading.Event()
+
+    def heartbeat():
+        while not stopped.wait(30):
+            if progress:
+                progress(f"Studio stage still running: {description}; "
+                         f"{time.monotonic() - started:.0f}s elapsed of {timeout:g}s.")
+
+    reporter = threading.Thread(target=heartbeat, daemon=True, name="studio-stage-progress")
+    reporter.start()
+    result = error = None
+    try:
+        result = operation()
+    except (RuntimeError, OSError, ValueError, KeyboardInterrupt) as exc:
+        error = exc
+    finally:
+        stopped.set()
+        reporter.join(timeout=1)
+    diagnostic["elapsed_seconds"] = round(max(0, time.monotonic() - started), 2)
+    diagnostic["exit_code"] = getattr(error or result, "returncode", None)
+    raw = (getattr(error or result, "stdout", b"") + b"\n"
+           + getattr(error or result, "stderr", b""))
+    if error:
+        raw += b"\n" + str(error).encode("utf-8", errors="replace")
+    diagnostic["output_tail"] = _redact_operation_output(raw, root)
+    diagnostic["output_tail_truncated"] = len(raw) > OPERATION_OUTPUT_BYTES
+    failed = error is not None or result.returncode != 0
+    interrupted = isinstance(error, KeyboardInterrupt)
+    diagnostic["status"] = "interrupted" if interrupted else "failed" if failed else "completed"
+    if failed:
+        diagnostic["category"] = ("interrupted" if interrupted
+                                  else "timeout" if error and "timed out" in str(error).lower()
+                                  else "output_limit" if error and "output limit" in str(error).lower()
+                                  else "command_failed")
+        diagnostic["hint"] = "Inspect this stage's output, then run setup again with the same data directory."
+        if stage == "compose_up":
+            diagnostic["hint"] += (" Cold runtime preparation can take tens of minutes. "
+                "A failed wait does not establish why startup failed; containers may still be preparing. "
+                "An ordinary setup retry reuses the owned image and persistent precompile cache. "
+                "For a longer bounded wait, set LAB_STUDIO_STARTUP_TIMEOUT_SECONDS (60–3600).")
+    saved = _save_operation_log(root, diagnostic, log_path) if log_path else None
+    if interrupted:
+        if progress:
+            progress("Studio setup was interrupted. Resume setup with the same data directory to reuse saved work.")
+        raise error
+    if failed:
+        raise StudioOperationFailure(diagnostic, saved) from None
+    if progress:
+        progress(f"Studio stage completed: {description} ({diagnostic['elapsed_seconds']:g}s).")
+    return result
 
 
 def _command(endpoint, args, **kwargs):
