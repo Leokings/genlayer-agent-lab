@@ -6,7 +6,7 @@ An automated demonstration or scripted reference run is separate evidence. A dev
 
 ## What success looks like
 
-The developer reaches a first completed run with the agent they actually want to test, without undocumented maintainer intervention. They can identify the connection method, see an actual agent request, and explain whether the report describes successful behavior, a failed expectation, or an infrastructure problem.
+The developer starts with an existing terminal-capable agent and pastes the installation prompt once. The agent prepares missing software, opens a usable Lab, and resumes across necessary local user actions without undocumented maintainer intervention. The developer then completes a reviewed run with the agent they want to test and can explain its actual connection and result.
 
 A failed agent evaluation can be a successful onboarding outcome if the connection worked and the report clearly explains the failure. A green scripted demo alone does not establish that the developer's own agent connected. An inconclusive runtime failure does not establish completed installation.
 
@@ -14,13 +14,25 @@ A failed agent evaluation can be a successful onboarding outcome if the connecti
 
 Record the source revision or supplied artifact version, OS, CPU architecture, Python version, and Docker environment. The primary project path requires the supported Linux x86-64 Docker profile. Use a fresh environment and data directory for an installation trial. The repository and supplied artifacts are the distribution sources; do not substitute a similarly named registry package.
 
-VPS access and operating-system dependencies remain external prerequisites. The bundled scripted verification does not require a paid model. The developer chooses the model and credentials for their own tested agent. Keep tokens, private keys, and private evidence out of the feedback record.
+VPS ownership/access and an existing terminal-capable agent are the starting conditions. Installing missing OS dependencies is part of the agent-led journey. Record any password, OS dialog, login or reboot handoff separately from maintainer help. The developer keeps their chosen agent/model. Keep tokens, passwords, private keys and private evidence out of the feedback record.
+
+## Required acceptance paths
+
+These are trial requirements, not results already established by the documentation or a mocked helper test.
+
+| Starting state | What the trial must establish |
+|---|---|
+| Fresh supported host without Docker | Paste the installation prompt; agent detects the host and installs missing dependencies, then verifies Docker service access, Compose, Studio readiness, Lab health and dashboard access. A package-install exit code alone is insufficient. |
+| Partially installed host | Agent reuses existing Git/uv/Docker, checkout, selected Docker context, data and completed build stages; installs only missing pieces and preserves unrelated software/model settings. |
+| Password or Docker-group login handoff | Agent states the exact local action, saves the absolute helper path and progress without secrets, and resumes after the user completes it. Its actual running process has refreshed groups; no password enters chat and no restart begins installation again. |
+| Desktop dialog or reboot required | Agent saves the stage, leaves reboot/dialog control to the user, and resumes with the same agent after return; record the actual platform rather than extending one platform's result to another. |
+| Unsupported architecture or unavailable tools | Agent names the missing capability and concrete next action, without claiming setup completed or silently substituting an unsupported runtime. |
 
 ## Complete the journey
 
-1. **Install and open the dashboard.** Follow the source or supplied-wheel instructions and run `gl-agent-lab setup`. Record time spent on prerequisites, downloads, and runtime preparation separately. Use `--no-open` plus an SSH tunnel for a VPS. Record any confusing or missing diagnostic.
+1. **Install and open the dashboard.** Paste the [installation prompt](INSTALL.md#setup-with-an-agent) into the existing agent. Record dependency installation, downloads, runtime preparation and required user actions separately. On a VPS, verify tmux detach/return and the SSH tunnel. For each prerequisite, record whether it was already present or installed during this trial.
 2. **Choose and review a test.** Select a template, inspect its public task and supplied conditions, and read its expected behavior. Confirm that the developer can explain what should pass before creating the run. Custom-specification import is an advanced path, not a prerequisite for this first test.
-3. **Connect the developer's own agent.** Use the generated MCP, HTTP, Python, or TypeScript instructions. Record the framework, model, configuration changes, and time to the first observed request. Note whether the developer mistook copying a snippet or pressing Check connection for the agent actually connecting.
+3. **Connect the developer's own agent.** Paste the dashboard's generated **agent setup prompt** into a tested-agent context without private grading. Record framework, model, configuration changes, any runtime-restart handoff, and the first observed request. Confirm the developer can distinguish this run-specific message from the earlier installation prompt.
 4. **Complete and explain the run.** Have the agent observe its task, use the permitted tools, and finish. Record the run ID and result. Ask the developer to point to the action or check that explains the outcome, using the readable report before opening Advanced JSON.
 5. **Run one variation.** Change a supported template option or choose another relevant template. Review the new expectations and run the same agent again. Record whether the developer understood what changed and could compare the outcomes.
 6. **Return to the installation.** After runs have finished, stop and start the Lab process. Confirm that the earlier report remains available and the developer knows how to create a new test. Optional startup, logout, or whole-machine reboot checks should be recorded separately.
@@ -34,6 +46,8 @@ The setup skill can be read locally from `skills/setup-genlayer-agent-lab/SKILL.
 | Measure | What to record |
 |---|---|
 | Time to dashboard | Elapsed time, separating downloads from active effort |
+| Dependency setup | Initially missing tools, what the agent installed, actual daemon/readiness checks |
+| Resume quality | Exact user handoffs, progress retained, duplicate work or lost settings |
 | Time to first real-agent request | From opening connection instructions to an observed request by the developer's agent |
 | Unassisted completion | Whether the supplied instructions and setup skill were sufficient without maintainer intervention |
 | Connection clarity | Whether the developer could distinguish configured, waiting, and observed use |
@@ -49,6 +63,10 @@ Source revision or artifact filename / checksum:
 OS / architecture / Python / Docker environment:
 Fresh installation and data directory:
 Manual setup or coding agent / installed setup skill:
+Starting dependencies present / missing, including Docker:
+Single installation prompt / extra prompts needed:
+Password, OS dialog, login or reboot handoffs / same-agent resume:
+Docker service + Compose / Studio readiness / Lab health evidence:
 Prerequisite, download, and active setup time:
 Time to dashboard / blockers:
 First template / expectation understood before creation:

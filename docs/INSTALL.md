@@ -2,23 +2,27 @@
 
 The primary setup runs the Lab and its owned project Studio stack on your machine. After installation, follow [your first agent run](GETTING_STARTED.md). For a remote Linux machine, use [the VPS quickstart](VPS_QUICKSTART.md).
 
-An agent with terminal and configuration access can perform the installation and connection steps for you. Use the [setup prompt below](#setup-with-an-agent). Once you review a test in the dashboard, **Copy agent setup prompt** gives your tested agent its own connection settings and instructions to configure its tools and start.
+Open the [public setup page](https://genlayer-agent-lab-setup.vercel.app) before installing anything and copy its prompt into your existing terminal-capable agent. The page requires no Lab installation, account or login. It includes installing missing dependencies, including Docker; you do not need a second agent installation or a prepared developer toolchain. The Lab and its data remain on your own machine. The [prompt below](#setup-with-an-agent) is also available as a fallback.
 
-## Before you start
+The agent checks your host, explains the necessary changes and proceeds within its access. You handle a password, OS dialog, new login or reboot if required, then resume with the same agent. A prompt cannot supply unavailable administrator rights, virtualization or terminal tools.
+
+## What your agent prepares
 
 | Requirement | What to check |
 |---|---|
-| Git and [uv](https://docs.astral.sh/uv/getting-started/installation/) | Available in the installation terminal |
+| Git and [uv](https://docs.astral.sh/uv/getting-started/installation/) | Install missing tools; retain existing working installations |
 | Python 3.12 | `uv sync --locked --python 3.12` creates the project environment |
-| Docker Engine and Docker Compose | The installation user can reach the running daemon |
+| Docker Engine and Docker Compose | Install if missing, start the daemon and verify access from the normal installation account |
 | Linux x86-64 Docker environment | Required by the supported project Studio profile; on Windows use Docker Desktop's Linux containers |
 | Resources and internet access | For a short VPS trial, plan for 8 GiB RAM and an 80 GB disk, with room for runtime downloads and Docker build cache. These are planning estimates, not a measured minimum |
 
 On a headless Linux server, use Docker Engine with its Compose plugin. On a machine whose Docker architecture is unsupported, use an appropriate Linux x86-64 host and connect through an SSH tunnel. Setup reports the environment it detects; a Python-only installation does not establish Studio readiness.
 
-A VPS account, server access, and OS-level prerequisites belong to you or your administrator. The Lab has no shared hosting account to sign into. Its scripted installation check needs no paid model key, production wallet, or public-network tokens. Your own tested agent keeps its chosen model and provider. Node.js 24 is needed only when running the TypeScript example.
+A VPS account and access to that machine must already exist; the setup agent can install its software dependencies within your authorization. The Lab has no shared hosting account to sign into. Its scripted installation check needs no paid model key, production wallet, or public-network tokens. Your own tested agent keeps its chosen model and provider. Node.js 24 is needed only when running the TypeScript example.
 
-## Install from source
+The [setup skill](../skills/setup-genlayer-agent-lab/SKILL.md#install-missing-host-dependencies) gives the concrete platform steps: the bundled helper for Ubuntu 22.04/24.04 x86-64, Docker Desktop with WSL 2 on supported Windows x86-64, and Docker Desktop on supported Intel macOS. ARM hosts and other distributions need a separately supported route; do not treat emulation as verified Lab support. These instructions are an installation path, not a claim that every fresh-host trial has passed.
+
+## Advanced: install from source
 
 Use the [official repository](https://github.com/Leokings/genlayer-agent-lab), a supplied source checkout, or an extracted source archive. This candidate is not published on PyPI. The commands below use the source you actually checked out; record its revision if you need a reproducible trial.
 
@@ -29,7 +33,7 @@ uv sync --locked --python 3.12
 uv run gl-agent-lab setup
 ```
 
-If you already have the source, enter that directory and start at `uv sync`. Setup checks prerequisites before proceeding. Resolve a reported missing dependency using the host's normal installation process. For a diagnostic without starting services, run `uv run gl-agent-lab setup --check`. It reports prerequisites and the owned Studio profile's status without installing packages or starting services.
+These terminal commands assume the dependencies above are ready. If you already have the source, enter that directory and reuse its environment. The agent setup path installs missing host dependencies before running these commands. `gl-agent-lab setup` itself checks dependencies and prepares the owned runtime; it is not the system-package installer. For a diagnostic without starting services, run `uv run gl-agent-lab setup --check`.
 
 `setup` initializes the selected data directory, builds or starts its project Studio stack, and starts the Lab in the foreground, or recognizes the same installation if it is already running. On a desktop it opens the workflow dashboard with a local authentication handoff. On an SSH session it prints headless connection instructions. Use `--no-open` to request that explicitly.
 
@@ -79,13 +83,17 @@ The artifact must include the commands described in this guide; check its actual
 
 ## Setup with an agent
 
-Ask your agent to read the local [setup skill](../skills/setup-genlayer-agent-lab/SKILL.md), or give it [the source URL](https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md):
+Use **Copy setup prompt** on the [public setup page](https://genlayer-agent-lab-setup.vercel.app), or paste the text below into your existing terminal-capable agent. It links to the [setup skill](../skills/setup-genlayer-agent-lab/SKILL.md) and authorizes necessary dependency installation:
 
-> Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. Reuse my existing installation if present. Check the requirements, start the Lab, help me open its dashboard, and guide me through reviewing my first test. Then help me use the Lab's generated agent setup prompt to connect the agent I want to test.
+```text
+Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. I authorize installing missing prerequisites, including Git, uv/Python and Docker with Compose, then installing and starting the Lab and its owned Studio environment. First detect this host, architecture, available access and existing installation. Briefly state the changes, then proceed within your available permissions. Preserve my agent, model, unrelated settings, software and saved data. Reuse completed setup stages. Pause only when a password, OS dialog, login, reboot or unavailable capability requires me; never request passwords in chat or reboot automatically. Before an interruption, save a secret-free progress note and give the exact next action so we can resume with this same agent. On a VPS, leave long setup stages in tmux and tell me how to return. Verify the running Docker service, Studio readiness and Lab health, then help me open the dashboard and review a first test. Keep workspace keys and private grading out of the tested agent's context; use the dashboard's generated agent setup prompt only after I review and create that test.
+```
 
-An agent that supports local skills can install the supplied file using its normal mechanism. For later sessions, “Start my existing GenLayer Agent Lab” is enough context once the installation is known. The skill works with agents that can read instructions and run local commands; OpenClaw is not required. It does not grant those capabilities to a chat-only agent or provision a cloud account.
+For local use, a downloaded checkout or exported kit includes [START.html](START.html). GitHub shows that HTML file as source. An installed Lab also serves the setup page at `/setup`; neither download nor installation is needed for the public page.
 
-When the installation is ready, review and create a test, select how and where your agent connects, and click **Copy agent setup prompt**. Send the complete generated message to the agent you want to test. It carries that run's scoped settings, so you do not need to translate the MCP configuration manually. Keep the generated message private. If the agent cannot edit its host configuration, use the dashboard's manual connection settings for that host.
+An agent that supports local skills can install the supplied file using its normal mechanism. If setup pauses, complete the exact local action it gives you, then say “Resume GenLayer Agent Lab setup from the saved progress note.” It should inspect the current stage and continue with the same installation. Later, “Start my existing GenLayer Agent Lab” reopens it. OpenClaw is optional.
+
+The installation prompt above prepares software. After you review and create a test, **Copy agent setup prompt** supplies a different message containing that run's private connection key. Send it only to the agent you want to test, in a context that has not seen private grading. That message connects to the existing run; it must not reinstall the Lab or create another test. Manual connection settings remain available for hosts without configuration tools.
 
 Dashboard-created project tests allow up to 60 minutes for Studio preparation and agent connection. The selected full test duration starts once Studio is ready and the agent has made an authenticated `observe` request. Saving configuration, discovering tools, and pressing **Check connection** do not start that timer. CLI/API-created runs keep their immediate timer by default; HTTP clients can opt into the separate setup allowance with `wait_for_agent: true` in the create request. If you use OpenClaw, follow [its short connection guide](OPENCLAW_QUICKSTART.md).
 

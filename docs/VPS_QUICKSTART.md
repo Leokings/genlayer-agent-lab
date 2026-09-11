@@ -2,15 +2,40 @@
 
 This path runs the current project Studio environment on a Linux x86-64 server you control. You use the dashboard through an SSH tunnel and can connect your agent from the server or your own computer.
 
-You need an existing VPS account, SSH access, Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), Docker Engine, and Docker Compose available to your installation user. For this short trial, plan for 8 GiB RAM and an 80 GB disk with room for runtime downloads and Docker build cache. This is planning guidance; a minimum server size has not been measured. See [installation](INSTALL.md) if a prerequisite is missing.
+Open the [public setup page](https://genlayer-agent-lab-setup.vercel.app) and copy its prompt into an agent with terminal access to your existing VPS's normal user account. The page needs no Lab installation, account or login; your Lab and test data stay on your VPS. The [installation prompt](INSTALL.md#setup-with-an-agent) is also available directly in the docs.
+
+Your agent installs missing Git, uv, Docker Engine and Compose before starting the Lab. Ubuntu 22.04/24.04 x86-64 has a bundled prerequisite helper. For this short trial, plan for 8 GiB RAM and an 80 GB disk with room for downloads and Docker cache. This is planning guidance; a minimum server size has not been measured.
 
 The Lab does not provision a VPS account or purchase server resources. Its scripted installation check needs no paid AI model or public GenLayer tokens. Your own agent uses its chosen model and provider.
 
-If your agent already has terminal access to this VPS, you can give it the [setup prompt](INSTALL.md#setup-with-an-agent) to perform the following installation and access steps. After you review a test, **Copy agent setup prompt** in the dashboard lets your agent configure its own supported connection and begin. Terminal and manual connection instructions remain available below.
+You handle a password or new SSH login only when required, then tell the same agent to resume. Long builds can run in tmux while you leave. After you review a test, the dashboard's separate **Copy agent setup prompt** connects the tested agent to that run. Advanced terminal instructions follow.
+
+## Ubuntu prerequisite helper
+
+The agent can obtain this helper before Git is installed. Download it to a local file with an available HTTPS tool, inspect it, then run its read-only check from a normal user account:
+
+```sh
+curl --fail --location --output bootstrap-ubuntu.sh https://raw.githubusercontent.com/Leokings/genlayer-agent-lab/main/scripts/bootstrap-ubuntu.sh
+bash bootstrap-ubuntu.sh --check
+```
+
+If `curl` is missing, use `wget` or the agent's download/file tools. If none are available, the agent can install `ca-certificates` and `curl` using the host package manager within the same authorization; it should give you only the exact password/capability handoff if blocked.
+
+After inspecting the proposed changes, the agent uses:
+
+```sh
+bash bootstrap-ubuntu.sh --install
+```
+
+The helper supplies Git, curl, CA certificates, tmux, uv, Docker Engine and Compose as needed. It uses `sudo -n` by default. If it reports that a password is required, run its printed `--install --interactive` command in your own terminal; keep the password out of chat. Use the helper's saved absolute path when returning from a different directory.
+
+If it adds Docker group membership, reconnect over SSH, start a fresh tmux session and rerun `--check`. A running agent, Gateway or user-service manager can retain old groups even after a service restart. Your agent must check Docker access from its actual terminal and, if still blocked, give the specific login/service-context action needed before resuming from its saved note. It should not terminate your session or reboot for you. If uv is absent in the parent shell, follow the printed user-local PATH instruction. The helper preserves working local Docker installations and reports conflicting packages or remote contexts for resolution instead of replacing them. It does not install the Lab itself.
+
+Exit codes: `0` ready, `2` missing dependencies in check mode, `3` unsupported host or conflicting setup, `4` privilege handoff, `5` installation/service failure, `6` new login required, `64` invalid usage. A nonzero result is a resume or diagnosis point, not installation success.
 
 ## Start the installation
 
-In your VPS terminal:
+Once dependencies are ready, in your VPS terminal:
 
 ```sh
 git clone https://github.com/Leokings/genlayer-agent-lab.git

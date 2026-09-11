@@ -342,8 +342,13 @@ def probe(*, backend: str, require_kit: bool) -> dict:
         nonempty = {p.name for p in files if p.is_file() and p.stat().st_size > 0}
         if not required_kit_files <= nonempty:
             raise VerificationError("Installed integration kit lacks its skill or clients")
+        for relative in ("docs/START.html", "scripts/bootstrap-ubuntu.sh"):
+            required = exported / relative
+            if not required.is_file() or required.stat().st_size == 0:
+                raise VerificationError("Installed integration kit lacks setup resource: " + relative)
         kit = {"exported": True, "file_count": sum(p.is_file() for p in files),
-               "required_files": sorted(required_kit_files)}
+               "required_files": sorted(required_kit_files),
+               "setup_resources": ["docs/START.html", "scripts/bootstrap-ubuntu.sh"]}
         draft = work / "project.draft.json"
         authored = cli("project", "template", str(exported / "examples/projects/prediction/project.yaml"),
                        "--output", str(draft))
@@ -396,7 +401,7 @@ def probe(*, backend: str, require_kit: bool) -> dict:
             with httpx.Client(timeout=5, trust_env=False, follow_redirects=False) as web:
                 if web.get(url + "/v1/scenarios").status_code != 401:
                     raise VerificationError("Installed HTTP API accepted a missing credential")
-                for asset in ("/", "/assets/app.js", "/assets/styles.css",
+                for asset in ("/", "/setup", "/assets/app.js", "/assets/styles.css",
                               "/assets/workflows.html", "/assets/workflows.js", "/assets/onboarding.css"):
                     response = web.get(url + asset)
                     if response.status_code != 200 or not response.content:

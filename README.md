@@ -2,23 +2,27 @@
 
 Test how your agent uses GenLayer decisions before relying on it in an application. Run a reviewed scenario in your own local Studio environment, connect your agent, and see which decisions and actions met your expectations.
 
-[Get started](docs/GETTING_STARTED.md) · [Install](docs/INSTALL.md) · [Use a VPS](docs/VPS_QUICKSTART.md) · [Source](https://github.com/Leokings/genlayer-agent-lab)
+[Open setup page](https://genlayer-agent-lab-setup.vercel.app) · [Get started](docs/GETTING_STARTED.md) · [Install](docs/INSTALL.md) · [Use a VPS](docs/VPS_QUICKSTART.md) · [Source](https://github.com/Leokings/genlayer-agent-lab)
 
 **Version 0.1.0a12 — development candidate.** See [build status](docs/BUILD_STATUS.md), the dated [verification record](docs/VERIFICATION.md), and the [build audit](docs/BUILD_AUDIT.md) for completed and open gates.
 
 ## Start here
 
-An agent with terminal and configuration access can handle setup for you. Paste this into your agent on the computer or VPS where you want the Lab to run:
+Open the [public setup page](https://genlayer-agent-lab-setup.vercel.app) and copy its prompt into an agent that already has terminal access to your computer or VPS. The page needs no Lab installation, account or login. It is a public instruction page; your Lab, Studio and test data run on your own machine.
 
-> Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. Reuse my existing installation if present. Check the requirements, start the Lab, help me open its dashboard, and guide me through reviewing my first test. Then help me use the Lab's generated agent setup prompt to connect the agent I want to test.
+You do not need to install Git, Python, uv or Docker yourself: the prompt asks your agent to install what is missing and reuse what is ready. You can also copy it directly here:
+
+```text
+Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. I authorize installing missing prerequisites, including Git, uv/Python and Docker with Compose, then installing and starting the Lab and its owned Studio environment. First detect this host, architecture, available access and existing installation. Briefly state the changes, then proceed within your available permissions. Preserve my agent, model, unrelated settings, software and saved data. Reuse completed setup stages. Pause only when a password, OS dialog, login, reboot or unavailable capability requires me; never request passwords in chat or reboot automatically. Before an interruption, save a secret-free progress note and give the exact next action so we can resume with this same agent. On a VPS, leave long setup stages in tmux and tell me how to return. Verify the running Docker service, Studio readiness and Lab health, then help me open the dashboard and review a first test. Keep workspace keys and private grading out of the tested agent's context; use the dashboard's generated agent setup prompt only after I review and create that test.
+```
+
+Passwords and operating-system prompts stay on your device. If setup needs a login or reboot, complete the stated action and tell the same agent to resume. The [installation guide](docs/INSTALL.md) describes supported hosts. A downloaded checkout or installation kit also includes [START.html](docs/START.html) for local use; GitHub displays that file as source.
 
 After you review and create a test, the dashboard provides **Copy agent setup prompt**. Paste that message into the agent you want to test: it includes the connection settings and asks the agent to configure its tools and begin. This works with agents that can manage their tool configuration; a chat-only client may still need its owner's connection settings changed. Manual connection instructions remain available.
 
 Dashboard project runs allow up to 60 minutes for preparation and connection. The selected test time starts once Studio is ready and the agent has actually called `observe`. Saving connector settings alone does not start it.
 
-For terminal installation:
-
-You need Git, [uv](https://docs.astral.sh/uv/getting-started/installation/), and a running Docker engine with Compose and Linux x86-64 containers. Setup uses Python 3.12. See [installation](docs/INSTALL.md) for platform details and resource guidance.
+For an advanced terminal installation, the commands below assume Git, [uv](https://docs.astral.sh/uv/getting-started/installation/) and Docker with Compose are ready. The agent setup path above includes those prerequisites. Setup uses Python 3.12 and Linux x86-64 containers.
 
 ```sh
 git clone https://github.com/Leokings/genlayer-agent-lab.git
@@ -81,4 +85,4 @@ uv build
 
 The project disables `genlayer-test`'s automatic pytest plugins because contract checks run through owned worker processes. Browser checks use `npm ci` and `npx playwright install chromium`. Use `npm run verify:onboarding -- --connection-fixture --report-fixture` to check connection timing, credential lifecycle and report behavior with synthetic browser responses and no running Lab. Use `npm run verify:onboarding` for guided authoring checks; add `-- --live` to create an actual local Studio run with a scripted reference. Set `LAB_DATA_DIR` and `LAB_URL` when using a nondefault installation. `-- --report=RUN_ID` checks a saved passing report without creating another run; add `--unsafe` for an expected failing report. `npm run verify:dashboard` checks the older compatibility dashboard.
 
-[Architecture](docs/ARCHITECTURE.md) · [Verification](docs/VERIFICATION.md) · [Third-party notices](THIRD_PARTY.md)
+[Architecture](docs/ARCHITECTURE.md) · [Verification](docs/VERIFICATION.md) · [Publish the setup page](docs/SETUP_PAGE.md) · [Third-party notices](THIRD_PARTY.md)

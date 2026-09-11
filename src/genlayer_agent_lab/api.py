@@ -350,6 +350,18 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
     if assets.is_dir():
         app.mount("/assets", StaticFiles(directory=assets), name="assets")
 
+    @app.get("/setup", include_in_schema=False)
+    def setup_instructions() -> Response:
+        package = Path(__file__).parent
+        # Wheels carry the same standalone document as the source checkout.
+        page = package / "_kit" / "docs" / "START.html"
+        if not page.is_file():
+            page = package.parents[1] / "docs" / "START.html"
+        if page.is_file():
+            return FileResponse(page, media_type="text/html")
+        return Response("Setup instructions are unavailable in this installation.",
+                        status_code=404, media_type="text/plain")
+
     @app.get("/", include_in_schema=False)
     def dashboard() -> Response:
         index = assets / "workflows.html"
