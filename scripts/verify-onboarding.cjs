@@ -58,7 +58,7 @@ async function verifyConnectionFixture(browser, checks) {
   const timing = () => ({phase, setup_deadline_at:setupDeadline, started_at:phase === 'test' ? setupDeadline - 1800 : null,
     deadline_at:phase === 'test' ? setupDeadline : null, seconds_remaining:remaining});
   const page = await browser.newPage({viewport:{width:1280,height:900}});
-  const errors = [], unexpected = [];
+  const errors = [], unexpected = [], mutationRequests = [];
   page.on('pageerror', error => errors.push(redact(error.message)));
   await page.addInitScript(() => {
     window.fixtureClipboard = {value:'',deny:false};
@@ -72,6 +72,7 @@ async function verifyConnectionFixture(browser, checks) {
     assert(!url.href.includes(adminToken) && !url.href.includes(fixtureToken));
     const asset = {'/':'workflows.html','/assets/workflows.js':'workflows.js','/assets/styles.css':'styles.css','/assets/onboarding.css':'onboarding.css'}[url.pathname];
     if (asset) return route.fulfill({path:path.resolve('src/genlayer_agent_lab/assets', asset),contentType:asset.endsWith('.js') ? 'text/javascript' : asset.endsWith('.css') ? 'text/css' : 'text/html'});
+    if (request.method() !== 'GET') mutationRequests.push(request.method() + ' ' + url.pathname);
     let result;
     if (url.pathname === '/v1/onboarding/templates') result = {templates:[{id:'prediction-finalize',title:'Connection fixture',description:'Synthetic browser check',fields:[{name:'timeout_seconds',type:'number',default:600}]}]};
     else if (url.pathname === '/v1/onboarding/status') result = {ready:true,checks:[],server_url:baseURL,mcp_command:'/opt/agent-lab/bin/gl-agent-lab-mcp'};
@@ -91,6 +92,31 @@ async function verifyConnectionFixture(browser, checks) {
   async function createFixture() {
     await page.goto(baseURL + '/#token=' + adminToken);
     await page.locator('#workspace').waitFor({state:'visible'});
+    if (!creations) {
+      const before = mutationRequests.length;
+      await page.getByRole('link', {name:'Prepare a test from my contract', exact:true}).click();
+      assert.equal(await page.locator('#custom-project').evaluate(el => el.open), true);
+      await page.locator('#copy-authoring-prompt').click();
+      await page.locator('#authoring-copy-status').filter({hasText:'Copied.'}).waitFor();
+      const authoringPrompt = await page.evaluate(() => window.fixtureClipboard.value);
+      const publicPrompt = fs.readFileSync(path.resolve('docs/START.html'), 'utf8').match(/<textarea id="authoring-prompt"[^>]*>([\s\S]*?)<\/textarea>/)[1];
+      assert.equal(authoringPrompt, publicPrompt);
+      assert(!authoringPrompt.includes(adminToken) && !authoringPrompt.includes(fixtureToken));
+      await page.evaluate(() => { window.fixtureClipboard.deny = true; });
+      await page.locator('#copy-authoring-prompt').click();
+      await page.locator('#authoring-copy-status').filter({hasText:'Automatic copying is unavailable'}).waitFor();
+      assert.equal(await page.locator('#authoring-prompt-details').evaluate(el => el.open), true);
+      assert.equal(await page.locator('#authoring-prompt').evaluate(el =>
+        el.value.slice(el.selectionStart, el.selectionEnd)), authoringPrompt);
+      await page.setViewportSize({width:390,height:844});
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      await page.setViewportSize({width:1280,height:900});
+      assert.equal(mutationRequests.length, before, 'Preparing a prompt must not create a run or call a mutation API');
+      assert.equal(creations, 0);
+      await page.evaluate(() => { window.fixtureClipboard.deny = false; });
+      await page.locator('#custom-project').evaluate(el => { el.open = false; });
+      checks.contract_authoring_discovery_copy_fallback_and_no_run_creation = 'pass';
+    }
     await page.locator('[data-template="prediction-finalize"]').click();
     assert.equal(await page.locator('#field-timeout_seconds').inputValue(), '30');
     await page.locator('#prepare-review').click();

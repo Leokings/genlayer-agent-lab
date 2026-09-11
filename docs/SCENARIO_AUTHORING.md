@@ -5,6 +5,39 @@ GenLayer project. They supply test conditions and independently reviewed rules.
 They do not evaluate a contract model's reasoning or manufacture GenLayer
 transaction outcomes.
 
+## Ask your agent to prepare the file
+
+Give your setup or authoring agent your contract source and describe what you
+want to check. You do not need to write JSON yourself. For example:
+
+> Use the Prepare a GenLayer Lab Test skill. Here is my contract. Prepare a test
+> where the supplied decision authorizes 40 of 100 test units. Check that my
+> agent waits for finality, releases exactly 40 once, and leaves 60. Preserve my
+> contract, validate the import file, and show me the proposed test for review.
+
+The [Prepare a test from my contract skill](../skills/prepare-genlayer-lab-test/SKILL.md)
+reads the real source, prepares its supported project binding, and produces a
+self-contained `.draft.json` for the dashboard. It asks for important missing
+expectations, explains unsupported contract features, and preserves your source.
+The file includes the contract, connection description and test conditions;
+uploading Python source alone does not define a behavioral test.
+
+In the dashboard, expand **Use my own contract**,
+select **Project scenario file (.json)**, then **Validate & review configuration**.
+Review the conditions, permissions and expected behavior before creating a test.
+A valid file proves the configuration passed validation; running it establishes
+whether the actual contract and agent behaved as expected.
+
+Preparing and validating a draft does not need Docker, a running Studio, a model
+API key or a live wallet. Your existing authoring agent can do the writing using
+the installed Lab CLI. The setup skill routes authoring requests to this skill;
+the exported installation kit includes both.
+
+After authoring, give the actual tested agent only the dashboard's generated
+connection/start prompt in a clean context. Do not include the private draft or
+its expected answers. The same installed agent/model can be reused, but ensure
+its persistent memory does not recall those private expectations.
+
 The bundled prediction project has two contracts: an oracle resolves a market,
 and a recorder reads the oracle and records the finalized outcome and revision.
 The [starter scenarios](../examples/project-scenarios/) cover ordinary
@@ -40,13 +73,34 @@ intended behavior.
 ## Terminal setup and authoring
 
 Run these commands from the exported installation kit or a source checkout with
-the Lab installed. File outputs must be new paths.
+the Lab installed. In a checkout, prefix commands with `uv run --locked`.
+File outputs must be new paths. Authoring works before Studio is installed:
+
+```sh
+gl-agent-lab project template examples/projects/prediction/project.yaml --mode finalize --output my-case.draft.json
+gl-agent-lab project validate my-case.draft.json
+```
+
+`project template` targets the supplied prediction project; it is not a general
+contract converter. For your own source, follow [Project bindings](PROJECT_BINDINGS.md)
+and create a new recipe with `project: project.yaml`, public task/permissions,
+private supplied responses/expectations and `review: {status: draft}`. Then:
+
+```sh
+gl-agent-lab project snapshot project.yaml --output project.snapshot.json
+gl-agent-lab project schema --output scenario-schema.json
+gl-agent-lab project author-prompt project.yaml --output authoring-instructions.txt
+gl-agent-lab project validate case.recipe.yaml --output case.draft.json
+gl-agent-lab project validate case.draft.json
+```
+
+The exported draft embeds the validated binding and source snapshot; it no
+longer depends on the recipe's local project path. For execution later, reuse
+the Lab's healthy Studio or build it as part of setup:
 
 ```sh
 gl-agent-lab project studio-build --port 8796
 gl-agent-lab project studio-status
-gl-agent-lab project template examples/projects/prediction/project.yaml --mode finalize --output my-case.draft.json
-gl-agent-lab project validate my-case.draft.json
 ```
 
 `studio-build` builds and starts the separately owned project Studio profile,
@@ -283,6 +337,7 @@ from pathlib import Path
 
 from genlayer_agent_lab.project_scenarios import (
     load_project_scenario,
+    project_scenario_document,
     scenario_digest,
 )
 
@@ -290,7 +345,8 @@ case = load_project_scenario(
     Path("examples/project-scenarios/prediction-finalize.yaml"),
     require_review=False,
 )
-Path("my-case.draft.json").write_text(json.dumps(case, indent=2), encoding="utf-8")
+with Path("my-case.draft.json").open("x", encoding="utf-8") as stream:
+    json.dump(project_scenario_document(case), stream, indent=2)
 print("Review this exact draft:", scenario_digest(case))
 ```
 
@@ -305,9 +361,8 @@ approved = approve_project_scenario(
     reviewer="Developer name",
     expected_sha256="<digest of the draft the developer reviewed>",
 )
-Path("my-case.approved.json").write_text(
-    json.dumps(approved, indent=2), encoding="utf-8"
-)
+with Path("my-case.approved.json").open("x", encoding="utf-8") as stream:
+    json.dump(project_scenario_document(approved), stream, indent=2)
 ```
 
 The runtime calls `validate_project_scenario(case)` with review required, uses

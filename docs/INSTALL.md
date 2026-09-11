@@ -101,6 +101,8 @@ An agent that supports local skills can install the supplied file using its norm
 
 The installation prompt above prepares software. After you review and create a test, **Copy agent setup prompt** supplies a different message containing that run's private connection key. Send it only to the agent you want to test, in a context that has not seen private grading. That message connects to the existing run; it must not reinstall the Lab or create another test. Manual connection settings remain available for hosts without configuration tools.
 
+To prepare your own contract test, use [Prepare a test from my contract](https://genlayer-agent-lab-setup.vercel.app/#prepare-contract-test) or **Use my own contract** in the dashboard. Its separate copyable prompt uses the [test-preparation skill](../skills/prepare-genlayer-lab-test/SKILL.md) to help your authoring agent turn your source and desired behavior into a validated draft file. Import and review that file before creating a test. The tested agent needs a separate context without access to authoring memories or private test files.
+
 Dashboard-created project tests allow up to 60 minutes for Studio preparation and agent connection. The selected full test duration starts once Studio is ready and the agent has made an authenticated `observe` request. Saving configuration, discovering tools, and pressing **Check connection** do not start that timer. CLI/API-created runs keep their immediate timer by default; HTTP clients can opt into the separate setup allowance with `wait_for_agent: true` in the create request. If you use OpenClaw, follow [its short connection guide](OPENCLAW_QUICKSTART.md).
 
 ## Check the installation, then test your agent

@@ -25,6 +25,11 @@ def test_exported_kit_carries_standalone_page_and_exact_bootstrap(tmp_path):
     output = tmp_path / "kit"
     result = export_kit(output)
     assert Path(result["setup_page"]) == output / "docs" / "START.html"
+    authoring_skill = Path("skills") / "prepare-genlayer-lab-test" / "SKILL.md"
+    assert Path(result["authoring_skill"]) == output / authoring_skill
+    assert (output / authoring_skill).read_bytes() == (ROOT / authoring_skill).read_bytes()
+    for guide in ("SCENARIO_AUTHORING.md", "PROJECT_BINDINGS.md"):
+        assert (output / "docs" / guide).read_bytes() == (ROOT / "docs" / guide).read_bytes()
     assert (output / "scripts" / "bootstrap-ubuntu.sh").read_bytes() == (
         ROOT / "scripts" / "bootstrap-ubuntu.sh").read_bytes()
     assert (output / "docs" / "START.html").read_bytes() == (ROOT / "docs" / "START.html").read_bytes()

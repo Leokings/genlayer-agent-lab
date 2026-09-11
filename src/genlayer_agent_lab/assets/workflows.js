@@ -677,6 +677,18 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   $("auth-form").addEventListener("submit", async event => { event.preventDefault(); clearNotice(); token = $("token").value.trim(); const button = event.submitter; if (button) button.disabled = true; try { await connect(); } catch (error) { fail(error); } finally { if (button) button.disabled = false; } });
   $("disconnect").addEventListener("click", () => { try { sessionStorage.removeItem(key); } catch {} token = ""; credentials.clear(); $("credential").value = ""; clearSetupPrompt(); $("copy-setup-prompt").disabled = $("copy-config").disabled = true; location.reload(); });
   $("template-filter").addEventListener("change", renderTemplates);
+  $("open-contract-authoring").addEventListener("click", () => { $("custom-project").open = true; });
+  $("copy-authoring-prompt").addEventListener("click", async () => {
+    const field = $("authoring-prompt"), status = $("authoring-copy-status");
+    try {
+      await navigator.clipboard.writeText(field.value);
+      status.textContent = "Copied. Paste this into your authoring agent and share your contract and test idea.";
+    } catch {
+      $("authoring-prompt-details").open = true;
+      field.focus(); field.select();
+      status.textContent = "Automatic copying is unavailable. Copy the selected prompt below and paste it into your authoring agent.";
+    }
+  });
   $("template-form").addEventListener("submit", event => { event.preventDefault(); prepare("template").catch(fail); });
   $("advanced-form").addEventListener("submit", event => { event.preventDefault(); prepare("advanced").catch(fail); });
   $("spec").addEventListener("input", invalidate);

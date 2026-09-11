@@ -37,6 +37,16 @@ const {chromium} = require('playwright');
     await page.getByRole('button', {name:'Copy setup prompt', exact:true}).click();
     await page.getByRole('status').filter({hasText:'Copied.'}).waitFor();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), prompt);
+    await page.getByRole('link', {name:'Prepare a test from my contract', exact:true}).click();
+    assert.equal(new URL(page.url()).hash, '#prepare-contract-test');
+    const authoringPrompt = await page.locator('#authoring-prompt').inputValue();
+    assert.match(authoringPrompt, /skills\/prepare-genlayer-lab-test\/SKILL.md/);
+    assert.match(authoringPrompt, /validation result/);
+    assert.match(authoringPrompt, /Do not create or start a test/);
+    assert.match(authoringPrompt, /without access to this conversation, its memories or private test files/);
+    await page.getByRole('button', {name:'Copy test-preparation prompt', exact:true}).click();
+    await page.locator('#authoring-copy-status').filter({hasText:'Copied.'}).waitFor();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), authoringPrompt);
     await page.screenshot({path:path.join(output, 'desktop.png'), fullPage:true});
 
     assert.equal(await page.locator('#opening-help').isVisible(), false);
@@ -171,6 +181,11 @@ const {chromium} = require('playwright');
     assert.equal(await page.locator('#prompt-details').getAttribute('open'), '');
     assert.equal(await page.locator('#setup-prompt').evaluate(el =>
       el.value.slice(el.selectionStart, el.selectionEnd)), prompt);
+    await page.getByRole('button', {name:'Copy test-preparation prompt', exact:true}).click();
+    await page.locator('#authoring-copy-status').filter({hasText:'Automatic copying is unavailable'}).waitFor();
+    assert.equal(await page.locator('#authoring-prompt-details').getAttribute('open'), '');
+    assert.equal(await page.locator('#authoring-prompt').evaluate(el =>
+      el.value.slice(el.selectionStart, el.selectionEnd)), authoringPrompt);
     await page.locator('#continuation > summary').click();
     await page.getByRole('button', {name:'Copy continuation prompt', exact:true}).click();
     await page.locator('#continuation-status').filter({hasText:'Automatic copying is unavailable'}).waitFor();
@@ -200,7 +215,7 @@ const {chromium} = require('playwright');
     await page.screenshot({path:path.join(output, 'mobile-powershell.png'), fullPage:true});
     assert.deepEqual(errors, []);
     assert.deepEqual(externalRequests, []);
-    console.log('11 setup-page checks passed: setup clipboard, local opening, VPS steps, port validation, continuation clipboard, connection method switching, PowerShell command clipboard/custom ports, SSH injection rejection, installer query handoff, manual fallbacks, mobile layout. External requests: 0.');
+    console.log('12 setup-page checks passed: setup clipboard, contract-authoring discovery/copy/fallback, local opening, VPS steps, port validation, continuation clipboard, connection method switching, PowerShell command clipboard/custom ports, SSH injection rejection, installer query handoff, manual fallbacks, mobile layout. External requests: 0.');
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));

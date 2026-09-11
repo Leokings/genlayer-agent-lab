@@ -6,6 +6,13 @@ state and operation results belong to this format. Scenario policy and expected
 behavior belong to a separate scenario. Neither format executes Python on the
 Lab host.
 
+The [Prepare a test from my contract skill](../skills/prepare-genlayer-lab-test/SKILL.md)
+helps an owner supply contract code and describe expected agent behavior without
+writing these files manually. An authoring agent creates this binding from the
+actual source and packages it with a reviewed scenario. It must preserve the
+source and explain unsupported features rather than silently changing the
+contract to fit a template.
+
 The reference is `examples/projects/prediction/project.yaml`. It deploys a
 prediction decision contract, then a record contract that reads the decision
 contract. The decision contract comprises `oracle/__init__.py` and `oracle/rules.py`.
@@ -36,6 +43,24 @@ execution failure can be an expected condition; its mere existence is not an
 automatic agent failure if the agent carries out the required remedy.
 
 ## What the developer supplies
+
+For agent-assisted authoring, inspect the installed `ProjectBinding` model's
+schema instead of guessing field names or copying an unrelated example:
+
+```python
+import json
+from pathlib import Path
+from genlayer_agent_lab.project_bindings import ProjectBinding
+
+with Path("binding-schema.json").open("x", encoding="utf-8") as stream:
+    json.dump(ProjectBinding.model_json_schema(), stream, indent=2)
+```
+
+This only exports the data format; it does not inspect or execute the user's
+contract. Map actual constructor arguments, public methods and result shapes
+from their source. The Lab validates the declaration and source packaging, not
+whether a guessed method signature accurately describes arbitrary Python code.
+Keep the supported runtime's method and state-read restrictions explicit.
 
 - `contracts`: named deployment targets, each with `source_project`, typed
   `constructor_args`, and optional explicit `depends_on` deployment ordering.
