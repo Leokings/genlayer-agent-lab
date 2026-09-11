@@ -76,20 +76,34 @@ The accepted range is 60–3600 seconds, with 30 additional seconds for the Dock
 
 ## Open the dashboard from your computer
 
-In a terminal on your computer, replace the SSH destination:
+Use [Open my dashboard](https://genlayer-agent-lab-setup.vercel.app/?location=vps#open-dashboard). Choose **A VPS**. If your Lab connection already works, open the dashboard directly. Otherwise the guide walks through one saved Termius connection, one screen at a time. You only need to create this forwarding entry once and start it when returning.
+
+In the dashboard:
+
+1. Choose **Connect this browser**.
+2. Choose **Copy sign-in request** and paste it into the agent that installed your Lab.
+3. Return to the dashboard. It signs in automatically after your agent approves.
+
+You do not need to copy a workspace key. The approval request authorizes your browser to open the owner workspace; it does not start a test or connect a tested agent. Keep that page open while approving. If it expires or you reload it, request a new code.
+
+### Advanced: terminal connection and approval
+
+The following is optional for people who prefer a terminal. Replace the SSH destination with your actual saved host or login:
 
 ```sh
 ssh -N -L 8875:127.0.0.1:8765 your-user@your-server
 ```
 
-Keep the tunnel open and browse to [the workflow dashboard](http://127.0.0.1:8875/assets/workflows.html). In a second private VPS terminal, show the installation's dashboard credential:
+Keep the tunnel open and browse to [your dashboard](http://127.0.0.1:8875/). Choose **Connect this browser**. In a second VPS terminal, approve the displayed code:
 
 ```sh
 cd ~/genlayer-agent-lab
-uv run gl-agent-lab init --show-token
+uv run gl-agent-lab dashboard approve CODE_FROM_YOUR_BROWSER
 ```
 
-Enter that administrator token in the dashboard. `init --show-token` does not start the HTTP server; wait for setup to announce that the Lab is serving. If you selected a custom checkout or data directory, use those same paths. Use a private terminal for this command and keep the token out of shared logs. Public ports 8765 and 8796 do not need to be opened.
+Use the installation's actual data directory and port (`--data-dir` and `--port`) if customized. Approval verifies that this installation is running before using its owner credential, and never displays it. No server, agent or Studio restart is needed for sign-in. Public ports 8765 and 8796 do not need to be opened.
+
+Browser requests last ten minutes and can be claimed only once by the requesting browser. Browser sign-in lasts up to 24 hours or until the Lab restarts; it is separate from the saved installation key. The normal `setup` server uses one worker, which is required for this in-memory sign-in flow. Workspace-key login remains under Advanced for existing integrations.
 
 In Termius, create a **local** forwarding rule using your VPS SSH connection:
 
@@ -98,7 +112,7 @@ In Termius, create a **local** forwarding rule using your VPS SSH connection:
 | Local address and port | `127.0.0.1:8875` on your computer |
 | Destination address and port | `127.0.0.1:8765` on the VPS |
 
-After saving, start/connect that forwarding entry and leave it active. The browser address is `http://127.0.0.1:8875/assets/workflows.html`.
+After saving, start/connect that forwarding entry and leave it active. The browser address is `http://127.0.0.1:8875/`.
 
 If the page does not open, check the VPS side first, in its terminal:
 

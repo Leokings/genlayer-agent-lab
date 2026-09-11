@@ -15,9 +15,20 @@
   <span class="eyebrow">YOUR AGENT. A SAFE PLACE TO PRACTISE.</span><h1>Know how your agent will react.</h1>
   <p class="lead">Test decisions, appeals and follow-up actions on your own GenLayer environment. See what happened before you deploy.</p>
   <ol class="welcome-steps"><li><b>1</b> Choose a situation</li><li><b>2</b> Connect your agent</li><li><b>3</b> Understand the result</li></ol>
-  <div class="unlock-box"><h2>Open your workspace</h2><p>This workspace belongs to your installation. Enter its access key to continue.</p>
-    <form id="auth-form"><label for="token">Workspace access key <span class="optional">(administrator token)</span></label><div class="input-row"><input id="token" type="password" autocomplete="off" required placeholder="Paste your workspace key"><button>Open workspace</button></div></form>
-    <details><summary>Where do I find my access key?</summary><p>On the computer running the Lab, run <code>gl-agent-lab init --show-token</code>. From a source checkout, prefix this with <code>uv run</code>. Keep this key with you; your tested agent gets a separate test key.</p></details>
+  <div class="unlock-box"><h2>Open your workspace</h2><p>Your Lab is reachable. Ask the agent that installed it to let this browser in.</p>
+    <button id="pair-start" type="button">Connect this browser</button>
+    <div id="pair-panel" hidden>
+      <p>Copy this request into your <strong>setup agent</strong>. Keep this page open; it will sign in when approved.</p>
+      <button id="pair-copy" type="button">Copy sign-in request</button>
+      <details id="pair-details"><summary>Read the sign-in request</summary><label for="pair-prompt" class="sr-only">Your sign-in request</label><textarea id="pair-prompt" rows="5" readonly spellcheck="false"></textarea></details>
+      <p id="pair-status" role="status" aria-live="polite"></p>
+      <details><summary>I prefer to use the terminal</summary><p>On the computer running this Lab, approve the code using your installed Lab command. From its source checkout, use:</p><pre id="pair-command"></pre><p>Use the same installation folder, data directory and server port used during setup.</p></details>
+    </div>
+    <p class="helper">Sign-in lasts up to 24 hours or until the Lab restarts. Approval opens your owner workspace; it does not start a test.</p>
+    <details id="manual-auth"><summary>Advanced: use an existing workspace key</summary>
+      <form id="auth-form"><label for="token">Workspace access key</label><div class="input-row"><input id="token" type="password" autocomplete="off" required placeholder="Paste your workspace key"><button>Open workspace</button></div></form>
+      <p>Use your installation's saved key privately. Keep it out of the tested agent's chat.</p>
+    </details>
   </div>
 </section>
 <div id="workspace" hidden>
@@ -61,6 +72,6 @@
     <details class="technical-details"><summary>Technical details &amp; full evidence</summary><div id="project-detail" hidden><h3>Deployed contracts</h3><pre id="contracts"></pre><h3>Local fee accounting</h3><pre id="accounting"></pre><h3>Recovery</h3><pre id="recovery"></pre></div><h3>Decisions and transactions</h3><pre id="decision"></pre><h3>Final contract state</h3><pre id="state"></pre><h3>Evaluation data</h3><pre id="evaluation"></pre><button id="download" class="secondary small-button">Download report JSON</button><h3>Full recorded evidence</h3><pre id="evidence"></pre></details>
   </section>
 </div>
-<section id="help" class="panel help-panel"><h2>Let your agent handle setup</h2><p>Use one prompt to check this machine, install missing prerequisites and prepare the Lab. <a href="/setup">Get the setup prompt</a>.</p><div class="help-grid"><div><h3>On your laptop</h3><p>After installing the package, run <code>gl-agent-lab setup</code>. It checks the requirements, starts your environment and opens this workspace.</p></div><div><h3>On a VPS</h3><p>Run <code>gl-agent-lab setup --no-open</code> on the server. Follow the printed SSH tunnel instructions to open this dashboard privately on your laptop.</p></div><div><h3>Using your own agent</h3><p>Choose a test and follow “Connect your agent.” You can use MCP, Python, TypeScript or HTTP. OpenClaw is optional.</p></div></div><p><a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/GETTING_STARTED.md" target="_blank" rel="noreferrer">Installation &amp; first-test guide ↗</a></p></section>
+<section id="help" class="panel help-panel"><h2>Let your agent handle setup</h2><p><a href="/setup">Get the setup prompt or help opening your dashboard</a>. Your agent checks this machine, installs what is missing and prepares the Lab. If it is already installed, choose the opening guide to keep using it.</p><div class="help-grid"><div><h3>On your laptop</h3><p>Your agent starts the Lab and opens your workspace.</p></div><div><h3>On a VPS</h3><p>The opening guide walks you through connecting your computer with Termius. Then use “Connect this browser” above.</p></div><div><h3>Your first test</h3><p>Choose a situation, review it, and copy the connection prompt to the agent you want to test.</p></div></div><p><a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/GETTING_STARTED.md" target="_blank" rel="noreferrer">First-test guide ↗</a></p></section>
 <footer>Self-hosted. Your contracts, test evidence and reports stay in your installation. Results describe the situations you tested; they do not certify production safety.</footer>
 </main></body></html>

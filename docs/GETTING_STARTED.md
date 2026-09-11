@@ -4,7 +4,11 @@ By the end of this walkthrough, your own agent will have connected to a reviewed
 
 ## Open your installation
 
-If you have not installed the source and prerequisites, start with [INSTALL.md](INSTALL.md). From your existing checkout:
+Open the [setup page](https://genlayer-agent-lab-setup.vercel.app/). If the Lab is new, copy its setup prompt into your agent. If installed already, choose **Open my dashboard** and follow the guide for your computer or VPS.
+
+When the dashboard asks you to sign in, choose **Connect this browser**, then paste **Copy sign-in request** into the agent that installed your Lab. Return to the browser after approval. You do not need to retrieve a workspace key or restart the Lab to sign in.
+
+If you prefer the terminal, from your existing checkout:
 
 ```sh
 uv run gl-agent-lab setup

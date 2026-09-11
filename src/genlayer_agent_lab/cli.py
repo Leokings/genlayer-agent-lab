@@ -59,6 +59,10 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--port", type=int, default=DEFAULT_PORT, help="Loopback Lab port (default 8765)")
     setup.add_argument("--no-open", action="store_true", help="Show connection instructions without opening a browser")
     setup.add_argument("--check", action="store_true", help="Read-only prerequisite and installation status checks")
+    dashboard = command("dashboard", "Approve your browser's sign-in request")
+    dashboard.add_argument("dashboard_operation", choices=["approve"])
+    dashboard.add_argument("code", help="The sign-in code shown in your own browser")
+    dashboard.add_argument("--port", type=int, default=DEFAULT_PORT)
     doctor = command("doctor", "Inspect the runtime and local prerequisites")
     doctor.add_argument("--timeout", type=float, default=900,
                         help="First-time preparation deadline in seconds (default 900, maximum 1800)")
@@ -426,6 +430,11 @@ def main(argv: list[str] | None = None, *, engine_factory: Any = None) -> int:
             from .onboarding_setup import run_setup
 
             return run_setup(args.data_dir, port=args.port, no_open=args.no_open, check=args.check)
+        if args.command == "dashboard":
+            if args.url:
+                raise ValueError("Approve on the machine running this Lab. Omit --url and LAB_URL.")
+            from .dashboard_cli import approve_browser
+            return approve_browser(args.data_dir, args.code, port=args.port)
         if args.command in {"kit", "backup", "restore", "service"}:
             if args.url:
                 raise ValueError("This command operates locally. Omit --url and LAB_URL.")

@@ -1,4 +1,4 @@
-// Standalone setup page: real clipboard, denied clipboard fallback and mobile layout.
+// Standalone setup page: clipboard, progressive opening guide, ports and mobile layout.
 // No Lab, model, server credentials or external requests are used.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -23,9 +23,13 @@ const {chromium} = require('playwright');
       permissions:['clipboard-read','clipboard-write']});
     const page = await context.newPage();
     const errors = [];
+    const externalRequests = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.route('**/*', route => new URL(route.request().url()).origin === origin
-      ? route.continue() : route.abort());
+    await page.route('**/*', route => {
+      if (new URL(route.request().url()).origin === origin) return route.continue();
+      externalRequests.push(route.request().url());
+      return route.abort();
+    });
     await page.goto(origin);
     const prompt = await page.locator('#setup-prompt').inputValue();
     assert.match(prompt, /installing missing prerequisites/);
@@ -34,6 +38,81 @@ const {chromium} = require('playwright');
     await page.getByRole('status').filter({hasText:'Copied.'}).waitFor();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), prompt);
     await page.screenshot({path:path.join(output, 'desktop.png'), fullPage:true});
+
+    assert.equal(await page.locator('#opening-help').isVisible(), false);
+    await page.getByRole('button', {name:'This computer', exact:true}).click();
+    assert.equal(await page.locator('#open-local').isVisible(), true);
+    assert.equal(await page.locator('#open-vps').isVisible(), false);
+    assert.equal(await page.locator('#local-link').getAttribute('href'), 'http://127.0.0.1:8765/');
+    assert.equal(await page.locator('#sign-in-help').isVisible(), true);
+
+    await page.getByRole('button', {name:'A VPS', exact:true}).click();
+    assert.equal(await page.locator('#open-local').isVisible(), false);
+    assert.equal(await page.locator('#sign-in-help').isVisible(), false);
+    assert.equal(await page.locator('[data-step]:visible').count(), 1);
+    assert.equal(await page.locator('[data-step="0"]').isVisible(), true);
+    assert.doesNotMatch(await page.locator('#open-vps').innerText(), /8875|8765/);
+    assert.equal(await page.getByRole('link', {name:'Already connected? Open dashboard', exact:true}).isVisible(), true);
+    assert.equal(await page.locator('#vps-existing-link').getAttribute('href'), 'http://127.0.0.1:8875/');
+    for (let step = 1; step <= 4; step++) {
+      await page.getByRole('button', {name:'Done, next step', exact:true}).click();
+      assert.equal(await page.locator('[data-step]:visible').count(), 1);
+      assert.equal(await page.locator(`[data-step="${step}"]`).isVisible(), true);
+    }
+    assert.equal(await page.locator('#vps-link').getAttribute('href'), 'http://127.0.0.1:8875/');
+    assert.equal(await page.locator('#step-next').isVisible(), false);
+    assert.equal(await page.locator('#sign-in-help').isVisible(), true);
+    await page.getByRole('button', {name:'Back', exact:true}).click();
+    assert.equal(await page.locator('[data-step="3"]').isVisible(), true);
+
+    await page.locator('#port-settings summary').click();
+    for (const invalid of ['0', '65536', '-1', '1e3', '88.75']) {
+      await page.locator('#server-port').fill(invalid);
+      assert.equal(await page.locator('#server-port').getAttribute('aria-invalid'), 'true');
+      assert.equal(await page.locator('#vps-link').getAttribute('href'), null);
+      assert.equal(await page.locator('#vps-existing-link').getAttribute('href'), null);
+      assert.equal(await page.locator('#vps-existing-link').getAttribute('aria-disabled'), 'true');
+      assert.equal(await page.locator('#step-next').isDisabled(), true);
+      assert.equal(await page.locator('#copy-continuation').isDisabled(), true);
+      assert.equal(await page.locator('#continuation-prompt').inputValue(), '');
+    }
+    await page.locator('#server-port').fill('8795');
+    await page.locator('#local-port').fill('65536');
+    assert.equal(await page.locator('#vps-link').getAttribute('href'), null);
+    await page.locator('#local-port').fill('8876');
+    assert.equal(await page.locator('#step-next').isDisabled(), false);
+    assert.equal(await page.locator('#vps-link').getAttribute('href'), 'http://127.0.0.1:8876/');
+    assert.equal(await page.locator('#vps-existing-link').getAttribute('href'), 'http://127.0.0.1:8876/');
+    assert.equal(await page.locator('[data-server-port]').textContent(), '8795');
+    assert.equal(await page.locator('[data-local-port]').textContent(), '8876');
+
+    await page.locator('#continuation > summary').click();
+    await page.getByRole('button', {name:'Copy continuation prompt', exact:true}).click();
+    await page.locator('#continuation-status').filter({hasText:'Copied.'}).waitFor();
+    const continuation = await page.locator('#continuation-prompt').inputValue();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), continuation);
+    assert.match(continuation, /do not reinstall or reset/);
+    assert.match(continuation, /Lab port 8795 and local Termius forwarding port 8876/);
+    assert.match(continuation, /gl-agent-lab dashboard approve CODE/);
+    assert.match(continuation, /inspect the installed CLI help for dashboard approve support/);
+    assert.match(continuation, /update the existing checkout while preserving local changes and saved data/);
+    assert.doesNotMatch(continuation, /--show-token|your-user@your-server|#token=/);
+
+    await page.goto(`${origin}/?location=vps&lab_port=8795#open-dashboard`);
+    assert.equal(await page.locator('#choose-vps').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#server-port').inputValue(), '8795');
+    assert.equal(await page.locator('[data-step="0"]').isVisible(), true);
+    assert.equal(await page.locator('[data-server-port]').textContent(), '8795');
+    await page.goto(`${origin}/?location=vps&lab_port=8765%2F%2Fevil.test#open-dashboard`);
+    assert.equal(await page.locator('#server-port').inputValue(), '');
+    assert.equal(await page.locator('#port-settings').getAttribute('open'), '');
+    assert.equal(await page.locator('#step-next').isDisabled(), true);
+    assert.equal(await page.locator('#vps-link').getAttribute('href'), null);
+    assert.equal(await page.locator('#vps-existing-link').getAttribute('href'), null);
+    await page.goto(`${origin}/?location=unknown&lab_port=8795`);
+    assert.equal(await page.locator('#opening-help').isVisible(), false);
+    await page.goto(`${origin}/?location=local&lab_port=8795#open-dashboard`);
+    assert.equal(await page.locator('#local-link').getAttribute('href'), 'http://127.0.0.1:8795/');
 
     await page.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', {configurable:true, value:{
@@ -45,13 +124,27 @@ const {chromium} = require('playwright');
     assert.equal(await page.locator('#prompt-details').getAttribute('open'), '');
     assert.equal(await page.locator('#setup-prompt').evaluate(el =>
       el.value.slice(el.selectionStart, el.selectionEnd)), prompt);
+    await page.locator('#continuation > summary').click();
+    await page.getByRole('button', {name:'Copy continuation prompt', exact:true}).click();
+    await page.locator('#continuation-status').filter({hasText:'Automatic copying is unavailable'}).waitFor();
+    assert.equal(await page.locator('#continuation-details').getAttribute('open'), '');
+    assert.equal(await page.locator('#continuation-prompt').evaluate(el =>
+      el.value.slice(el.selectionStart, el.selectionEnd)), await page.locator('#continuation-prompt').inputValue());
 
     await page.setViewportSize({width:390,height:844});
     await page.locator('#prompt-details').evaluate(el => { el.open = false; });
+    await page.getByRole('button', {name:'A VPS', exact:true}).click();
+    await page.locator('#continuation').evaluate(el => { el.open = false; });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await page.screenshot({path:path.join(output, 'mobile.png'), fullPage:true});
+    await page.getByRole('button', {name:'Done, next step', exact:true}).click();
+    await page.getByRole('button', {name:'Done, next step', exact:true}).click();
+    await page.locator('#port-settings summary').click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.screenshot({path:path.join(output, 'mobile-vps.png'), fullPage:true});
     assert.deepEqual(errors, []);
-    console.log('3 setup-page checks passed: clipboard, manual fallback, mobile layout.');
+    assert.deepEqual(externalRequests, []);
+    console.log('8 setup-page checks passed: setup clipboard, local opening, VPS steps, port validation, continuation clipboard, installer query handoff, manual fallbacks, mobile layout. External requests: 0.');
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));
