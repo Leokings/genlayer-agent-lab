@@ -2,6 +2,6 @@
   "name": "genlayer-agent-lab-development",
   "private": true,
   "type": "module",
-  "scripts": {"verify:dashboard": "node scripts/verify-dashboard.cjs", "verify:onboarding": "node scripts/verify-onboarding.cjs"},
+  "scripts": {"verify:dashboard": "node scripts/verify-dashboard.cjs", "verify:onboarding": "node scripts/verify-onboarding.cjs", "verify:setup": "node scripts/verify-setup-page.cjs", "prepare:setup-site": "node scripts/prepare-setup-site.cjs"},
   "devDependencies": {"playwright": "1.60.0"}
 }

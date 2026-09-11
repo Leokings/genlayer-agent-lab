@@ -40,6 +40,7 @@ packages = ["src/genlayer_agent_lab"]
 "docs" = "genlayer_agent_lab/_kit/docs"
 "examples" = "genlayer_agent_lab/_kit/examples"
 "skills" = "genlayer_agent_lab/_kit/skills"
+"scripts/bootstrap-ubuntu.sh" = "genlayer_agent_lab/_kit/scripts/bootstrap-ubuntu.sh"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

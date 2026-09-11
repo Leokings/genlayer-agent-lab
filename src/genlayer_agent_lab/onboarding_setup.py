@@ -32,6 +32,7 @@ DOCKER_ENGINE_URL = "https://docs.docker.com/engine/install/"
 DOCKER_DESKTOP_URL = "https://docs.docker.com/desktop/setup/install/"
 COMPOSE_URL = "https://docs.docker.com/compose/install/linux/"
 GIT_URL = "https://git-scm.com/downloads"
+SETUP_SKILL_URL = "https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md"
 
 
 def installation_identity(data_dir, token):
@@ -50,6 +51,13 @@ def installation_proof(token, nonce):
 
 def _say(message):
     print(message, flush=True)
+
+
+def _prerequisite_handoff():
+    _say("Your setup agent can install missing prerequisites and resume this installation.")
+    _say("Give it the setup instructions: " + SETUP_SKILL_URL)
+    _say("On supported Ubuntu, those instructions use bootstrap-ubuntu.sh --install; "
+         "a required password or new login is an explicit resume step.")
 
 
 def prerequisites():
@@ -252,7 +260,7 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False):
     for item in required["checks"]:
         _say(("Ready: " if item["ready"] else "Needed: ") + item["message"])
     if not required["ready"]:
-        _say("Complete the listed prerequisites, then run setup again.")
+        _prerequisite_handoff()
         return 2
     try:
         state = studio_profiles.modern_profile_status(data_dir)
@@ -269,6 +277,7 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False):
         needs_build = not state.get("image_id") or state.get("error") == "modern_profile_build_required"
         if needs_build and not required["git_available"]:
             _say("Needed: Git is required for the first pinned Studio build. Install it from " + GIT_URL)
+            _prerequisite_handoff()
             return 2
         if check:
             _say("Project Studio: " + ("ready" if state.get("ready") else "installed; startup needed"

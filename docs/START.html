@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Set up with your agent · GenLayer Agent Lab</title>
+<style>
+  :root { color-scheme: light; font: 17px/1.6 system-ui, sans-serif; color: #182e35; background: #f3f6f5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  main { max-width: 860px; margin: auto; padding: 44px 24px 72px; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+  a { color: #166d62; text-underline-offset: 4px; }
+  .brand { font-weight: 750; text-decoration: none; }
+  .tag { font-size: 12px; letter-spacing: .12em; font-weight: 700; color: #41675c; margin: 52px 0 12px; }
+  h1 { font-size: clamp(32px, 5vw, 50px); line-height: 1.1; letter-spacing: -.035em; margin: 0 0 20px; max-width: 650px; }
+  .lead { font-size: 20px; max-width: 650px; }
+  .card { background: white; border: 1px solid #cfdfd9; border-radius: 20px; padding: 28px; margin: 28px 0; }
+  ol { padding-left: 24px; }
+  li { padding: 5px 0 5px 8px; }
+  button { background: #166d62; color: white; border: 0; border-radius: 10px; font: inherit; font-weight: 700; padding: 14px 24px; cursor: pointer; }
+  button:hover { background: #11564d; }
+  button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #df970b; outline-offset: 4px; }
+  .hint { color: #51636a; font-size: 15px; }
+  #copy-status { min-height: 24px; font-size: 15px; }
+  summary { cursor: pointer; font-weight: 650; }
+  textarea { width: 100%; margin-top: 16px; padding: 16px; border: 1px solid #8baba0; border-radius: 8px; font: 15px/1.6 system-ui, sans-serif; resize: vertical; color: #182e35; background: #f8faf9; }
+  h2 { font-size: 21px; line-height: 1.35; }
+  .faq { margin-top: 22px; }
+  footer { margin-top: 36px; font-size: 14px; color: #51636a; }
+  @media (max-width: 520px) { main { padding: 24px 18px 48px; } .card { padding: 20px; } header { font-size: 14px; } button { width: 100%; } }
+</style>
+</head>
+<body>
+<main>
+  <header><a class="brand" href="https://github.com/Leokings/genlayer-agent-lab">◎ GenLayer Agent Lab</a><a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/INSTALL.md">Terminal instructions</a></header>
+  <p class="tag">START WITH THE AGENT YOU ALREADY USE</p>
+  <h1>One setup prompt.<br>Your agent handles the installation.</h1>
+  <p class="lead">Give the prompt to OpenClaw or a coding agent with terminal access to your computer or VPS. It checks what is needed, installs missing software and prepares your Lab.</p>
+  <section class="card" aria-labelledby="start-title">
+    <h2 id="start-title">Get your Lab ready</h2>
+    <ol><li>Open an agent that can run commands on your chosen machine.</li><li>Paste the setup prompt. Follow any password or system confirmation it needs.</li><li>Open your dashboard, review a test and connect the agent you want to test.</li></ol>
+    <button id="copy-prompt" type="button">Copy setup prompt</button>
+    <p id="copy-status" role="status" aria-live="polite"></p>
+    <details id="prompt-details"><summary>Read or copy the full prompt</summary>
+      <label for="setup-prompt" class="hint">This installation prompt contains no credentials.</label>
+      <textarea id="setup-prompt" rows="14" readonly spellcheck="false">Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. I authorize installing missing prerequisites, including Git, uv/Python and Docker with Compose, then installing and starting the Lab and its owned Studio environment. First detect this host, architecture, available access and existing installation. Briefly state the changes, then proceed within your available permissions. Preserve my agent, model, unrelated settings, software and saved data. Reuse completed setup stages. Pause only when a password, OS dialog, login, reboot or unavailable capability requires me; never request passwords in chat or reboot automatically. Before an interruption, save a secret-free progress note and give the exact next action so we can resume with this same agent. On a VPS, leave long setup stages in tmux and tell me how to return. Verify the running Docker service, Studio readiness and Lab health, then help me open the dashboard and review a first test. Keep workspace keys and private grading out of the tested agent's context; use the dashboard's generated agent setup prompt only after I review and create that test.</textarea>
+    </details>
+    <p class="hint">Your agent keeps its current model. The first Studio download and build can take tens of minutes; the prompt asks it to leave that work running so you can return later.</p>
+  </section>
+  <details class="faq"><summary>Do I need to install Docker first?</summary><p>No. The agent checks for Docker and the other prerequisites, reuses what you have and installs what is missing on supported systems. It may need you to enter an administrator password, approve an operating-system dialog, or sign in again before continuing.</p></details>
+  <details class="faq"><summary>Where can I run it?</summary><p>The automated prerequisite helper supports Ubuntu 22.04 and 24.04 on an x86-64 VPS or computer. On Windows x86-64 and Intel Macs, your agent follows the Docker Desktop setup steps and helps with required system actions. The current Studio environment requires Linux x86-64 containers; an Apple Silicon or other ARM machine needs access to a supported x86-64 host.</p></details>
+  <details class="faq"><summary>What if my agent is on a different machine?</summary><p>It needs terminal or SSH access to the computer that will run the Lab. An agent running on a VPS cannot change Termius on your laptop; it will give you the forwarding settings for that step. A chat-only assistant needs a tool-enabled host before it can install software.</p></details>
+  <details class="faq"><summary>Does installation start an agent test?</summary><p>Installation prepares the environment and can run a scripted installation check. You then review a test in the dashboard. Its separate connection prompt contains the settings for the agent you want to evaluate. A passing installation check does not mean that agent passed.</p></details>
+  <footer>GenLayer Agent Lab runs in your own environment. Setup preserves existing installations and saved tests. <a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/GETTING_STARTED.md">See your first test walkthrough</a>.</footer>
+</main>
+<script>
+  const prompt = document.getElementById("setup-prompt");
+  const status = document.getElementById("copy-status");
+  document.getElementById("copy-prompt").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(prompt.value);
+      status.textContent = "Copied. Paste this into your agent on the machine where you want the Lab.";
+    } catch {
+      document.getElementById("prompt-details").open = true;
+      prompt.focus();
+      prompt.select();
+      status.textContent = "Automatic copying is unavailable. Copy the selected prompt below and paste it into your agent.";
+    }
+  });
+</script>
+</body>
+</html>

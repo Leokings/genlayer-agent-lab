@@ -45,5 +45,9 @@ def export_kit(output: Path) -> dict:
     output.mkdir(parents=True, mode=0o700)
     for root in roots:
         copy(root, output / root.name)
+    if not packaged.is_dir():
+        (output / "scripts").mkdir()
+        copy(checkout / "scripts" / "bootstrap-ubuntu.sh", output / "scripts" / "bootstrap-ubuntu.sh")
     return {"version": __version__, "output": str(output), "files": count,
-            "setup_skill": str(output / "skills" / "setup-genlayer-agent-lab" / "SKILL.md")}
+            "setup_skill": str(output / "skills" / "setup-genlayer-agent-lab" / "SKILL.md"),
+            "setup_page": str(output / "docs" / "START.html")}
