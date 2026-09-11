@@ -20,6 +20,8 @@ Passwords and operating-system prompts stay on your device. If setup needs a log
 
 Already installed? Use **Open my dashboard** on the setup page. It guides VPS users through their existing Termius connection. Choose **Connect this browser** in the dashboard and paste its sign-in request into your setup agent; the browser opens after approval. No administrator key needs copying. Your setup agent gives you one required action at a time.
 
+Have your own contract? Choose [Prepare a test from my contract](https://genlayer-agent-lab-setup.vercel.app/#prepare-contract-test), or **Use my own contract** in the dashboard. Copy its prompt into your authoring agent and provide your code and test idea. The [test-preparation skill](skills/prepare-genlayer-lab-test/SKILL.md) guides it through supported contract bindings, a self-contained JSON draft and validation. You review the file before starting; use a separate test context that cannot access the authoring conversation, memories or private grading files.
+
 After you review and create a test, the dashboard provides **Copy agent setup prompt**. Paste that message into the agent you want to test: it includes the connection settings and asks the agent to configure its tools and begin. This works with agents that can manage their tool configuration; a chat-only client may still need its owner's connection settings changed. Manual connection instructions remain available.
 
 Dashboard project runs allow up to 60 minutes for preparation and connection. The selected test time starts once Studio is ready and the agent has actually called `observe`. Saving connector settings alone does not start it.
@@ -39,7 +41,7 @@ Already installed? Return to the same directory and run `uv run gl-agent-lab set
 
 ## Run your first test
 
-1. **Choose a test.** Select a supplied template, or import a custom project specification under Advanced.
+1. **Choose a test.** Select a supplied template, or import a custom project file under **Use my own contract**.
 2. **Review test.** Read its task, supplied conditions, permissions, and expected behavior.
 3. **Create test & connect agent.** Select the connection method and where your agent runs, then use **Copy agent setup prompt** and paste it into that agent. The message asks it to configure the supported connection and start the test. Manual MCP, HTTP, Python, and TypeScript settings remain available.
 4. **Check connection.** Confirm actual agent requests, then inspect its actions and the readable report. Detailed JSON is available under Advanced.

@@ -50,4 +50,5 @@ def export_kit(output: Path) -> dict:
         copy(checkout / "scripts" / "bootstrap-ubuntu.sh", output / "scripts" / "bootstrap-ubuntu.sh")
     return {"version": __version__, "output": str(output), "files": count,
             "setup_skill": str(output / "skills" / "setup-genlayer-agent-lab" / "SKILL.md"),
+            "authoring_skill": str(output / "skills" / "prepare-genlayer-lab-test" / "SKILL.md"),
             "setup_page": str(output / "docs" / "START.html")}

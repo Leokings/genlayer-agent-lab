@@ -9,6 +9,8 @@ Choose the requested task first. If the user supplies the dashboard's generated 
 
 If the user supplies a **browser sign-in request**, use **Open the owner's browser** below. This is owner setup, separate from a run-scoped agent connection. It needs no installation, scenario creation or private grading inspection.
 
+If the owner asks to **prepare a test from their contract**, create an import JSON, or edit their own scenario, use `../prepare-genlayer-lab-test/SKILL.md`. Read it from the checkout or exported kit; if missing, use `https://raw.githubusercontent.com/Leokings/genlayer-agent-lab/main/skills/prepare-genlayer-lab-test/SKILL.md` and match the installed schema. That workflow reads source and private test expectations, prepares the binding and validates a self-contained draft without starting Studio. Do not load it or private authoring material for a run-connection or browser sign-in request.
+
 ## Keep the owner's steps simple
 
 Do the terminal work yourself within the user's authorization. Present one required human action at a time, with the exact button, application and value. Do not dump alternative shell commands, multiple localhost URLs, SSH placeholders or administrator-token instructions into the default user journey. Keep command output and technical diagnostics in the progress note unless needed to resolve the current blocker. Report what is ready and the next useful action; do not describe a package install as a working dashboard.
