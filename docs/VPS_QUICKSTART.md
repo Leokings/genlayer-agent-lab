@@ -76,7 +76,9 @@ The accepted range is 60–3600 seconds, with 30 additional seconds for the Dock
 
 ## Open the dashboard from your computer
 
-Use [Open my dashboard](https://genlayer-agent-lab-setup.vercel.app/?location=vps#open-dashboard). Choose **A VPS**. If your Lab connection already works, open the dashboard directly. Otherwise the guide walks through one saved Termius connection, one screen at a time. You only need to create this forwarding entry once and start it when returning.
+After installation, your setup agent should guide you through connecting from your laptop using the app you already use. With **Termius**, it gives the exact fields and values one screen at a time. With **PowerShell**, it gives one complete command with your server details already filled in, tells you where to paste it and explains which window stays open. It should ask which app only when that is not already known.
+
+Use [Open my dashboard](https://genlayer-agent-lab-setup.vercel.app/?location=vps#open-dashboard) as a visual companion. Choose **A VPS**, then **Termius** or **Windows PowerShell**. If your Lab connection already works, open the dashboard directly. You only need to save the Termius forwarding entry once and start it when returning; a PowerShell connection remains open while its window stays open.
 
 In the dashboard:
 

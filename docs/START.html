@@ -32,6 +32,7 @@
   .settings { display: grid; gap: 12px; margin: 16px 0; }
   .settings label { display: block; }
   input { display: block; width: 150px; max-width: 100%; border: 1px solid #8baba0; border-radius: 8px; padding: 10px; font: inherit; }
+  .connection-fields input { width: 100%; }
   .error { color: #973324; }
   code { overflow-wrap: anywhere; }
   button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #df970b; outline-offset: 4px; }
@@ -58,7 +59,7 @@
     <p id="copy-status" role="status" aria-live="polite"></p>
     <details id="prompt-details"><summary>Read or copy the full prompt</summary>
       <label for="setup-prompt" class="hint">This installation prompt contains no credentials.</label>
-      <textarea id="setup-prompt" rows="14" readonly spellcheck="false">Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. I authorize installing missing prerequisites, including Git, uv/Python and Docker with Compose, then installing and starting the Lab and its owned Studio environment. First detect this host, architecture, available access and existing installation. Briefly state the changes, then proceed within your available permissions. Preserve my agent, model, unrelated settings, software and saved data. Reuse completed setup stages. Pause only when a password, OS dialog, login, reboot or unavailable capability requires me; never request passwords in chat or reboot automatically. Before an interruption, save a secret-free progress note and give the exact next action so we can resume with this same agent. On a VPS, leave long setup stages in tmux and tell me how to return. Verify the running Docker service, Studio readiness and Lab health. Guide me through opening the dashboard one human step at a time, using the setup page's Open my dashboard flow and the actual installation port; do not dump generic SSH placeholders or ask me to retrieve administrator keys. Use the dashboard's Connect flow: I will paste its short approval request into this setup conversation for you to approve with gl-agent-lab dashboard approve CODE against this installation. Then help me review a first test. Keep workspace keys and private grading out of the tested agent's context; use the dashboard's generated agent setup prompt only after I review and create that test.</textarea>
+      <textarea id="setup-prompt" rows="14" readonly spellcheck="false">Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. I authorize installing missing prerequisites, including Git, uv/Python and Docker with Compose, then installing and starting the Lab and its owned Studio environment. First detect this host, architecture, available access and existing installation. Briefly state the changes, then proceed within your available permissions. Preserve my agent, model, unrelated settings, software and saved data. Reuse completed setup stages. Pause only when a password, OS dialog, login, reboot or unavailable capability requires me; never request passwords in chat or reboot automatically. Before an interruption, save a secret-free progress note and give the exact next action so we can resume with this same agent. On a VPS, leave long setup stages in tmux and tell me how to return. Verify the running Docker service, Studio readiness and Lab health. Guide me through opening the dashboard one human step at a time. Use my known connection app, or ask whether I use Termius or Windows PowerShell. Give exact Termius field values or one ready-to-paste PowerShell command using my known server, username and actual ports; ask only for missing connection details, never fetch passwords or private keys. Use the setup page's Open my dashboard flow as a guide, not a link-only handoff. Do not dump generic SSH placeholders or ask me to retrieve administrator keys. Use the dashboard's Connect flow: I will paste its short approval request into this setup conversation for you to approve with gl-agent-lab dashboard approve CODE against this installation. Then help me review a first test. Keep workspace keys and private grading out of the tested agent's context; use the dashboard's generated agent setup prompt only after I review and create that test.</textarea>
     </details>
     <p class="hint">Your agent keeps its current model. The first Studio download and build can take tens of minutes; the prompt asks it to leave that work running so you can return later.</p>
   </section>
@@ -68,18 +69,29 @@
     <div class="actions" aria-label="Lab location"><button id="choose-local" type="button" class="secondary" aria-pressed="false">This computer</button><button id="choose-vps" type="button" class="secondary" aria-pressed="false">A VPS</button></div>
     <div id="open-local" hidden><p>Open the Lab on this computer. If it is stopped, use the continuation prompt below to ask your agent to start it.</p><a id="local-link" class="button-link" target="_blank" rel="noopener noreferrer">Open dashboard</a></div>
     <div id="open-vps" hidden>
-      <p>Use your saved VPS connection in Termius on this computer. This guide helps you set up the private connection; it cannot inspect or change Termius.</p>
+      <p>Which app will you use on this computer? This guide shows what to do; it cannot open a connection for you.</p>
       <p><a id="vps-existing-link" target="_blank" rel="noopener noreferrer">Already connected? Open dashboard</a></p>
+      <div class="actions" aria-label="Connection app"><button id="choose-termius" type="button" class="secondary" aria-pressed="true">Termius</button><button id="choose-powershell" type="button" class="secondary" aria-pressed="false">Windows PowerShell</button></div>
+      <div id="termius-guide">
       <div class="step" data-step="0"><p class="hint">Step 1 of 5</p><h3>Add a local connection</h3><p>In Termius, open <strong>Port Forwarding</strong>, choose <strong>New</strong>, then <strong>Local</strong>.</p></div>
       <div class="step" data-step="1" hidden><p class="hint">Step 2 of 5</p><h3>Set the address on this computer</h3><p>Set the local port to <strong data-local-port>8875</strong>. If Termius shows a bind address, use <strong>127.0.0.1</strong>.</p></div>
       <div class="step" data-step="2" hidden><p class="hint">Step 3 of 5</p><h3>Choose your saved VPS</h3><p>Select the existing Termius host that runs your Lab. Set the destination address to <strong>127.0.0.1</strong> and destination port to <strong data-server-port>8765</strong>.</p></div>
       <div class="step" data-step="3" hidden><p class="hint">Step 4 of 5</p><h3>Start the connection</h3><p>Save the forwarding entry, then start or connect it in Termius. Leave it active while using your Lab.</p></div>
       <div class="step" data-step="4" hidden><p class="hint">Step 5 of 5</p><h3>Open your Lab</h3><p>If the page does not open, check that your forwarding entry is active and ask your setup agent to check the Lab.</p><a id="vps-link" class="button-link" target="_blank" rel="noopener noreferrer">Open dashboard</a></div>
       <div class="actions"><button id="step-back" class="secondary" type="button" hidden>Back</button><button id="step-next" type="button">Done, next step</button></div>
+      </div>
+      <div id="powershell-guide" hidden>
+        <p>Use the server address and SSH username from your VPS account or saved connection. These fields stay in this page; do not enter a password or private key.</p>
+        <div class="settings connection-fields"><label for="ssh-host">Server address (IPv4 or hostname)<input id="ssh-host" type="text" maxlength="253" autocomplete="off" autocapitalize="none" spellcheck="false" required></label><label for="ssh-user">SSH username<input id="ssh-user" type="text" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false" required></label></div>
+        <p id="ssh-error" class="error" role="status" aria-live="polite"></p>
+        <button id="copy-ssh-command" type="button" disabled>Copy PowerShell command</button><p id="ssh-copy-status" role="status" aria-live="polite"></p>
+        <details id="ssh-command-details" hidden><summary>Read or copy the command</summary><label for="ssh-command" class="hint">Run this on your Windows computer.</label><textarea id="ssh-command" rows="4" readonly spellcheck="false"></textarea></details>
+        <div id="powershell-ready" hidden><ol><li>Open <strong>Start</strong>, search for <strong>PowerShell</strong>, and open it.</li><li>Paste the copied command and press <strong>Enter</strong>.</li><li>If asked for your SSH password, enter it privately in PowerShell. No characters appear while you type; that is normal.</li><li>Leave this window open, then open your dashboard below. If SSH reports an error, ask your setup agent to help before continuing.</li></ol><p class="hint">On a first connection, SSH may show a server fingerprint. Verify it with your VPS provider before accepting. If this account uses an SSH key that PowerShell cannot find, ask your setup agent how to use the existing local key; do not paste it here.</p><a id="powershell-link" class="button-link" target="_blank" rel="noopener noreferrer">Open dashboard</a></div>
+      </div>
     </div>
     <div id="opening-help" hidden>
       <p id="sign-in-help">In the dashboard, choose <strong>Connect this browser</strong>, then <strong>Copy sign-in request</strong>. Paste that request into your setup agent. After it approves, return to the dashboard.</p>
-      <details id="port-settings"><summary>Advanced: use different ports</summary><p class="hint">Use the Lab port reported by your setup agent. For a VPS, match the local port to your Termius forwarding entry.</p><div class="settings"><label for="server-port">Lab port <input id="server-port" type="text" inputmode="numeric" value="8765" maxlength="5" autocomplete="off"></label><label id="local-port-label" for="local-port">Local forwarding port <input id="local-port" type="text" inputmode="numeric" value="8875" maxlength="5" autocomplete="off"></label></div></details>
+      <details id="port-settings"><summary>Advanced: use different ports</summary><p class="hint">Use the Lab port reported by your setup agent. For a VPS, use the same local port for the connection and dashboard.</p><div class="settings"><label for="server-port">Lab port <input id="server-port" type="text" inputmode="numeric" value="8765" maxlength="5" autocomplete="off"></label><label id="local-port-label" for="local-port">Local forwarding port <input id="local-port" type="text" inputmode="numeric" value="8875" maxlength="5" autocomplete="off"></label><label id="ssh-port-label" for="ssh-port" hidden>SSH port <input id="ssh-port" type="text" inputmode="numeric" value="22" maxlength="5" autocomplete="off"></label></div></details>
       <p id="port-error" class="error" role="status" aria-live="polite"></p>
       <details id="continuation"><summary>Need your agent's help?</summary><p>Paste this into the agent that installed your Lab.</p><button id="copy-continuation" type="button" class="secondary">Copy continuation prompt</button><p id="continuation-status" role="status" aria-live="polite"></p><details id="continuation-details"><summary>Read or copy the prompt</summary><label for="continuation-prompt" class="hint">This prompt contains no credentials.</label><textarea id="continuation-prompt" rows="8" readonly spellcheck="false"></textarea></details></details>
     </div>
@@ -92,7 +104,7 @@
 </main>
 <script>
   const byId = id => document.getElementById(id);
-  async function copyPrompt(fieldId, detailsId, statusId, message) {
+  async function copyPrompt(fieldId, detailsId, statusId, message, fallback) {
     const field = byId(fieldId);
     const status = byId(statusId);
     try {
@@ -102,22 +114,42 @@
       byId(detailsId).open = true;
       field.focus();
       field.select();
-      status.textContent = "Automatic copying is unavailable. Copy the selected prompt below and paste it into your agent.";
+      status.textContent = fallback || "Automatic copying is unavailable. Copy the selected prompt below and paste it into your agent.";
     }
   }
   byId("copy-prompt").addEventListener("click", () => copyPrompt("setup-prompt", "prompt-details", "copy-status", "Copied. Paste this into your agent on the machine where you want the Lab."));
   byId("copy-continuation").addEventListener("click", () => copyPrompt("continuation-prompt", "continuation-details", "continuation-status", "Copied. Paste this into the agent that installed your Lab."));
+  byId("copy-ssh-command").addEventListener("click", () => copyPrompt("ssh-command", "ssh-command-details", "ssh-copy-status", "Copied. Paste this into PowerShell on your Windows computer.", "Automatic copying is unavailable. Copy the selected command below and paste it into PowerShell."));
   let locationChoice = null;
+  let connectionMethod = "termius";
   let step = 0;
-  function validPort(value) { return /^[1-9][0-9]{0,4}$/.test(value) && Number(value) <= 65535; }
+  function validPort(value) { return /^[1-9][0-9]{0,4}$/.test(value) && String(Number(value)) === value && Number(value) <= 65535; }
+  function validSshUser(value) {
+    return value.length > 0 && value.length <= 64 && /^[A-Za-z_]/.test(value) && !/[^A-Za-z0-9_.-]/.test(value);
+  }
+  function validSshHost(value) {
+    if (!value || value.length > 253 || /[^A-Za-z0-9.-]/.test(value)) return false;
+    if (/^[0-9.]+$/.test(value)) {
+      const parts = value.split(".");
+      return parts.length === 4 && parts.every(part => /^(0|[1-9][0-9]{0,2})$/.test(part) && Number(part) <= 255);
+    }
+    return value.split(".").every(label => /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(label));
+  }
   function refreshOpening() {
     const serverPort = byId("server-port").value;
     const localPort = byId("local-port").value;
+    const sshPort = byId("ssh-port").value;
+    const sshHost = byId("ssh-host").value;
+    const sshUser = byId("ssh-user").value;
+    const powershell = locationChoice === "vps" && connectionMethod === "powershell";
     const valid = validPort(serverPort) && (locationChoice !== "vps" || validPort(localPort));
-    byId("port-error").textContent = valid ? "" : "Enter a whole port number from 1 to 65535.";
+    const portsValid = valid && (!powershell || validPort(sshPort));
+    byId("port-error").textContent = portsValid ? "" : "Enter a whole port number from 1 to 65535.";
     byId("server-port").setAttribute("aria-invalid", String(!validPort(serverPort)));
     byId("local-port").setAttribute("aria-invalid", String(!validPort(localPort)));
-    for (const [id, port] of [["local-link", serverPort], ["vps-link", localPort], ["vps-existing-link", localPort]]) {
+    byId("ssh-port").setAttribute("aria-invalid", String(!validPort(sshPort)));
+    byId("ssh-port-label").hidden = !powershell;
+    for (const [id, port] of [["local-link", serverPort], ["vps-link", localPort], ["vps-existing-link", localPort], ["powershell-link", localPort]]) {
       const link = byId(id);
       const linkValid = validPort(serverPort) && validPort(port);
       if (linkValid) link.href = `http://127.0.0.1:${port}/`;
@@ -131,9 +163,20 @@
     byId("step-back").hidden = step === 0;
     byId("step-next").hidden = step === 4;
     byId("step-next").disabled = !valid;
-    byId("sign-in-help").hidden = locationChoice === "vps" && step !== 4;
+    const commandValid = powershell && portsValid && validSshHost(sshHost) && validSshUser(sshUser);
+    byId("ssh-host").setAttribute("aria-invalid", String(sshHost !== "" && !validSshHost(sshHost)));
+    byId("ssh-user").setAttribute("aria-invalid", String(sshUser !== "" && !validSshUser(sshUser)));
+    byId("ssh-error").textContent = sshHost !== "" && !validSshHost(sshHost) ? "Enter an IPv4 address or hostname only, without spaces, a URL or an SSH username." : sshUser !== "" && !validSshUser(sshUser) ? "Use your SSH username: start with a letter or underscore, then letters, numbers, dots, underscores or hyphens." : "";
+    byId("ssh-command").value = commandValid ? `ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L 127.0.0.1:${localPort}:127.0.0.1:${serverPort} -p ${sshPort} ${sshUser}@${sshHost}` : "";
+    byId("copy-ssh-command").disabled = !commandValid;
+    byId("ssh-command-details").hidden = !commandValid;
+    byId("powershell-ready").hidden = !commandValid;
+    byId("ssh-copy-status").textContent = "";
+    byId("sign-in-help").hidden = locationChoice === "vps" && (powershell ? !commandValid : step !== 4);
     byId("copy-continuation").disabled = !valid;
-    byId("continuation-prompt").value = valid ? `Help me open my existing GenLayer Agent Lab using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. Reuse the existing installation, saved progress, data and current agent/model; do not reinstall or reset it. The Lab runs ${locationChoice === "vps" ? "on my VPS" : "on this computer"}, with expected Lab port ${serverPort}${locationChoice === "vps" ? ` and local Termius forwarding port ${localPort}` : ""}. Confirm its actual port and health, and start the same installation if stopped. For this requested guided flow, inspect the installed CLI help for dashboard approve support. If missing, update the existing checkout while preserving local changes and saved data; follow the skill's upgrade and recovery steps, and report conflicts before overwriting anything. Guide only the next human action I need to take, using the setup page's Open my dashboard flow; do not give generic SSH placeholders or administrator-key instructions. When I paste the dashboard's Connect approval request here, approve that request with gl-agent-lab dashboard approve CODE against this installation. Keep credentials out of replies. Help me reach my dashboard before starting any new test.` : "";
+    const app = connectionMethod === "powershell" ? "Windows PowerShell" : "Termius";
+    const knownSsh = powershell && validSshHost(sshHost) && validSshUser(sshUser) && validPort(sshPort) ? ` My SSH connection is ${sshUser}@${sshHost} on port ${sshPort}.` : "";
+    byId("continuation-prompt").value = valid ? `Help me open my existing GenLayer Agent Lab using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. Reuse the existing installation, saved progress, data and current agent/model; do not reinstall or reset it. The Lab runs ${locationChoice === "vps" ? "on my VPS" : "on this computer"}, with expected Lab port ${serverPort}${locationChoice === "vps" ? ` and local forwarding port ${localPort}; I use ${app}` : ""}.${knownSsh} Confirm its actual port and health, and start the same installation if stopped. For this requested guided flow, inspect the installed CLI help for dashboard approve support. If missing, update the existing checkout while preserving local changes and saved data; follow the skill's upgrade and recovery steps, and report conflicts before overwriting anything. Guide only the next human action I need to take. Use my known connection app, or ask whether I use Termius or Windows PowerShell. Give exact Termius field values or one ready-to-paste PowerShell command using known server, username and actual ports; ask only for missing connection details, never fetch passwords or private keys. Use the setup page's Open my dashboard flow as a guide, not a link-only handoff; do not give generic SSH placeholders or administrator-key instructions. When I paste the dashboard's Connect approval request here, approve that request with gl-agent-lab dashboard approve CODE against this installation. Keep credentials out of replies. Help me reach my dashboard before starting any new test.` : "";
     byId("continuation-status").textContent = "";
   }
   function chooseLocation(choice) {
@@ -150,10 +193,20 @@
   }
   byId("choose-local").addEventListener("click", () => chooseLocation("local"));
   byId("choose-vps").addEventListener("click", () => chooseLocation("vps"));
+  function chooseMethod(method) {
+    connectionMethod = method;
+    byId("termius-guide").hidden = method !== "termius";
+    byId("powershell-guide").hidden = method !== "powershell";
+    byId("choose-termius").setAttribute("aria-pressed", String(method === "termius"));
+    byId("choose-powershell").setAttribute("aria-pressed", String(method === "powershell"));
+    refreshOpening();
+  }
+  byId("choose-termius").addEventListener("click", () => chooseMethod("termius"));
+  byId("choose-powershell").addEventListener("click", () => chooseMethod("powershell"));
   byId("step-next").addEventListener("click", () => { step = Math.min(4, step + 1); refreshOpening(); });
   byId("step-back").addEventListener("click", () => { step = Math.max(0, step - 1); refreshOpening(); });
-  ["server-port", "local-port"].forEach(id => byId(id).addEventListener("input", refreshOpening));
-  ["local-link", "vps-link", "vps-existing-link"].forEach(id => byId(id).addEventListener("click", event => {
+  ["server-port", "local-port", "ssh-port", "ssh-host", "ssh-user"].forEach(id => byId(id).addEventListener("input", refreshOpening));
+  ["local-link", "vps-link", "vps-existing-link", "powershell-link"].forEach(id => byId(id).addEventListener("click", event => {
     if (event.currentTarget.getAttribute("aria-disabled") === "true") event.preventDefault();
   }));
   const supplied = new URLSearchParams(window.location.search);

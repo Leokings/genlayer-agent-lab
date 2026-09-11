@@ -2,7 +2,7 @@
 
 The default owner journey is the public setup prompt, a guided local/VPS opening page, and **Connect this browser**. The owner pastes the generated sign-in request into their setup agent. The agent approves it through the installed local CLI. This does not create a run or connect a tested agent.
 
-The public Vercel page serves only instructions. It does not contact the VPS, receive credentials, or claim that it configured Termius. The loopback Lab remains private behind the owner's existing connection. Numeric settings and terminal alternatives are available only when needed.
+The setup agent teaches the connection steps directly for the owner's chosen app. The public Vercel page is a visual companion with Termius fields and a PowerShell command builder. It does not contact the VPS, receive credentials, execute commands, or claim that it configured the connection. The loopback Lab remains private behind the owner's existing connection. Numeric settings are shown only when needed; generated commands require validated server details.
 
 ## Browser approval boundary
 

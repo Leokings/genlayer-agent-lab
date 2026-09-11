@@ -151,7 +151,8 @@ def _connection_instructions(data_dir, port, *, headless):
     if headless:
         _say("Your Lab is running. Next: open your dashboard on your computer.")
         _say(f"Guided opening steps: {SETUP_PAGE_URL}?location=vps&lab_port={port}#open-dashboard")
-        _say("Choose 'A VPS' and use your existing Termius connection. If it is already connected, open the dashboard.")
+        _say("Your setup agent will guide you through Termius or PowerShell on your laptop.")
+        _say("It will give the exact fields or a ready-to-paste command, one step at a time. Reuse a working connection.")
     else:
         _say(f"Open your dashboard: http://127.0.0.1:{port}/")
     _say("In the dashboard, choose 'Connect this browser' and paste its sign-in request into your setup agent.")
