@@ -20,6 +20,20 @@
   li { padding: 5px 0 5px 8px; }
   button { background: #166d62; color: white; border: 0; border-radius: 10px; font: inherit; font-weight: 700; padding: 14px 24px; cursor: pointer; }
   button:hover { background: #11564d; }
+  [hidden] { display: none !important; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0; }
+  .secondary { background: #e8f1ed; color: #166d62; }
+  .secondary:hover { background: #d6e8df; }
+  button[aria-pressed="true"] { outline: 3px solid #166d62; outline-offset: 3px; }
+  button:disabled, a[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+  .button-link { display: inline-block; border-radius: 10px; background: #166d62; color: white; padding: 14px 24px; font-weight: 700; text-decoration: none; }
+  .step { border-left: 3px solid #cfdfd9; padding-left: 20px; margin-top: 24px; }
+  h3 { font-size: 19px; margin-bottom: 8px; }
+  .settings { display: grid; gap: 12px; margin: 16px 0; }
+  .settings label { display: block; }
+  input { display: block; width: 150px; max-width: 100%; border: 1px solid #8baba0; border-radius: 8px; padding: 10px; font: inherit; }
+  .error { color: #973324; }
+  code { overflow-wrap: anywhere; }
   button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #df970b; outline-offset: 4px; }
   .hint { color: #51636a; font-size: 15px; }
   #copy-status { min-height: 24px; font-size: 15px; }
@@ -39,35 +53,115 @@
   <p class="lead">Give the prompt to OpenClaw or a coding agent with terminal access to your computer or VPS. It checks what is needed, installs missing software and prepares your Lab.</p>
   <section class="card" aria-labelledby="start-title">
     <h2 id="start-title">Get your Lab ready</h2>
-    <ol><li>Open an agent that can run commands on your chosen machine.</li><li>Paste the setup prompt. Follow any password or system confirmation it needs.</li><li>Open your dashboard, review a test and connect the agent you want to test.</li></ol>
+    <ol><li>Open an agent that can run commands on your chosen machine.</li><li>Paste the setup prompt. Follow any password or system confirmation it needs.</li><li>When the Lab is ready, use <a href="#open-dashboard">Open my dashboard</a> below.</li></ol>
     <button id="copy-prompt" type="button">Copy setup prompt</button>
     <p id="copy-status" role="status" aria-live="polite"></p>
     <details id="prompt-details"><summary>Read or copy the full prompt</summary>
       <label for="setup-prompt" class="hint">This installation prompt contains no credentials.</label>
-      <textarea id="setup-prompt" rows="14" readonly spellcheck="false">Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. I authorize installing missing prerequisites, including Git, uv/Python and Docker with Compose, then installing and starting the Lab and its owned Studio environment. First detect this host, architecture, available access and existing installation. Briefly state the changes, then proceed within your available permissions. Preserve my agent, model, unrelated settings, software and saved data. Reuse completed setup stages. Pause only when a password, OS dialog, login, reboot or unavailable capability requires me; never request passwords in chat or reboot automatically. Before an interruption, save a secret-free progress note and give the exact next action so we can resume with this same agent. On a VPS, leave long setup stages in tmux and tell me how to return. Verify the running Docker service, Studio readiness and Lab health, then help me open the dashboard and review a first test. Keep workspace keys and private grading out of the tested agent's context; use the dashboard's generated agent setup prompt only after I review and create that test.</textarea>
+      <textarea id="setup-prompt" rows="14" readonly spellcheck="false">Set up GenLayer Agent Lab on this machine using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. I authorize installing missing prerequisites, including Git, uv/Python and Docker with Compose, then installing and starting the Lab and its owned Studio environment. First detect this host, architecture, available access and existing installation. Briefly state the changes, then proceed within your available permissions. Preserve my agent, model, unrelated settings, software and saved data. Reuse completed setup stages. Pause only when a password, OS dialog, login, reboot or unavailable capability requires me; never request passwords in chat or reboot automatically. Before an interruption, save a secret-free progress note and give the exact next action so we can resume with this same agent. On a VPS, leave long setup stages in tmux and tell me how to return. Verify the running Docker service, Studio readiness and Lab health. Guide me through opening the dashboard one human step at a time, using the setup page's Open my dashboard flow and the actual installation port; do not dump generic SSH placeholders or ask me to retrieve administrator keys. Use the dashboard's Connect flow: I will paste its short approval request into this setup conversation for you to approve with gl-agent-lab dashboard approve CODE against this installation. Then help me review a first test. Keep workspace keys and private grading out of the tested agent's context; use the dashboard's generated agent setup prompt only after I review and create that test.</textarea>
     </details>
     <p class="hint">Your agent keeps its current model. The first Studio download and build can take tens of minutes; the prompt asks it to leave that work running so you can return later.</p>
   </section>
+  <section id="open-dashboard" class="card" aria-labelledby="open-title">
+    <h2 id="open-title">Already installed? Open my dashboard</h2>
+    <p>Where is your Lab running?</p>
+    <div class="actions" aria-label="Lab location"><button id="choose-local" type="button" class="secondary" aria-pressed="false">This computer</button><button id="choose-vps" type="button" class="secondary" aria-pressed="false">A VPS</button></div>
+    <div id="open-local" hidden><p>Open the Lab on this computer. If it is stopped, use the continuation prompt below to ask your agent to start it.</p><a id="local-link" class="button-link" target="_blank" rel="noopener noreferrer">Open dashboard</a></div>
+    <div id="open-vps" hidden>
+      <p>Use your saved VPS connection in Termius on this computer. This guide helps you set up the private connection; it cannot inspect or change Termius.</p>
+      <p><a id="vps-existing-link" target="_blank" rel="noopener noreferrer">Already connected? Open dashboard</a></p>
+      <div class="step" data-step="0"><p class="hint">Step 1 of 5</p><h3>Add a local connection</h3><p>In Termius, open <strong>Port Forwarding</strong>, choose <strong>New</strong>, then <strong>Local</strong>.</p></div>
+      <div class="step" data-step="1" hidden><p class="hint">Step 2 of 5</p><h3>Set the address on this computer</h3><p>Set the local port to <strong data-local-port>8875</strong>. If Termius shows a bind address, use <strong>127.0.0.1</strong>.</p></div>
+      <div class="step" data-step="2" hidden><p class="hint">Step 3 of 5</p><h3>Choose your saved VPS</h3><p>Select the existing Termius host that runs your Lab. Set the destination address to <strong>127.0.0.1</strong> and destination port to <strong data-server-port>8765</strong>.</p></div>
+      <div class="step" data-step="3" hidden><p class="hint">Step 4 of 5</p><h3>Start the connection</h3><p>Save the forwarding entry, then start or connect it in Termius. Leave it active while using your Lab.</p></div>
+      <div class="step" data-step="4" hidden><p class="hint">Step 5 of 5</p><h3>Open your Lab</h3><p>If the page does not open, check that your forwarding entry is active and ask your setup agent to check the Lab.</p><a id="vps-link" class="button-link" target="_blank" rel="noopener noreferrer">Open dashboard</a></div>
+      <div class="actions"><button id="step-back" class="secondary" type="button" hidden>Back</button><button id="step-next" type="button">Done, next step</button></div>
+    </div>
+    <div id="opening-help" hidden>
+      <p id="sign-in-help">In the dashboard, choose <strong>Connect this browser</strong>, then <strong>Copy sign-in request</strong>. Paste that request into your setup agent. After it approves, return to the dashboard.</p>
+      <details id="port-settings"><summary>Advanced: use different ports</summary><p class="hint">Use the Lab port reported by your setup agent. For a VPS, match the local port to your Termius forwarding entry.</p><div class="settings"><label for="server-port">Lab port <input id="server-port" type="text" inputmode="numeric" value="8765" maxlength="5" autocomplete="off"></label><label id="local-port-label" for="local-port">Local forwarding port <input id="local-port" type="text" inputmode="numeric" value="8875" maxlength="5" autocomplete="off"></label></div></details>
+      <p id="port-error" class="error" role="status" aria-live="polite"></p>
+      <details id="continuation"><summary>Need your agent's help?</summary><p>Paste this into the agent that installed your Lab.</p><button id="copy-continuation" type="button" class="secondary">Copy continuation prompt</button><p id="continuation-status" role="status" aria-live="polite"></p><details id="continuation-details"><summary>Read or copy the prompt</summary><label for="continuation-prompt" class="hint">This prompt contains no credentials.</label><textarea id="continuation-prompt" rows="8" readonly spellcheck="false"></textarea></details></details>
+    </div>
+  </section>
   <details class="faq"><summary>Do I need to install Docker first?</summary><p>No. The agent checks for Docker and the other prerequisites, reuses what you have and installs what is missing on supported systems. It may need you to enter an administrator password, approve an operating-system dialog, or sign in again before continuing.</p></details>
   <details class="faq"><summary>Where can I run it?</summary><p>The automated prerequisite helper supports Ubuntu 22.04 and 24.04 on an x86-64 VPS or computer. On Windows x86-64 and Intel Macs, your agent follows the Docker Desktop setup steps and helps with required system actions. The current Studio environment requires Linux x86-64 containers; an Apple Silicon or other ARM machine needs access to a supported x86-64 host.</p></details>
-  <details class="faq"><summary>What if my agent is on a different machine?</summary><p>It needs terminal or SSH access to the computer that will run the Lab. An agent running on a VPS cannot change Termius on your laptop; it will give you the forwarding settings for that step. A chat-only assistant needs a tool-enabled host before it can install software.</p></details>
+  <details class="faq"><summary>What if my agent is on a different machine?</summary><p>It needs terminal or SSH access to the computer that will run the Lab. For a VPS, use <a href="#open-dashboard">Open my dashboard</a> above to make the private connection from this computer. A chat-only assistant needs a tool-enabled host before it can install software.</p></details>
   <details class="faq"><summary>Does installation start an agent test?</summary><p>Installation prepares the environment and can run a scripted installation check. You then review a test in the dashboard. Its separate connection prompt contains the settings for the agent you want to evaluate. A passing installation check does not mean that agent passed.</p></details>
   <footer>GenLayer Agent Lab runs in your own environment. Setup preserves existing installations and saved tests. <a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/GETTING_STARTED.md">See your first test walkthrough</a>.</footer>
 </main>
 <script>
-  const prompt = document.getElementById("setup-prompt");
-  const status = document.getElementById("copy-status");
-  document.getElementById("copy-prompt").addEventListener("click", async () => {
+  const byId = id => document.getElementById(id);
+  async function copyPrompt(fieldId, detailsId, statusId, message) {
+    const field = byId(fieldId);
+    const status = byId(statusId);
     try {
-      await navigator.clipboard.writeText(prompt.value);
-      status.textContent = "Copied. Paste this into your agent on the machine where you want the Lab.";
+      await navigator.clipboard.writeText(field.value);
+      status.textContent = message;
     } catch {
-      document.getElementById("prompt-details").open = true;
-      prompt.focus();
-      prompt.select();
+      byId(detailsId).open = true;
+      field.focus();
+      field.select();
       status.textContent = "Automatic copying is unavailable. Copy the selected prompt below and paste it into your agent.";
     }
-  });
+  }
+  byId("copy-prompt").addEventListener("click", () => copyPrompt("setup-prompt", "prompt-details", "copy-status", "Copied. Paste this into your agent on the machine where you want the Lab."));
+  byId("copy-continuation").addEventListener("click", () => copyPrompt("continuation-prompt", "continuation-details", "continuation-status", "Copied. Paste this into the agent that installed your Lab."));
+  let locationChoice = null;
+  let step = 0;
+  function validPort(value) { return /^[1-9][0-9]{0,4}$/.test(value) && Number(value) <= 65535; }
+  function refreshOpening() {
+    const serverPort = byId("server-port").value;
+    const localPort = byId("local-port").value;
+    const valid = validPort(serverPort) && (locationChoice !== "vps" || validPort(localPort));
+    byId("port-error").textContent = valid ? "" : "Enter a whole port number from 1 to 65535.";
+    byId("server-port").setAttribute("aria-invalid", String(!validPort(serverPort)));
+    byId("local-port").setAttribute("aria-invalid", String(!validPort(localPort)));
+    for (const [id, port] of [["local-link", serverPort], ["vps-link", localPort], ["vps-existing-link", localPort]]) {
+      const link = byId(id);
+      const linkValid = validPort(serverPort) && validPort(port);
+      if (linkValid) link.href = `http://127.0.0.1:${port}/`;
+      else link.removeAttribute("href");
+      link.setAttribute("aria-disabled", String(!linkValid));
+      link.tabIndex = linkValid ? 0 : -1;
+    }
+    document.querySelectorAll("[data-local-port]").forEach(el => { el.textContent = validPort(localPort) ? localPort : "a valid local port"; });
+    document.querySelectorAll("[data-server-port]").forEach(el => { el.textContent = validPort(serverPort) ? serverPort : "a valid Lab port"; });
+    document.querySelectorAll("[data-step]").forEach(el => { el.hidden = Number(el.dataset.step) !== step; });
+    byId("step-back").hidden = step === 0;
+    byId("step-next").hidden = step === 4;
+    byId("step-next").disabled = !valid;
+    byId("sign-in-help").hidden = locationChoice === "vps" && step !== 4;
+    byId("copy-continuation").disabled = !valid;
+    byId("continuation-prompt").value = valid ? `Help me open my existing GenLayer Agent Lab using https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md. Reuse the existing installation, saved progress, data and current agent/model; do not reinstall or reset it. The Lab runs ${locationChoice === "vps" ? "on my VPS" : "on this computer"}, with expected Lab port ${serverPort}${locationChoice === "vps" ? ` and local Termius forwarding port ${localPort}` : ""}. Confirm its actual port and health, and start the same installation if stopped. For this requested guided flow, inspect the installed CLI help for dashboard approve support. If missing, update the existing checkout while preserving local changes and saved data; follow the skill's upgrade and recovery steps, and report conflicts before overwriting anything. Guide only the next human action I need to take, using the setup page's Open my dashboard flow; do not give generic SSH placeholders or administrator-key instructions. When I paste the dashboard's Connect approval request here, approve that request with gl-agent-lab dashboard approve CODE against this installation. Keep credentials out of replies. Help me reach my dashboard before starting any new test.` : "";
+    byId("continuation-status").textContent = "";
+  }
+  function chooseLocation(choice) {
+    locationChoice = choice;
+    step = 0;
+    byId("open-local").hidden = choice !== "local";
+    byId("open-vps").hidden = choice !== "vps";
+    byId("opening-help").hidden = false;
+    byId("local-port-label").hidden = choice !== "vps";
+    byId("choose-local").setAttribute("aria-pressed", String(choice === "local"));
+    byId("choose-vps").setAttribute("aria-pressed", String(choice === "vps"));
+    byId("port-settings").open = false;
+    refreshOpening();
+  }
+  byId("choose-local").addEventListener("click", () => chooseLocation("local"));
+  byId("choose-vps").addEventListener("click", () => chooseLocation("vps"));
+  byId("step-next").addEventListener("click", () => { step = Math.min(4, step + 1); refreshOpening(); });
+  byId("step-back").addEventListener("click", () => { step = Math.max(0, step - 1); refreshOpening(); });
+  ["server-port", "local-port"].forEach(id => byId(id).addEventListener("input", refreshOpening));
+  ["local-link", "vps-link", "vps-existing-link"].forEach(id => byId(id).addEventListener("click", event => {
+    if (event.currentTarget.getAttribute("aria-disabled") === "true") event.preventDefault();
+  }));
+  const supplied = new URLSearchParams(window.location.search);
+  const suppliedPort = supplied.get("lab_port");
+  if (suppliedPort !== null) byId("server-port").value = validPort(suppliedPort) ? suppliedPort : "";
+  const suppliedLocation = supplied.get("location");
+  if (suppliedLocation === "vps" || suppliedLocation === "local") chooseLocation(suppliedLocation);
+  if (suppliedPort !== null && !validPort(suppliedPort) && locationChoice) byId("port-settings").open = true;
 </script>
 </body>
 </html>

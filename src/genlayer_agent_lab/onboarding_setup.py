@@ -33,6 +33,7 @@ DOCKER_DESKTOP_URL = "https://docs.docker.com/desktop/setup/install/"
 COMPOSE_URL = "https://docs.docker.com/compose/install/linux/"
 GIT_URL = "https://git-scm.com/downloads"
 SETUP_SKILL_URL = "https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md"
+SETUP_PAGE_URL = "https://genlayer-agent-lab-setup.vercel.app/"
 
 
 def installation_identity(data_dir, token):
@@ -147,13 +148,14 @@ def _cli():
 
 
 def _connection_instructions(data_dir, port, *, headless):
-    _say(f"Dashboard: http://127.0.0.1:{port}/assets/workflows.html")
     if headless:
-        _say("For a remote server, run this on your laptop, replacing your-user@your-server:")
-        _say(f"  ssh -N -L 8875:127.0.0.1:{port} your-user@your-server")
-        _say("Then open http://127.0.0.1:8875/assets/workflows.html on your laptop.")
-    _say("To sign in manually, run this in a private terminal on this machine and paste the token into the dashboard:")
-    _say(f"  {_cli()} init --data-dir {_shell_word(data_dir)} --show-token")
+        _say("Your Lab is running. Next: open your dashboard on your computer.")
+        _say(f"Guided opening steps: {SETUP_PAGE_URL}?location=vps&lab_port={port}#open-dashboard")
+        _say("Choose 'A VPS' and use your existing Termius connection. If it is already connected, open the dashboard.")
+    else:
+        _say(f"Open your dashboard: http://127.0.0.1:{port}/")
+    _say("In the dashboard, choose 'Connect this browser' and paste its sign-in request into your setup agent.")
+    _say("Your setup agent approves the request; the browser signs in automatically. No workspace key needs copying.")
 
 
 def _open_dashboard(data_dir, port, *, headless):

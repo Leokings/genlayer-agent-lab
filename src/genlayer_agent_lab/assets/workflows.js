@@ -69,6 +69,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   // Consume the local setup handoff before any request or external navigation.
   const fragment = new URLSearchParams(location.hash.slice(1));
   let token = fragment.get("token") || "";
+  let pairing = null, pairingTimer = null, pairingRevision = 0;
   if (fragment.has("token")) history.replaceState(null, "", location.pathname + location.search);
   try { token ||= sessionStorage.getItem(key) || ""; } catch { /* Private browser sessions may disable storage. */ }
   let selected = null, report = null, templates = [], chosen = null, preview = null;
@@ -112,7 +113,11 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     try { result = parseProjectJson(await response.text()); }
     catch { const error = new Error(`The Lab returned an unreadable response (${response.status}). Check its diagnostics.`); error.uncertain = response.ok; throw error; }
     if (!response.ok) {
-      const error = new Error(response.status === 401 ? "The workspace key was not accepted. Unlock this installation with its administrator key."
+      if (response.status === 401) {
+        token = ""; try { sessionStorage.removeItem(key); } catch {}
+        $("auth").hidden = false; $("workspace").hidden = true; $("disconnect").hidden = true;
+      }
+      const error = new Error(response.status === 401 ? "Please sign in again. Choose Connect this browser, or use an existing workspace key under Advanced."
         : typeof result.detail === "string" ? result.detail : `The request could not be validated (${response.status}). Check the entered fields.`);
       error.uncertain = response.status >= 500; throw error;
     }
@@ -589,10 +594,72 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   }
   async function connect() {
     const catalog = await request("/v1/onboarding/templates"); templates = catalog.templates;
+    stopPairing();
     try { sessionStorage.setItem(key, token); } catch { /* Keep an in-memory session. */ }
     $("auth").hidden = true; $("workspace").hidden = false; $("disconnect").hidden = false; $("token").value = "";
     renderTemplates(); await Promise.all([checkEnvironment(), refresh()]);
   }
+  function stopPairing() {
+    pairingRevision++; pairing = null; clearTimeout(pairingTimer);
+    $("pair-panel").hidden = true; $("pair-prompt").value = "";
+  }
+  async function pairingRequest(path, body) {
+    let response;
+    try {
+      response = await fetch(`/v1/dashboard/${path}`, {method:"POST", credentials:"omit", redirect:"error",
+        cache:"no-store", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body),
+        signal:AbortSignal.timeout(10000)});
+    } catch { throw new Error("Your Lab is not responding. Check that your connection is still open, then try again."); }
+    if (!response.ok) throw new Error(response.status === 429
+      ? "Too many sign-in requests are waiting. Keep your current request open or try again in ten minutes."
+      : response.status === 404 ? "This Lab needs an update for guided sign-in. Ask your setup agent to update the existing installation."
+      : "This sign-in request is no longer available. Choose Connect this browser for a new one.");
+    return response.json();
+  }
+  async function pollPairing(current) {
+    if (current !== pairingRevision || !pairing) return;
+    if (Date.now() >= pairing.deadline) {
+      $("pair-status").textContent = "This request expired. Choose Connect this browser for a new one.";
+      pairing = null; return;
+    }
+    try {
+      const result = await pairingRequest("claim", {request_id:pairing.request_id, claim_secret:pairing.claim_secret});
+      if (current !== pairingRevision) return;
+      if (result.status === "approved") {
+        token = result.token; stopPairing(); await connect(); return;
+      }
+    } catch (error) {
+      if (current !== pairingRevision) return;
+      $("pair-status").textContent = error.message;
+      pairing = null; return;
+    }
+    pairingTimer = setTimeout(() => pollPairing(current), 2000);
+  }
+  $("pair-start").addEventListener("click", async () => {
+    stopPairing(); clearNotice(); const current = pairingRevision;
+    $("pair-start").disabled = true;
+    try {
+      const result = await pairingRequest("connect", {});
+      if (current !== pairingRevision) return;
+      pairing = {...result, deadline:Date.now() + result.expires_in * 1000};
+      $("pair-prompt").value = `Let my browser into the GenLayer Agent Lab you installed. My sign-in code is ${result.code}. I authorize owner access for this browser. In the existing Lab installation on its host, run gl-agent-lab dashboard approve ${result.code}, using the same data directory and server port as setup (and uv run from a source checkout). Do not reinstall anything, read private test answers, or display any workspace keys. Tell me when approved so I can return to my browser.`;
+      $("pair-command").textContent = `uv run gl-agent-lab dashboard approve ${result.code}`;
+      $("pair-status").textContent = "Waiting for your setup agent's approval. This request lasts ten minutes.";
+      $("pair-panel").hidden = false;
+      pairingTimer = setTimeout(() => pollPairing(current), 2000);
+    } catch (error) { fail(error); }
+    finally { $("pair-start").disabled = false; }
+  });
+  $("pair-copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("pair-prompt").value);
+      $("pair-status").textContent = "Copied. Paste it into your setup agent, then return here.";
+    } catch {
+      $("pair-details").open = true;
+      $("pair-prompt").focus(); $("pair-prompt").select();
+      $("pair-status").textContent = "Copy the selected request and paste it into your setup agent.";
+    }
+  });
   function download(content, type, suffix) {
     const url = URL.createObjectURL(new Blob([content], {type})); const link = node("a"); link.href = url;
     link.download = `agent-test-${selected}.${suffix}`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);

@@ -96,15 +96,15 @@ def test_failed_studio_readiness_prevents_lab_and_browser_launch(tmp_path, servi
 
 
 @pytest.mark.parametrize("ssh,explicit", [(True, False), (False, True)])
-def test_headless_setup_prints_tunnel_and_private_auth_instructions_without_opening(tmp_path, services, monkeypatch, capsys, ssh, explicit):
+def test_headless_setup_prints_guided_opening_without_credentials_or_placeholders(tmp_path, services, monkeypatch, capsys, ssh, explicit):
     if ssh:
         monkeypatch.setenv("SSH_CONNECTION", "203.0.113.2 10000 203.0.113.5 22")
     assert setup.run_setup(tmp_path, port=8888, no_open=explicit) == 0
     assert [item[0] for item in services] == ["serve"]
     output = capsys.readouterr().out
-    assert "ssh -N -L 8875:127.0.0.1:8888 your-user@your-server" in output
-    assert "http://127.0.0.1:8875/assets/workflows.html" in output
-    assert "--show-token" in output and "private terminal" in output
+    assert "?location=vps&lab_port=8888#open-dashboard" in output
+    assert "Connect this browser" in output
+    assert "--show-token" not in output and "your-user@your-server" not in output
     assert read_admin_token(tmp_path) not in output
 
 
@@ -309,11 +309,10 @@ def test_windows_manual_sign_in_command_uses_powershell_call_operator(tmp_path, 
         console.write_bytes(b"placeholder")
     monkeypatch.setattr(setup, "os", types.SimpleNamespace(name="nt"))
     monkeypatch.setattr(setup, "sys", types.SimpleNamespace(executable=str(python)))
-    setup._connection_instructions(tmp_path, 8765, headless=False)
-    line = next(line.strip() for line in capsys.readouterr().out.splitlines() if "--show-token" in line)
+    line = setup._cli()
     executable = str(console if console_available else python).replace("'", "''")
-    assert line.startswith("& '" + executable + "' ")
-    assert "' init --data-dir " in line if console_available else " -m genlayer_agent_lab.cli init --data-dir " in line
+    assert line.startswith("& '" + executable + "'")
+    assert line.endswith("'") if console_available else line.endswith(" -m genlayer_agent_lab.cli")
 
 
 def test_failed_studio_inspection_is_not_treated_as_permission_to_rebuild(tmp_path, services, monkeypatch, capsys):

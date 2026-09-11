@@ -205,6 +205,8 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
     app = FastAPI(title="GenLayer Agent Lab", version=__version__, lifespan=lifespan,
                   docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(BoundedRequestMiddleware)
+    from .dashboard_access import DashboardAccess, mount_dashboard_access_routes
+    dashboard_access = DashboardAccess()
 
     def bearer(authorization: str | None) -> str:
         if not authorization or not authorization.startswith("Bearer "):
@@ -215,8 +217,15 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
         return token
 
     def administrator(authorization: Annotated[str | None, Header()] = None) -> None:
-        if not hmac.compare_digest(bearer(authorization), admin_token):
+        candidate = bearer(authorization)
+        if not (hmac.compare_digest(candidate, admin_token) or dashboard_access.authenticate(candidate)):
             raise HTTPException(401, "Invalid administrator credentials")
+
+    def installation_owner(authorization: Annotated[str | None, Header()] = None) -> None:
+        if not hmac.compare_digest(bearer(authorization), admin_token):
+            raise HTTPException(401, "Installation owner credentials required")
+
+    mount_dashboard_access_routes(app, dashboard_access, installation_owner)
 
     from .onboarding import mount_onboarding_routes
     from .workflow_api import mount_workflow_routes
