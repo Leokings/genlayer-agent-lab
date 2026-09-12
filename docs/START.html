@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Set up with your agent · GenLayer Agent Lab</title>
+<meta name="description" content="Set up GenLayer Agent Lab with your own agent, prepare a custom contract test and open your dashboard on a computer or VPS.">
+<meta name="theme-color" content="#163a2b">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23163a2b'/%3E%3Cpath d='m12 37 20 11 20-11v9L32 57 12 46Z' fill='%2396bb92'/%3E%3Cpath d='m12 24 20 11 20-11v9L32 44 12 33Z' fill='%23c4d9af'/%3E%3Cpath d='M32 7 53 19 32 31 11 19Z' fill='%23f7f8f1'/%3E%3C/svg%3E">
 <style>
   :root { color-scheme: light; font: 17px/1.6 system-ui, sans-serif; color: #182e35; background: #f3f6f5; }
   * { box-sizing: border-box; }
@@ -11,7 +14,10 @@
   main { max-width: 860px; margin: auto; padding: 44px 24px 72px; }
   header { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
   a { color: #166d62; text-underline-offset: 4px; }
-  .brand { font-weight: 750; text-decoration: none; }
+  .brand { font-weight: 750; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; color: #163a2b; }
+  .brand svg { flex-shrink: 0; }
+  .site-links { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  header { flex-wrap: wrap; }
   .tag { font-size: 12px; letter-spacing: .12em; font-weight: 700; color: #41675c; margin: 52px 0 12px; }
   h1 { font-size: clamp(32px, 5vw, 50px); line-height: 1.1; letter-spacing: -.035em; margin: 0 0 20px; max-width: 650px; }
   .lead { font-size: 20px; max-width: 650px; }
@@ -49,7 +55,7 @@
 </head>
 <body>
 <main>
-  <header><a class="brand" href="https://github.com/Leokings/genlayer-agent-lab">◎ GenLayer Agent Lab</a><a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/INSTALL.md">Terminal instructions</a></header>
+  <header><a class="brand" href="https://genlayer-agent-lab-setup.vercel.app/"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#163a2b"/><path d="m12 37 20 11 20-11v9L32 57 12 46Z" fill="#96bb92"/><path d="m12 24 20 11 20-11v9L32 44 12 33Z" fill="#c4d9af"/><path d="M32 7 53 19 32 31 11 19Z" fill="#f7f8f1"/></svg>GenLayer Agent Lab</a><nav class="site-links" aria-label="Site navigation"><a href="https://genlayer-agent-lab-setup.vercel.app/">Home</a><a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/INSTALL.md">Terminal instructions</a></nav></header>
   <p class="tag">START WITH THE AGENT YOU ALREADY USE</p>
   <h1>One setup prompt.<br>Your agent handles the installation.</h1>
   <p class="lead">Give the prompt to OpenClaw or a coding agent with terminal access to your computer or VPS. It checks what is needed, installs missing software and prepares your Lab.</p>

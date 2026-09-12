@@ -2,13 +2,13 @@
 
 Test how your agent uses GenLayer decisions before relying on it in an application. Choose Studio execution or a quick GLSim simulation in one dashboard, review a supported scenario, connect your agent, and inspect its decisions and actions.
 
-[Open setup page](https://genlayer-agent-lab-setup.vercel.app) · [Get started](docs/GETTING_STARTED.md) · [Install](docs/INSTALL.md) · [Use a VPS](docs/VPS_QUICKSTART.md) · [Source](https://github.com/Leokings/genlayer-agent-lab)
+[Website](https://genlayer-agent-lab-setup.vercel.app/) · [Start](https://genlayer-agent-lab-setup.vercel.app/setup.html) · [Get started](docs/GETTING_STARTED.md) · [Install](docs/INSTALL.md) · [Use a VPS](docs/VPS_QUICKSTART.md) · [Source](https://github.com/Leokings/genlayer-agent-lab)
 
 **Version 0.1.0a12 — development candidate.** See [build status](docs/BUILD_STATUS.md), the dated [verification record](docs/VERIFICATION.md), and the [build audit](docs/BUILD_AUDIT.md) for completed and open gates.
 
 ## Start here
 
-Open the [public setup page](https://genlayer-agent-lab-setup.vercel.app) and copy its prompt into an agent that already has terminal access to your computer or VPS. The page needs no Lab installation, account or login. It is a public instruction page; your Lab, Studio and test data run on your own machine.
+Open the [public setup page](https://genlayer-agent-lab-setup.vercel.app/setup.html) and copy its prompt into an agent that already has terminal access to your computer or VPS. The page needs no Lab installation, account or login. It is a public instruction page; your Lab, Studio and test data run on your own machine.
 
 You do not need to install Git, Python, uv or Docker yourself: the prompt asks your agent to install what is missing and reuse what is ready. You can also copy it directly here:
 
@@ -20,7 +20,7 @@ Passwords and operating-system prompts stay on your device. If setup needs a log
 
 Already installed? Use **Open my dashboard** on the setup page. It guides VPS users through their existing Termius connection. Choose **Connect this browser** in the dashboard and paste its sign-in request into your setup agent; the browser opens after approval. No administrator key needs copying. Your setup agent gives you one required action at a time.
 
-Have your own contract? Choose [Prepare a test from my contract](https://genlayer-agent-lab-setup.vercel.app/#prepare-contract-test), or **Use my own contract** under **Studio execution**. Copy its prompt into your authoring agent and provide your code and test idea. The [test-preparation skill](skills/prepare-genlayer-lab-test/SKILL.md) produces a supported project binding and self-contained project-v2 JSON draft for Studio. That file is not a GLSim scenario. You review it before starting; use a separate test context that cannot access the authoring conversation, memories or private grading files.
+Have your own contract? Choose [Prepare a test from my contract](https://genlayer-agent-lab-setup.vercel.app/setup.html#prepare-contract-test), or **Use my own contract** under **Studio execution**. Copy its prompt into your authoring agent and provide your code and test idea. The [test-preparation skill](skills/prepare-genlayer-lab-test/SKILL.md) produces a supported project binding and self-contained project-v2 JSON draft for Studio. That file is not a GLSim scenario. You review it before starting; use a separate test context that cannot access the authoring conversation, memories or private grading files.
 
 After you review and create a test, the dashboard provides **Copy agent setup prompt**. Paste that message into the agent you want to test: it includes the mode's connection settings and asks the agent to configure its tools and begin. Every new run needs its own prompt and scoped credential, including when changing modes. This works with agents that can manage their tool configuration; a chat-only client may still need its owner's connection settings changed. Manual connection instructions remain available.
 
