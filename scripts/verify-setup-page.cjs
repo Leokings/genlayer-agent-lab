@@ -4,15 +4,19 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const {execFileSync} = require('node:child_process');
 const {chromium} = require('playwright');
 
 (async () => {
-  const html = fs.readFileSync(path.resolve('docs/START.html'));
+  execFileSync(process.execPath, [path.resolve('scripts/prepare-setup-site.cjs')]);
+  const site = path.resolve('.lab/setup-site');
   const output = path.resolve('.lab/setup-page');
   fs.mkdirSync(output, {recursive:true});
   const server = http.createServer((request, response) => {
-    response.writeHead(200, {'Content-Type':'text/html; charset=utf-8'});
-    response.end(html);
+    const file = {'/':'index.html', '/index.html':'index.html', '/setup.html':'setup.html', '/favicon.svg':'favicon.svg'}[new URL(request.url, 'http://localhost').pathname];
+    if (!file) { response.writeHead(404); response.end(); return; }
+    response.writeHead(200, {'Content-Type':file.endsWith('.svg') ? 'image/svg+xml' : 'text/html; charset=utf-8'});
+    response.end(fs.readFileSync(path.join(site, file)));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -31,6 +35,23 @@ const {chromium} = require('playwright');
       return route.abort();
     });
     await page.goto(origin);
+    assert.equal(await page.locator('h1').count(), 1);
+    assert.equal(await page.locator('textarea').count(), 0, 'The home page must not contain setup prompts.');
+    const favicon = await page.locator('link[rel="icon"]').getAttribute('href');
+    const iconResponse = await context.request.get(new URL(favicon, origin).href);
+    assert.equal(iconResponse.status(), 200);
+    assert.match(iconResponse.headers()['content-type'], /image\/svg\+xml/);
+    await page.screenshot({path:path.join(output, 'home-desktop.png'), fullPage:true});
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.screenshot({path:path.join(output, 'home-mobile.png'), fullPage:true});
+    await page.getByRole('link', {name:'Start', exact:true}).first().click();
+    assert.equal(new URL(page.url()).pathname, '/setup.html');
+    await page.getByRole('link', {name:'Home', exact:true}).click();
+    assert.equal(new URL(page.url()).pathname, '/');
+    await page.getByRole('link', {name:'Start', exact:true}).first().click();
+    await page.setViewportSize({width:1280,height:900});
+    assert.ok(await page.locator('link[rel="icon"]').getAttribute('href'));
     const prompt = await page.locator('#setup-prompt').inputValue();
     assert.match(prompt, /installing missing prerequisites/);
     assert.match(prompt, /Docker with Compose/);
@@ -156,19 +177,23 @@ const {chromium} = require('playwright');
     assert.equal(await page.locator('#copy-ssh-command').isDisabled(), false);
 
     await page.goto(`${origin}/?location=vps&lab_port=8795#open-dashboard`);
+    await page.waitForURL('**/setup.html?location=vps&lab_port=8795#open-dashboard');
     assert.equal(await page.locator('#choose-vps').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#server-port').inputValue(), '8795');
     assert.equal(await page.locator('[data-step="0"]').isVisible(), true);
     assert.equal(await page.locator('[data-server-port]').textContent(), '8795');
     await page.goto(`${origin}/?location=vps&lab_port=8765%2F%2Fevil.test#open-dashboard`);
+    await page.waitForURL('**/setup.html?location=vps&lab_port=8765%2F%2Fevil.test#open-dashboard');
     assert.equal(await page.locator('#server-port').inputValue(), '');
     assert.equal(await page.locator('#port-settings').getAttribute('open'), '');
     assert.equal(await page.locator('#step-next').isDisabled(), true);
     assert.equal(await page.locator('#vps-link').getAttribute('href'), null);
     assert.equal(await page.locator('#vps-existing-link').getAttribute('href'), null);
     await page.goto(`${origin}/?location=unknown&lab_port=8795`);
+    await page.waitForURL('**/setup.html?location=unknown&lab_port=8795');
     assert.equal(await page.locator('#opening-help').isVisible(), false);
     await page.goto(`${origin}/?location=local&lab_port=8795#open-dashboard`);
+    await page.waitForURL('**/setup.html?location=local&lab_port=8795#open-dashboard');
     assert.equal(await page.locator('#local-link').getAttribute('href'), 'http://127.0.0.1:8795/');
 
     await page.evaluate(() => {
@@ -215,7 +240,7 @@ const {chromium} = require('playwright');
     await page.screenshot({path:path.join(output, 'mobile-powershell.png'), fullPage:true});
     assert.deepEqual(errors, []);
     assert.deepEqual(externalRequests, []);
-    console.log('12 setup-page checks passed: setup clipboard, contract-authoring discovery/copy/fallback, local opening, VPS steps, port validation, continuation clipboard, connection method switching, PowerShell command clipboard/custom ports, SSH injection rejection, installer query handoff, manual fallbacks, mobile layout. External requests: 0.');
+    console.log('Public home/setup checks passed: Start/Home navigation, favicon, no home prompts, responsive home, setup clipboard, contract-authoring discovery/copy/fallback, local opening, VPS steps, port validation, continuation clipboard, connection switching, PowerShell commands, SSH injection rejection, legacy installer links, manual fallbacks, mobile setup. External requests: 0.');
   } finally {
     if (browser) await browser.close();
     await new Promise(resolve => server.close(resolve));

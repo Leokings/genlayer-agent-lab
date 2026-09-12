@@ -2,7 +2,7 @@
 
 This path runs the current project Studio environment on a Linux x86-64 server you control. You use the dashboard through an SSH tunnel and can connect your agent from the server or your own computer.
 
-Open the [public setup page](https://genlayer-agent-lab-setup.vercel.app) and copy its prompt into an agent with terminal access to your existing VPS's normal user account. The page needs no Lab installation, account or login; your Lab and test data stay on your VPS. The [installation prompt](INSTALL.md#setup-with-an-agent) is also available directly in the docs.
+Open the [public setup page](https://genlayer-agent-lab-setup.vercel.app/setup.html) and copy its prompt into an agent with terminal access to your existing VPS's normal user account. The page needs no Lab installation, account or login; your Lab and test data stay on your VPS. The [installation prompt](INSTALL.md#setup-with-an-agent) is also available directly in the docs.
 
 Your agent installs missing Git, uv, Docker Engine and Compose before starting the Lab. Ubuntu 22.04/24.04 x86-64 has a bundled prerequisite helper. For this short trial, plan for 8 GiB RAM and an 80 GB disk with room for downloads and Docker cache. This is planning guidance; a minimum server size has not been measured.
 
@@ -78,7 +78,7 @@ The accepted range is 60–3600 seconds, with 30 additional seconds for the Dock
 
 After installation, your setup agent should guide you through connecting from your laptop using the app you already use. With **Termius**, it gives the exact fields and values one screen at a time. With **PowerShell**, it gives one complete command with your server details already filled in, tells you where to paste it and explains which window stays open. It should ask which app only when that is not already known.
 
-Use [Open my dashboard](https://genlayer-agent-lab-setup.vercel.app/?location=vps#open-dashboard) as a visual companion. Choose **A VPS**, then **Termius** or **Windows PowerShell**. If your Lab connection already works, open the dashboard directly. You only need to save the Termius forwarding entry once and start it when returning; a PowerShell connection remains open while its window stays open.
+Use [Open my dashboard](https://genlayer-agent-lab-setup.vercel.app/setup.html?location=vps#open-dashboard) as a visual companion. Choose **A VPS**, then **Termius** or **Windows PowerShell**. If your Lab connection already works, open the dashboard directly. You only need to save the Termius forwarding entry once and start it when returning; a PowerShell connection remains open while its window stays open.
 
 In the dashboard:
 

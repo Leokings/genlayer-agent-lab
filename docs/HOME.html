@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Test how your agent uses GenLayer decisions. Review a scenario, connect your own agent, and inspect its actions in local Studio execution or a quick GLSim simulation.">
+  <meta name="theme-color" content="#163a2b">
+  <title>GenLayer Agent Lab · Test your agent’s next move</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <style>
+    :root { color-scheme: light; --paper: #f7f8f1; --ink: #163a2b; --green: #176849; --muted: #53675a; --line: #d5ddcd; --wash: #e8eedf; font: 16px/1.65 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 28px; }
+    body { margin: 0; }
+    a { color: inherit; text-underline-offset: 5px; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid #b37b16; outline-offset: 5px; }
+    .wrap { width: min(1120px, calc(100% - 64px)); margin-inline: auto; }
+    .skip { position: absolute; left: 20px; top: -80px; padding: 10px 18px; background: var(--paper); z-index: 10; }
+    .skip:focus { top: 10px; }
+    .site-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; min-height: 96px; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; font-size: 17px; font-weight: 750; letter-spacing: -.04em; line-height: 1.25; }
+    .brand small { display: block; font-size: 11px; font-weight: 650; letter-spacing: .19em; margin-top: 4px; }
+    .brand svg { width: 38px; height: 42px; flex: none; }
+    .site-nav { display: flex; gap: 27px; align-items: center; font-size: 13px; font-weight: 600; }
+    .site-nav > a { text-decoration: none; }
+    .site-nav > a:hover, .site-nav > a[aria-current="page"] { text-decoration: underline; }
+    .button { display: inline-flex; align-items: center; justify-content: center; gap: 26px; padding: 13px 22px; border: 1px solid var(--green); border-radius: 5px; background: var(--green); color: white; font-size: 14px; font-weight: 650; text-decoration: none; line-height: 1.5; transition: background .15s ease; }
+    .button:hover { background: #104e37; text-decoration: none; }
+    .site-nav .button { padding: 9px 18px; color: white; text-decoration: none; }
+    .eyebrow { margin: 0 0 20px; font-size: 11px; font-weight: 750; line-height: 1.5; letter-spacing: .15em; text-transform: uppercase; color: var(--green); }
+    .hero { display: grid; grid-template-columns: 1.08fr 1fr; gap: 68px; align-items: center; padding-block: 76px 64px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 400; }
+    h1 { margin-bottom: 24px; font-size: clamp(45px, 5.5vw, 68px); line-height: 1.04; letter-spacing: -.055em; }
+    h1 em { color: var(--green); font-weight: 400; }
+    .hero .lead { max-width: 465px; font-size: 18px; line-height: 1.65; color: var(--muted); margin-bottom: 28px; }
+    .hero-actions { display: flex; align-items: center; gap: 25px; }
+    .text-link { font-size: 13px; font-weight: 650; }
+    .hero-note { margin: 18px 0 0; color: var(--muted); font-size: 13px; }
+    .diagram { position: relative; margin: 0; padding: 25px 28px 22px; border: 1px solid var(--line); border-radius: 9px; background: #edf1e5; overflow: hidden; }
+    .diagram::before { content: ""; position: absolute; width: 310px; height: 310px; right: -115px; top: 80px; border: 1px solid #d6dfca; border-radius: 50%; box-shadow: 0 0 0 30px #edf1e5, 0 0 0 31px #dce4d1, 0 0 0 61px #edf1e5, 0 0 0 62px #e1e7d8; }
+    .diagram-label { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 25px; font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+    .diagram-label span:last-child { font-family: ui-monospace, monospace; letter-spacing: 0; }
+    .flow { position: relative; padding: 0; margin: 0; list-style: none; }
+    .flow li { position: relative; display: flex; align-items: center; gap: 15px; min-height: 64px; width: 86%; padding: 11px 15px; border: 1px solid #c8d5bd; border-radius: 5px; background: var(--paper); }
+    .flow li + li { margin-top: 25px; }
+    .flow li + li::before { content: "↓"; position: absolute; left: 29px; top: -26px; height: 25px; line-height: 23px; color: #70866b; font-size: 17px; }
+    .flow li:nth-child(2) { background: var(--ink); color: white; border-color: var(--ink); margin-left: 14%; }
+    .flow li:nth-child(3) { margin-left: 14%; }
+    .flow li:nth-child(4) { border-style: dashed; }
+    .flow .symbol { display: grid; place-items: center; width: 32px; height: 32px; flex: none; color: var(--green); }
+    .symbol svg { width: 30px; height: 30px; }
+    .flow strong { display: block; font-size: 14px; line-height: 1.45; font-weight: 650; }
+    .flow small { display: block; font-size: 12px; line-height: 1.5; margin-top: 2px; color: var(--muted); }
+    .flow li:nth-child(2) small { color: #bbd8b9; }
+    .diagram figcaption { position: relative; font-size: 12px; color: var(--muted); margin-top: 20px; }
+    .purpose { display: grid; grid-template-columns: 1fr 1.7fr; align-items: baseline; gap: 60px; border-block: 1px solid var(--line); padding-block: 25px; }
+    .purpose strong { font-size: 15px; font-weight: 650; }
+    .purpose p { font-size: 15px; color: var(--muted); margin: 0; }
+    .section { padding-block: 69px; }
+    h2 { font-size: clamp(32px, 3.4vw, 42px); line-height: 1.14; letter-spacing: -.045em; margin-bottom: 20px; }
+    .section-intro { max-width: 580px; color: var(--muted); font-size: 15px; }
+    .workflow { display: grid; grid-template-columns: 1fr 1.3fr; gap: 92px; border-bottom: 1px solid var(--line); }
+    .workflow .section-intro { max-width: 335px; }
+    .steps { list-style: none; margin: 0; padding: 0; }
+    .steps li { display: grid; grid-template-columns: 28px 1fr; gap: 17px; }
+    .steps li + li { margin-top: 26px; }
+    .step-number { color: var(--green); font: 12px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; padding-top: 2px; }
+    h3 { font-size: 17px; line-height: 1.4; font-weight: 650; letter-spacing: -.02em; margin-bottom: 7px; }
+    .steps p { margin: 0; color: var(--muted); font-size: 15px; }
+    .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 55px; margin-top: 32px; }
+    .mode { border-top: 2px solid var(--green); padding-top: 22px; }
+    .mode + .mode { border-color: #a0b290; }
+    .mode-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 15px; margin-bottom: 8px; }
+    .mode-heading h3 { font-size: 19px; margin: 0; }
+    .mode-tag { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+    .mode p { margin-bottom: 12px; color: var(--muted); font-size: 15px; }
+    .mode .mode-foot { font-size: 15px; color: var(--ink); margin-bottom: 0; }
+    .own-test { display: grid; grid-template-columns: 1fr 1.3fr; gap: 70px; background: var(--ink); color: var(--paper); padding: 45px 46px; border-radius: 7px; }
+    .own-test .eyebrow { color: #bbd8a8; }
+    .own-test h2 { margin: 0; font-size: 38px; }
+    .own-test p { font-size: 15px; color: #d4dfcf; }
+    .own-test .text-link { color: var(--paper); }
+    .bring { display: grid; grid-template-columns: 1fr 1.3fr; gap: 92px; border-bottom: 1px solid var(--line); }
+    .bring p { font-size: 15px; color: var(--muted); }
+    .bring p:last-child { margin-bottom: 0; }
+    .faq-layout { display: grid; grid-template-columns: 1fr 1.3fr; gap: 92px; }
+    .faq-layout h2 { font-size: 34px; }
+    details { border-bottom: 1px solid var(--line); }
+    details:first-child { border-top: 1px solid var(--line); }
+    summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; cursor: pointer; list-style: none; padding: 18px 0; font-size: 15px; line-height: 1.5; font-weight: 600; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; font-size: 20px; font-weight: 400; flex: none; color: var(--green); }
+    details[open] summary::after { content: "−"; }
+    details p { font-size: 15px; color: var(--muted); margin: 0 20px 20px 0; }
+    .closing { display: flex; justify-content: space-between; align-items: center; gap: 30px; padding: 32px 0 45px; }
+    .closing h2 { margin: 0; font-size: 33px; }
+    .site-footer { display: flex; justify-content: space-between; align-items: center; gap: 20px; border-top: 1px solid var(--line); padding-block: 24px 30px; color: var(--muted); font-size: 11px; }
+    .footer-links { display: flex; gap: 24px; }
+    @media (max-width: 950px) { .hero { gap: 30px; padding-top: 55px; } h1 { font-size: 53px; } .diagram { padding: 22px 20px; } .workflow, .bring, .faq-layout { gap: 45px; } .own-test { gap: 40px; padding: 35px; } .purpose { gap: 35px; } }
+    @media (max-width: 720px) { .wrap { width: calc(100% - 40px); } .site-header { min-height: 82px; gap: 15px; } .site-nav { gap: 18px; } .site-nav .nav-detail { display: none; } .site-nav .button { gap: 17px; } .hero { grid-template-columns: 1fr; gap: 35px; padding-block: 45px 40px; } h1 { max-width: 550px; font-size: clamp(46px, 9vw, 64px); } .hero .lead { max-width: 540px; font-size: 17px; } .diagram { max-width: 520px; width: 100%; padding: 23px 26px; } .diagram-label { margin-bottom: 20px; } .flow li { min-height: 59px; width: 82%; } .flow li:nth-child(2), .flow li:nth-child(3) { margin-left: 18%; } .purpose { grid-template-columns: 1fr; gap: 8px; padding-block: 23px; } .section { padding-block: 43px; } .workflow, .bring, .faq-layout { grid-template-columns: 1fr; gap: 22px; } .workflow .section-intro { max-width: 100%; } .modes { gap: 30px; } .mode-heading { display: block; } .mode-tag { display: block; margin-top: 6px; } .own-test { grid-template-columns: 1fr; gap: 22px; padding: 30px; } .own-test h2 { font-size: 34px; } .bring h2, .faq-layout h2 { margin-bottom: 0; } .closing h2 { font-size: 29px; } .site-footer { align-items: flex-start; } }
+    @media (max-width: 440px) { .site-nav { gap: 12px; } .site-nav > a[aria-current="page"] { display: none; } .brand { font-size: 16px; gap: 8px; } .brand svg { width: 33px; } .hero-actions { gap: 20px; } .modes { grid-template-columns: 1fr; } .mode-heading { display: flex; } .mode-tag { margin: 0; } .own-test { padding: 27px 23px; } .closing { align-items: flex-start; flex-direction: column; gap: 20px; padding-top: 12px; } .site-footer { flex-direction: column; gap: 12px; } }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .button { transition: none; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header wrap">
+    <a class="brand" href="./" aria-label="GenLayer Agent Lab home">
+      <svg viewBox="0 0 40 44" fill="none" aria-hidden="true"><path d="M20 22 38 32 20 42 2 32Z" fill="#a0bc87"/><path d="M20 12 38 22 20 32 2 22Z" fill="#55855b"/><path d="M20 2 38 12 20 22 2 12Z" fill="#176849"/></svg>
+      <span>GenLayer<small>AGENT LAB</small></span>
+    </a>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a href="./" aria-current="page">Home</a>
+      <a class="nav-detail" href="#workflow">How it works</a>
+      <a class="nav-detail" href="https://github.com/Leokings/genlayer-agent-lab">GitHub</a>
+      <a class="button" href="./START.html">Start <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+  <main id="main" class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <p class="eyebrow">For agents building with GenLayer</p>
+        <h1 id="hero-title">Test your agent’s<br><em>next move.</em></h1>
+        <p class="lead">See how your agent uses GenLayer decisions, and what it does next, before taking your application to public testnet or mainnet.</p>
+        <div class="hero-actions"><a class="button" href="./START.html">Start <span aria-hidden="true">↗</span></a><a class="text-link" href="https://github.com/Leokings/genlayer-agent-lab">Explore on GitHub <span aria-hidden="true">↗</span></a></div>
+        <p class="hero-note">Your agent. Your model. A Lab in your own environment.</p>
+      </div>
+      <figure class="diagram" aria-label="Illustrative agent testing workflow">
+        <div class="diagram-label"><span>One reviewed scenario</span><span>01 → 04</span></div>
+        <ol class="flow">
+          <li><span class="symbol" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><rect x="5" y="8" width="22" height="18" rx="7" stroke="currentColor" stroke-width="1.5"/><path d="M16 4v4M2 15h3m22 0h3M12 21h8" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="15" r="1.5" fill="currentColor"/><circle cx="20" cy="15" r="1.5" fill="currentColor"/></svg></span><span><strong>Your agent</strong><small>Receives a task and test tools</small></span></li>
+          <li><span class="symbol" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="m16 14 14 8-14 8L2 22Z" fill="#759d65"/><path d="m16 8 14 8-14 8L2 16Z" fill="#b5d296"/><path d="m16 2 14 8-14 8L2 10Z" fill="#e2edcf"/></svg></span><span><strong>GenLayer decision</strong><small>The result your agent must respond to</small></span></li>
+          <li><span class="symbol" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="m8 10 6 6-6 6m10-12h7m-7 6h7m-7 6h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span><strong>Agent action</strong><small>Wait, appeal or take a permitted action</small></span></li>
+          <li><span class="symbol" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><rect x="7" y="3" width="19" height="26" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M12 10h9m-9 5h9m-9 5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span><strong>Readable report</strong><small>Observed actions against your expectations</small></span></li>
+        </ol>
+        <figcaption>Illustrative workflow · available actions depend on the test and mode.</figcaption>
+      </figure>
+    </section>
+
+    <div class="purpose"><strong>A decision is only part of the story.</strong><p>Does your agent wait for finality, respect permissions and act exactly once? The Lab makes that behavior visible through reviewed scenarios, recorded actions and readable reports.</p></div>
+
+    <section id="workflow" class="section workflow" aria-labelledby="workflow-title">
+      <div><p class="eyebrow">How it works</p><h2 id="workflow-title">A clear path from<br>scenario to evidence.</h2><p class="section-intro">Give your actual agent a controlled situation. See whether its actions match the behavior you intended.</p></div>
+      <ol class="steps">
+        <li><span class="step-number">01</span><div><h3>Choose and review a test</h3><p>Select a mode, then a supported template or your own Studio scenario. Review its conditions, permissions and expected behavior.</p></div></li>
+        <li><span class="step-number">02</span><div><h3>Connect your agent</h3><p>Create the test and give your agent its generated connection prompt. The Lab gives it the tools and permissions for that test.</p></div></li>
+        <li><span class="step-number">03</span><div><h3>Read what actually happened</h3><p>Confirm real agent activity, inspect its decisions and actions, then review the report against your expectations.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="section" aria-labelledby="modes-title">
+      <p class="eyebrow">Two modes, one dashboard</p><h2 id="modes-title">Choose what your test needs.</h2>
+      <div class="modes">
+        <article class="mode"><div class="mode-heading"><h3>Studio execution</h3><span class="mode-tag">Default</span></div><p>Run supported contracts in local GenLayer Studio. See whether your agent waits for a decision to become final, uses permitted appeals and completes supported actions.</p><p class="mode-foot">For contract integration and appeal behavior.</p></article>
+        <article class="mode"><div class="mode-heading"><h3>Quick simulation · GLSim</h3><span class="mode-tag">Limited scenarios</span></div><p>Evaluate supported contracts with controlled inputs. Try normal outcomes, pending decisions, timeouts, decisions for the wrong task and repeated acknowledgements.</p><p class="mode-foot">Timing and effects are simulated. No protocol appeals.</p></article>
+      </div>
+    </section>
+
+    <section class="own-test" aria-labelledby="own-title">
+      <div><p class="eyebrow">Bring your own scenario</p><h2 id="own-title">Your contract.<br>Your definition of correct.</h2></div>
+      <div><p>Share your source and test idea with your authoring agent. It helps prepare a supported Studio JSON scenario, including possible contract responses and expected behavior. You do not need to write JSON yourself.</p><p>Review the draft, then test in a separate agent context that cannot see private grading. Studio scenario files are not GLSim scenarios.</p><a class="text-link" href="./START.html#prepare-contract-test">Prepare your own test <span aria-hidden="true">↗</span></a></div>
+    </section>
+
+    <section class="section bring" aria-labelledby="bring-title">
+      <div><p class="eyebrow">Your tools, your environment</p><h2 id="bring-title">Bring the agent<br>you already use.</h2></div>
+      <div><p>Run the Lab and Studio on a supported laptop or VPS. A terminal-capable agent can help prepare that machine; the agent you test uses its own model and connects through the Lab’s supported tools.</p><p>Managed agents need MCP or HTTP capability and a reachable connection to your Lab. Some integrations need an adapter or configuration changes; a chat-only assistant cannot connect by itself.</p></div>
+    </section>
+
+    <section class="section faq-layout" aria-labelledby="faq-title">
+      <div><p class="eyebrow">Tools &amp; practical details</p><h2 id="faq-title">What powers<br>the Lab?</h2></div>
+      <div>
+        <details><summary>How does the Lab use GenLayer Studio?</summary><p>GenLayer Studio is the local execution environment beneath Studio mode. The Lab starts its own Studio environment, runs supported project contracts, and records the agent’s operations and their results. Tests can observe the local transaction lifecycle, finality, permitted protocol appeals and supported fee accounting. Possible contract model responses are supplied by the test author.</p><p>The Lab adds reviewed agent scenarios, scoped tools, action recording and behavioral checks around Studio. Developers can also build their own agent test harness around Studio.</p></details>
+        <details><summary>How does the Lab use GLSim?</summary><p>Quick mode uses GLSim to execute supported contract evaluations with controlled inputs. The Lab controls the timing of decisions the agent sees and simulates application effects. This scripted timeline lets you test how the agent responds to the available situations; its statuses are not observed GenLayer finality. Quick mode has no protocol appeals and uses a separate scenario format from Studio.</p></details>
+        <details><summary>How does my agent connect?</summary><p>The Lab gives each run its own tools and permissions. An agent can use the local MCP bridge, which connects agents to tools, or call the HTTP interface from code; Python and TypeScript examples show how. The generated connection prompt provides the selected mode’s settings. Your agent keeps its model and reasoning, but its relevant test actions must use the Lab’s interface.</p><p>A remote or managed agent needs a reachable route to the Lab and a supported tool connection. An agent with hardcoded wallet or RPC calls may need its developer to adapt those calls.</p></details>
+        <details><summary>Which computers are supported?</summary><p>The current Studio environment requires Linux x64 containers. Use a Linux x64 host, Windows x64 with Docker Desktop, or an Intel Mac with Docker Desktop. The automated Linux prerequisite helper supports Ubuntu 22.04 and 24.04. Apple Silicon and other ARM devices currently need access to a supported x64 host, such as a VPS. <a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/INSTALL.md">Check host requirements</a>.</p></details>
+        <details><summary>What does a passing report tell me?</summary><p>It shows that the recorded agent behavior met the reviewed expectations for that run in its stated environment. The developer supplies possible contract model responses and grading rules. A pass does not measure the contract model’s judgment accuracy, certify the agent or establish public-network settlement behavior.</p></details>
+        <details><summary>Does a scripted check count as testing my agent?</summary><p>No. Included reference agents can check the installation and exercise a scenario with scripted behavior. To evaluate your own agent, connect it to a fresh run, confirm that it actually uses the Lab’s interface, and inspect that run’s report.</p></details>
+      </div>
+    </section>
+    <div class="closing"><h2>See what your agent actually does.</h2><a class="button" href="./START.html">Start <span aria-hidden="true">↗</span></a></div>
+  </main>
+  <footer class="site-footer wrap"><span>GenLayer Agent Lab · <a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/BUILD_STATUS.md">Development candidate</a></span><nav class="footer-links" aria-label="Footer navigation"><a href="./START.html">Setup</a><a href="https://github.com/Leokings/genlayer-agent-lab/blob/main/docs/GETTING_STARTED.md">Documentation</a><a href="https://github.com/Leokings/genlayer-agent-lab">GitHub</a></nav></footer>
+</body>
+</html>
