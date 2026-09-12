@@ -109,8 +109,35 @@ class Engine:
         with self._condition:
             return [binding_summary(item) for item in self._bindings.values()]
 
+    def quick_test_inputs(self, scenario_id: str, binding_id: str | None) -> tuple[dict, dict | None]:
+        """Copy current review inputs; source snapshots never escape to agent tools."""
+        with self._condition:
+            scenario = self._scenarios[scenario_id].model_dump()
+            binding = self._bindings[binding_id] if binding_id is not None else None
+            return copy.deepcopy((scenario, binding))
+
+    def quick_test_evaluator_overrides(self) -> dict[str, bool]:
+        return {"glsim": self._evaluator is not None,
+                "container-glsim": self._binding_evaluator is not None}
+
+    def create_quick_test_run(self, selection, *, expected_sha256: str, reviewer: str) -> dict:
+        """Check the reviewed content and capture it under the same creation lock."""
+        from .quick_tests import QuickReviewChanged, selection_preview
+
+        with self._condition:
+            preview = selection_preview(self, selection)
+            if not hmac.compare_digest(preview["digest"], expected_sha256):
+                raise QuickReviewChanged("Quick test review no longer matches")
+            chosen = preview["selection"]
+            result = self.create_run(
+                chosen["scenario_id"], chosen["agent"], chosen["backend"], chosen["binding_id"],
+                _quick_review={"reviewer": reviewer, "content_sha256": preview["digest"],
+                               "selection": chosen},
+            )
+            return {**result, "selection": chosen}
+
     def create_run(self, scenario_id: str, agent: str = "external", backend: str = "glsim",
-                   binding_id: str | None = None) -> dict:
+                   binding_id: str | None = None, *, _quick_review: dict | None = None) -> dict:
         if agent not in AGENTS or backend not in {"glsim", "fixture", "container-glsim", "studio"}:
             raise ValueError("Unsupported agent or backend")
         if ((backend == "container-glsim" and binding_id is None)
@@ -138,6 +165,8 @@ class Engine:
                 "events": [], "requests": {}, "actions": {}, "decision_requested": False,
                 "contract_verdict": None, "provenance": {}, "ack_lost": False, "ack_reconciled": False,
             }
+            if _quick_review is not None:
+                run["quick_review"] = copy.deepcopy(_quick_review)
             self._event(run, "created", {"scenario_id": scenario_id, "agent": agent})
             self._runs[run_id] = run
             self._cancellations[run_id] = threading.Event()
@@ -419,6 +448,7 @@ class Engine:
                              "lifecycle": "scripted consumer events; not actual chain appeals or finality",
                              "units": "simulated integer test units; no real funds",
                              "agent_kind": "external" if run["agent"] == "external" else "scripted reference",
+                             **({"quick_review": run["quick_review"]} if run.get("quick_review") else {}),
                              "call_count": run["calls"]},
             })
 

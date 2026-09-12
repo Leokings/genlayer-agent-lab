@@ -5,6 +5,19 @@ GenLayer project. They supply test conditions and independently reviewed rules.
 They do not evaluate a contract model's reasoning or manufacture GenLayer
 transaction outcomes.
 
+The unified dashboard asks you to choose **Studio execution** (the default) or
+**Quick simulation · GLSim** before choosing a test. This guide's project-v2
+recipes and import JSON belong to Studio. Changing the mode does not convert a
+project, its operations or its expectations into a GLSim scenario.
+
+Quick mode offers 15 supplied cases: escrow, treasury and generic consumers,
+each with normal, provisional, timeout, wrong-scope and duplicate-acknowledgement
+conditions. Contract evaluation uses GLSim with controlled inputs; the consumer
+timeline and application effects are scripted. A scripted status is not observed
+GenLayer finality. There are no quick-mode appeal scenarios or simulated protocol
+appeals. Already imported compatible legacy bindings can use isolated
+`container-glsim`; their advanced import route is separate from project-v2 JSON.
+
 ## Ask your agent to prepare the file
 
 Give your setup or authoring agent your contract source and describe what you
@@ -31,7 +44,7 @@ a downloaded ZIP first, then select the named scenario inside it. Small response
 examples such as `{"decision":"deny"}` are already part of the scenario and are
 not a complete import file.
 
-In the dashboard, expand **Use my own contract**,
+In the dashboard, choose **Studio execution**, expand **Use my own contract**,
 select **Project scenario file (.json)**, then **Validate & review configuration**.
 Review the conditions, permissions and expected behavior before creating a test.
 A valid file proves the configuration passed validation; running it establishes
@@ -42,8 +55,10 @@ API key or a live wallet. Your existing authoring agent can do the writing using
 the installed Lab CLI. The setup skill routes authoring requests to this skill;
 the exported installation kit includes both.
 
-After authoring, give the actual tested agent only the dashboard's generated
-connection/start prompt in a clean context. Do not include the private draft or
+After authoring, give the actual tested agent only the new run's generated
+connection/start prompt in a clean context. Each run needs a new scoped prompt,
+including when switching modes; an existing connection is not transferable.
+Do not include the private draft or
 its expected answers. The same installed agent/model can be reused, but ensure
 its persistent memory does not recall those private expectations.
 
@@ -73,6 +88,10 @@ the expectations for a faulty agent would defeat the test.
 6. Read the report's observed state, transaction outcomes and independent rule
    checks. A model-generated scenario is not evidence that the backend can
    produce every proposed condition; actual execution must establish that.
+
+Both modes appear in the same dashboard history with their actual backend.
+Earlier Studio and fixture reports remain available with their original evidence
+limits. This shared history does not make their scenario formats interchangeable.
 
 Approval is a developer review record, not a cryptographic identity signature.
 An authoring agent must not approve its own generated expectations automatically.

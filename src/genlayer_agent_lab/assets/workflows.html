@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Test your agent · GenLayer Agent Lab</title>
-<link rel="stylesheet" href="/assets/styles.css"><link rel="stylesheet" href="/assets/onboarding.css"><script src="/assets/workflows.js" defer></script>
+<link rel="stylesheet" href="/assets/styles.css"><link rel="stylesheet" href="/assets/onboarding.css"><script src="/assets/quick-tests.js" defer></script><script src="/assets/workflows.js" defer></script>
 </head>
 <body class="workflow-page"><main class="lab-shell">
 <header class="lab-header">
   <a class="lab-brand" href="/" aria-label="GenLayer Agent Lab home"><span class="lab-symbol" aria-hidden="true">◎</span><span>Agent Lab<small>FOR GENLAYER</small></span></a>
-  <nav aria-label="Workspace"><a href="#help">Setup help</a><a href="/assets/index.html" title="Original scenario tests with manual agent and runtime settings">Developer tools</a><button id="disconnect" class="secondary small-button" hidden>Lock workspace</button></nav>
+  <nav aria-label="Workspace"><a href="#history-panel">Your tests</a><a href="#help">Setup help</a><button id="disconnect" class="secondary small-button" hidden>Lock workspace</button></nav>
 </header>
 <div id="notice" role="alert" hidden></div><div id="feedback" role="status" aria-live="polite" hidden></div>
 <section id="auth" class="welcome panel">
@@ -32,8 +32,11 @@
   </div>
 </section>
 <div id="workspace" hidden>
-  <section class="workspace-intro"><div><span class="eyebrow">TEST BEFORE YOU DEPLOY</span><h1>How does your agent handle change?</h1><p>Choose a situation, review the rules and let your agent respond.</p></div><span class="environment-badge" id="environment-badge">Checking environment…</span></section>
+  <section class="workspace-intro"><div><span class="eyebrow">TEST BEFORE YOU DEPLOY</span><h1>How does your agent handle change?</h1><p>Choose a situation, review the rules and let your agent respond.</p></div></section>
+  <section class="panel mode-picker" aria-labelledby="test-mode-label"><label id="test-mode-label" for="test-mode">How would you like to test?</label><select id="test-mode"><option value="studio">Studio execution</option><option value="glsim">Quick simulation · GLSim</option></select><p id="test-mode-help">Studio executes your contract and local transactions. Use this mode for project JSON imports, contract operations and appeals.</p><p class="helper">Choose a mode for a new test. Switching this view does not change or stop an existing run.</p></section>
+  <div id="studio-tests">
   <section class="environment panel" aria-labelledby="environment-title">
+    <span class="environment-badge" id="environment-badge">Checking environment…</span>
     <div class="section-heading"><div><h2 id="environment-title">Your test environment</h2><p id="environment-summary">Checking the Lab and local GenLayer Studio.</p></div><button id="check-environment" class="secondary small-button">Check again</button></div>
     <div id="environment-checks" class="environment-checks"></div>
     <details id="environment-help"><summary>Environment details and setup help</summary><p>Use <code>gl-agent-lab setup</code> on the machine running this Lab. For a server, use <code>gl-agent-lab setup --no-open</code>. This starts your owned Studio environment and the Lab. The first build can take several minutes.</p><p>Tests use local test balances and supplied contract responses. Your agent uses its own model access.</p></details>
@@ -71,7 +74,10 @@
     <details><summary>My agent already has wallet or contract tools</summary><p>Use a separate test profile. Route the actions being tested through the Lab's tools. Adding MCP does not replace hardcoded production calls. The Lab can only report on actions it observes.</p></details>
     <div class="form-actions"><button id="check-connection" class="secondary">Check connection</button><p id="connection-status" role="status">No authenticated agent activity observed yet.</p></div>
   </section>
-  <section class="panel" id="history-panel"><div class="section-heading"><div><h2>Your tests</h2><p>Open a test to follow progress or read its saved result.</p></div><div class="button-row"><button id="new-test" class="secondary small-button">New test</button><button id="refresh" class="secondary small-button">Refresh</button></div></div><div id="runs" class="run-list"></div></section>
+  </div>
+  <section id="quick-builder" class="panel" hidden aria-label="Quick simulation setup"></section>
+  <section class="panel" id="history-panel"><div class="section-heading"><div><h2>Your tests</h2><p>Both modes appear here. Each saved result identifies the engine that ran it.</p></div><div class="button-row"><button id="new-test" class="secondary small-button">New test</button><button id="refresh" class="secondary small-button">Refresh</button></div></div><label for="history-mode" class="sr-only">Filter test history by mode</label><select id="history-mode" class="category-select"><option value="all">All test modes</option><option value="workflow">Studio workflows</option><option value="scenario">GLSim and earlier scenario runs</option></select><p id="history-error" role="status" class="helper" hidden></p><div id="runs" class="run-list"></div></section>
+  <section id="quick-detail" class="panel" hidden aria-label="Scenario test result"></section>
   <section id="detail" class="panel" hidden aria-labelledby="title">
     <div class="section-heading"><div><span class="eyebrow">TEST RESULT</span><h2 id="title">Your test</h2><p id="status"></p></div><div class="button-row"><button id="download-readable" class="secondary small-button">Save readable report</button><button id="cancel" class="danger secondary small-button">Stop test</button></div></div>
     <p id="result-timing" class="helper"></p><div id="result-summary" class="result-summary" role="status"></div><div id="evaluation-cards" class="evaluation-cards" aria-label="Reviewed checks"></div><h3>What happened</h3><ol id="operations" class="operation-timeline"></ol>

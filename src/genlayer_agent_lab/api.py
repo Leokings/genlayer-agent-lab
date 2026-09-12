@@ -228,8 +228,10 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
     mount_dashboard_access_routes(app, dashboard_access, installation_owner)
 
     from .onboarding import mount_onboarding_routes
+    from .quick_tests import mount_quick_test_routes
     from .workflow_api import mount_workflow_routes
     mount_onboarding_routes(app, data_dir, administrator)
+    mount_quick_test_routes(app, administrator)
     mount_workflow_routes(app, lambda request: request.app.state.engine.workflows,
                           administrator, bearer)
 

@@ -72,8 +72,9 @@ async function verifyConnectionFixture(browser, checks) {
   await page.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
     assert(!url.href.includes(adminToken) && !url.href.includes(fixtureToken));
-    const asset = {'/':'workflows.html','/assets/workflows.js':'workflows.js','/assets/styles.css':'styles.css','/assets/onboarding.css':'onboarding.css'}[url.pathname];
+    const asset = {'/':'workflows.html','/assets/workflows.js':'workflows.js','/assets/quick-tests.js':'quick-tests.js','/assets/styles.css':'styles.css','/assets/onboarding.css':'onboarding.css'}[url.pathname];
     if (asset) return route.fulfill({path:path.resolve('src/genlayer_agent_lab/assets', asset),contentType:asset.endsWith('.js') ? 'text/javascript' : asset.endsWith('.css') ? 'text/css' : 'text/html'});
+    if (url.pathname === '/v1/runs' && request.method() === 'GET') return route.fulfill({json:[]});
     if (request.method() !== 'GET') mutationRequests.push(request.method() + ' ' + url.pathname);
     let result;
     if (url.pathname === '/v1/onboarding/templates') result = {templates:[{id:'prediction-finalize',title:'Connection fixture',description:'Synthetic browser check',fields:[{name:'timeout_seconds',type:'number',default:600}]}]};
@@ -284,8 +285,9 @@ async function verifyImportFixture(browser, checks) {
     const request = route.request(), url = new URL(request.url());
     assert(!url.href.includes(adminToken));
     if (url.origin !== baseURL) { unexpected.push(request.method() + ' ' + url.origin); return route.abort(); }
-    const asset = {'/':'workflows.html','/assets/workflows.js':'workflows.js','/assets/styles.css':'styles.css','/assets/onboarding.css':'onboarding.css'}[url.pathname];
+    const asset = {'/':'workflows.html','/assets/workflows.js':'workflows.js','/assets/quick-tests.js':'quick-tests.js','/assets/styles.css':'styles.css','/assets/onboarding.css':'onboarding.css'}[url.pathname];
     if (asset) return route.fulfill({path:path.resolve('src/genlayer_agent_lab/assets', asset),contentType:asset.endsWith('.js') ? 'text/javascript' : asset.endsWith('.css') ? 'text/css' : 'text/html'});
+    if (url.pathname === '/v1/runs' && request.method() === 'GET') return route.fulfill({json:[]});
     if (request.method() !== 'GET') mutations.push(request.method() + ' ' + url.pathname);
     if (url.pathname === '/v1/onboarding/templates' && request.method() === 'GET') return route.fulfill({json:{templates:[]}});
     if (url.pathname === '/v1/onboarding/status' && request.method() === 'GET') return route.fulfill({json:{ready:true,checks:[],server_url:baseURL,mcp_command:'/fixture/gl-agent-lab-mcp'}});
@@ -440,9 +442,10 @@ async function verifyReportFixture(browser, checks) {
       {operation:'read_evidence',idempotency_key:'correct-read',arguments:{id:'settlement_record'},status:'completed',result:{content:'Evidence read successfully'}}],
     investigations:[{submission_id:'findings-1',disposition:'accept',summary:'Checked the evidence.',findings:[],citations:['settlement_record']}]};
   await page.route('**/*', async route => {
-    const url = new URL(route.request().url());
-    const asset = {'/':'workflows.html','/assets/workflows.js':'workflows.js','/assets/styles.css':'styles.css','/assets/onboarding.css':'onboarding.css'}[url.pathname];
+    const request = route.request(), url = new URL(request.url());
+    const asset = {'/':'workflows.html','/assets/workflows.js':'workflows.js','/assets/quick-tests.js':'quick-tests.js','/assets/styles.css':'styles.css','/assets/onboarding.css':'onboarding.css'}[url.pathname];
     if (asset) return route.fulfill({path:path.resolve('src/genlayer_agent_lab/assets', asset),contentType:asset.endsWith('.js') ? 'text/javascript' : asset.endsWith('.css') ? 'text/css' : 'text/html'});
+    if (url.pathname === '/v1/runs' && request.method() === 'GET') return route.fulfill({json:[]});
     let result;
     if (url.pathname === '/v1/onboarding/templates') result = {templates:[]};
     else if (url.pathname === '/v1/onboarding/status') result = {ready:true,checks:[]};
@@ -507,11 +510,12 @@ async function verifyReportFixture(browser, checks) {
 
   fetchFailure = true;
   await page.locator('#refresh').click();
-  await page.locator('#notice').waitFor({state:'visible'});
-  assert.match(await page.locator('#notice').textContent(), /Lab did not respond/);
+  await page.locator('#history-error').waitFor({state:'visible'});
+  assert.match(await page.locator('#history-error').textContent(), /Could not refresh Studio workflow history/);
+  assert.equal(await page.locator('#runs button').count(), 1);
   fetchFailure = false;
   await page.locator('#refresh').click();
-  await page.locator('#notice').waitFor({state:'hidden'});
+  await page.locator('#history-error').waitFor({state:'hidden'});
   checks.successful_refresh_clears_transient_network_warning = 'pass';
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#download-readable').click();

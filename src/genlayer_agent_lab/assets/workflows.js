@@ -73,6 +73,8 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   if (fragment.has("token")) history.replaceState(null, "", location.pathname + location.search);
   try { token ||= sessionStorage.getItem(key) || ""; } catch { /* Private browser sessions may disable storage. */ }
   let selected = null, report = null, templates = [], chosen = null, preview = null;
+  let quickTests = null, selectedQuick = null, testMode = fragment.get("mode") === "glsim" ? "glsim" : "studio";
+  let workflowHistory = [], scenarioHistory = [];
   let environment = null, refreshing = false, creating = false, revision = 0, detailRevision = 0;
   let preparing = false, readingSpec = false, specReadSequence = 0;
   let environmentCheck = null;
@@ -136,6 +138,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     if (!response.ok) {
       if (response.status === 401) {
         token = ""; try { sessionStorage.removeItem(key); } catch {}
+        quickTests?.clear(); credentials.clear(); clearSetupPrompt(); $("credential").value = "";
         $("auth").hidden = false; $("workspace").hidden = true; $("disconnect").hidden = true;
       }
       const error = new Error(response.status === 401 ? "Please sign in again. Choose Connect this browser, or use an existing workspace key under Advanced."
@@ -315,6 +318,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   function editable(disabled) {
     for (const input of document.querySelectorAll("#builder input,#builder textarea,#builder select,#builder button,#edit-test,#new-test")) input.disabled = disabled;
     $("reviewer").disabled = disabled; $("review-confirmed").disabled = disabled;
+    $("test-mode").disabled = disabled;
     updatePrepare();
   }
   async function createRun() {
@@ -331,7 +335,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
       const expiresAt = Date.now() + approved.spec.timeout_seconds * 1000;
       const created = await request("/v1/workflows", "POST", {spec:approved.spec, ...(approved.spec.project_snapshot ? {wait_for_agent:true} : {})});
       createdResponseReceived = true;
-      selected = created.run_id; names.set(selected, approved.spec.title);
+      selectedQuick = null; quickTests?.hideRun(); selected = created.run_id; names.set(selected, approved.spec.title);
       credentials.set(selected, {token:created.agent_token, expiresAt});
       updateTiming(created);
       preview = null; $("review-panel").hidden = true; $("builder").hidden = true;
@@ -555,7 +559,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     const grade = ended ? result.verification || "inconclusive" : "running";
     names.set(run.run_id, run.title || names.get(run.run_id) || run.run_id);
     $("detail").hidden = false; $("title").textContent = names.get(run.run_id);
-    $("status").textContent = `${words(run.status)} · ${run.run_id}`; $("cancel").hidden = ended;
+    $("status").textContent = `${words(run.status)} · Studio workflow · ${run.run_id}`; $("cancel").hidden = ended;
     $("download-readable").disabled = $("download").disabled = !ended;
     const labels = {pass:["All reviewed checks passed", "The recorded actions and results passed this test's reviewed checks."], fail:["Some reviewed checks failed", "Read the failed checks and the actions below to see what differed from your expectations."], inconclusive:["This test could not establish a complete result", "Inspect the environment and execution details before judging the agent."], running:["Your test is in progress", "Connect your agent if you have not already. Results appear after the run has finished and Studio observations are settled."]};
     const explanation = labels[grade] || labels.inconclusive;
@@ -593,6 +597,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     if (ended) step("results");
   }
   async function loadSelected() {
+    if (selectedQuick) { await quickTests.refreshRun(); return; }
     if (!selected) return;
     const id = selected, serial = ++detailRevision;
     const run = await request("/v1/workflows/" + encodeURIComponent(id));
@@ -601,23 +606,59 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     updateTiming(result);
     renderReport(run, result); renderConnection(); await checkConnection();
   }
+  function scenarioBackend(run) {
+    return {glsim:"GLSim", "container-glsim":"GLSim · custom binding", studio:"Earlier Studio scenario", fixture:"Fixture-only scenario"}[run.backend] || "Earlier scenario · engine not recorded";
+  }
+  function renderHistory() {
+    const filter = $("history-mode").value;
+    const createdTime = value => typeof value === "number" ? value * 1000 : Date.parse(value) || 0;
+    const runs = [...workflowHistory.map(run => ({...run, source:"workflow"})), ...scenarioHistory.map(run => ({...run, source:"scenario"}))]
+      .sort((a, b) => createdTime(b.created_at) - createdTime(a.created_at));
+    $("runs").replaceChildren();
+    for (const run of runs.filter(run => filter === "all" || filter === run.source)) {
+      const active = run.source === "workflow" ? selected === run.run_id : selectedQuick === run.run_id;
+      const button = node("button", "", "run-card secondary" + (active ? " selected" : ""));
+      button.dataset.source = run.source; button.dataset.runId = run.run_id;
+      const label = node("span");
+      label.append(node("strong", run.source === "workflow" ? names.get(run.run_id) || run.title || "Agent test" : run.title || words(run.scenario_id) || "Scenario test"),
+        node("small", (run.source === "workflow" ? "Studio workflow" : scenarioBackend(run)) + " · " + run.run_id));
+      button.append(label, node("span", words(run.status), "pill"));
+      button.addEventListener("click", () => {
+        if (creating || quickTests?.busy()) return;
+        report = null; detailRevision++;
+        if (run.source === "scenario") {
+          selected = null; selectedQuick = run.run_id; $("detail").hidden = true; renderConnection();
+          quickTests.showRun(run.run_id).catch(fail);
+        } else {
+          selectedQuick = null; quickTests.hideRun(); selected = run.run_id; changeMode("studio"); renderConnection();
+          loadSelected().then(() => { if (selected === run.run_id) $("detail").scrollIntoView({behavior:"smooth", block:"start"}); }).catch(fail);
+        }
+        renderHistory();
+      }); $("runs").append(button);
+    }
+    if (!$("runs").children.length) $("runs").append(node("p", "No tests in this view yet. Choose a mode and situation above to begin.", "empty"));
+  }
+  async function changeMode(value) {
+    if (creating || quickTests?.busy()) { $("test-mode").value = testMode; return; }
+    testMode = value; $("test-mode").value = value;
+    $("studio-tests").hidden = value !== "studio"; $("quick-builder").hidden = value !== "glsim";
+    $("test-mode-help").textContent = value === "studio"
+      ? "Studio executes your contract and local transactions. Use this mode for project JSON imports, contract operations and appeals."
+      : "GLSim runs supported quick checks with controlled responses and simulated consumer state. Appeals and project JSON imports require Studio execution.";
+    if (value === "glsim") await quickTests.load();
+  }
   async function refresh() {
     if (refreshing) return;
     refreshing = true;
     try {
-      const runs = await request("/v1/workflows"); $("runs").replaceChildren();
-      for (const run of runs) {
-        const button = node("button", "", "run-card secondary" + (selected === run.run_id ? " selected" : ""));
-        const label = node("span"); label.append(node("strong", names.get(run.run_id) || run.title || "Agent test"), node("small", run.run_id));
-        button.append(label, node("span", words(run.status), "pill"));
-        button.addEventListener("click", () => {
-          selected = run.run_id; report = null; renderConnection();
-          loadSelected().then(() => {
-            if (selected === run.run_id) $("detail").scrollIntoView({behavior:"smooth", block:"start"});
-          }).catch(fail);
-        }); $("runs").append(button);
-      }
-      if (!runs.length) $("runs").append(node("p", "Your first test will appear here. Choose a situation above to begin.", "empty"));
+      const results = await Promise.allSettled([request("/v1/workflows"), request("/v1/runs")]);
+      if (!token) throw new Error("Please sign in again to view your tests.");
+      if (results[0].status === "fulfilled") workflowHistory = results[0].value;
+      if (results[1].status === "fulfilled") scenarioHistory = results[1].value;
+      const unavailable = results.flatMap((result, index) => result.status === "rejected" ? [index ? "scenario" : "Studio workflow"] : []);
+      $("history-error").hidden = !unavailable.length;
+      $("history-error").textContent = unavailable.length ? "Could not refresh " + unavailable.join(" and ") + " history. Any previously shown entries are kept; use Refresh to try again." : "";
+      renderHistory();
       await loadSelected();
       clearConnectionNotice();
     } finally { refreshing = false; }
@@ -627,7 +668,9 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     stopPairing();
     try { sessionStorage.setItem(key, token); } catch { /* Keep an in-memory session. */ }
     $("auth").hidden = true; $("workspace").hidden = false; $("disconnect").hidden = false; $("token").value = "";
-    renderTemplates(); await Promise.all([checkEnvironment(), refresh()]);
+    renderTemplates();
+    await changeMode(testMode);
+    await Promise.all([checkEnvironment().catch(error => { if (testMode === "studio") fail(error); }), refresh()]);
   }
   function stopPairing() {
     pairingRevision++; pairing = null; clearTimeout(pairingTimer);
@@ -705,7 +748,14 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   }
   $("agent-url").value = location.origin;
   $("auth-form").addEventListener("submit", async event => { event.preventDefault(); clearNotice(); token = $("token").value.trim(); const button = event.submitter; if (button) button.disabled = true; try { await connect(); } catch (error) { fail(error); } finally { if (button) button.disabled = false; } });
-  $("disconnect").addEventListener("click", () => { try { sessionStorage.removeItem(key); } catch {} token = ""; credentials.clear(); $("credential").value = ""; clearSetupPrompt(); $("copy-setup-prompt").disabled = $("copy-config").disabled = true; location.reload(); });
+  quickTests = window.createQuickTests({request, fail, feedback, getToken:() => token,
+    onCreated:async run => {
+      selected = null; selectedQuick = run.run_id; report = null; detailRevision++;
+      $("detail").hidden = true; renderConnection(); await refresh();
+    }, onChanged:() => refresh()});
+  $("test-mode").addEventListener("change", event => changeMode(event.target.value).catch(fail));
+  $("history-mode").addEventListener("change", renderHistory);
+  $("disconnect").addEventListener("click", () => { try { sessionStorage.removeItem(key); } catch {} token = ""; quickTests.clear(); credentials.clear(); $("credential").value = ""; clearSetupPrompt(); $("copy-setup-prompt").disabled = $("copy-config").disabled = true; location.reload(); });
   $("template-filter").addEventListener("change", renderTemplates);
   $("open-contract-authoring").addEventListener("click", () => { $("custom-project").open = true; });
   $("copy-authoring-prompt").addEventListener("click", async () => {
@@ -746,7 +796,12 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   $("copy-agent-prompt").addEventListener("click", () => copy("Observe the connected GenLayer Agent Lab run. Follow its public task and permissions, read relevant evidence through the available tools, preserve idempotency keys on retries, and finish when the requested work is complete. Do not use production tools for these test actions.").catch(fail));
   $("check-connection").addEventListener("click", () => checkConnection().catch(fail));
   $("refresh").addEventListener("click", () => refresh().catch(fail));
-  $("new-test").addEventListener("click", () => { if (creating) return; invalidate(); selected = null; report = null; detailRevision++; $("builder").hidden = false; $("detail").hidden = true; renderConnection(); $("builder").scrollIntoView({behavior:"smooth"}); });
+  $("new-test").addEventListener("click", () => {
+    if (creating || quickTests.busy()) return;
+    invalidate(); selected = null; selectedQuick = null; report = null; detailRevision++; quickTests.hideRun();
+    $("builder").hidden = false; $("detail").hidden = true; renderConnection(); renderHistory();
+    $(testMode === "glsim" ? "quick-builder" : "builder").scrollIntoView({behavior:"smooth"});
+  });
   $("cancel").addEventListener("click", async () => { if (!selected) return; $("cancel").disabled = true; try { await request(`/v1/workflows/${encodeURIComponent(selected)}/cancel`, "POST"); feedback("Stop requested. Submitted transactions may still be settling; their observed results will remain in the report."); await refresh(); } catch (error) { fail(error); } finally { $("cancel").disabled = false; } });
   $("download").addEventListener("click", () => { if (report) download(pretty(report), "application/json", "json"); });
   $("download-readable").addEventListener("click", () => { if (report) download(readableReport(report), "text/html", "html"); });

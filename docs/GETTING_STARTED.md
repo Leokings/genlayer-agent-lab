@@ -20,23 +20,29 @@ The first build can take tens of minutes. If setup reports a missing dependency 
 
 ## Choose and review a test
 
-In **Choose a test**, start with a supplied template. A prediction scenario exercises receiving a decision, waiting for finality, and recording the observed result. Investigation scenarios add supplied evidence and decisions such as accepting, appealing, or requesting review.
+Choose a mode before choosing a test. **Studio execution** is the default. Its prediction templates exercise receiving a decision, waiting for observed finality, and recording the result. Investigation templates add supplied evidence and decisions such as accepting, appealing, or requesting review.
 
-**Developer tools** opens a separate console for the original scenarios, with manual agent and runtime settings. It defaults to GLSim and also offers the earlier basic Studio mode. Use the main guided dashboard for project scenario imports, operations, appeals and your guided test history. The developer console includes **Back to guided tests**; opening either page does not start a test.
+**Quick simulation · GLSim** stays in the same dashboard and offers its own escrow, treasury and generic scenarios: normal, provisional, timeout, wrong scope and duplicate acknowledgement. GLSim evaluates the supported contract with controlled inputs; the consumer timeline and application effects are scripted. These statuses do not establish GenLayer finality, and quick mode has no appeal scenarios. Studio project-v2 JSON cannot be imported or automatically converted into a quick test. Already imported compatible legacy bindings are an advanced quick-mode option using the isolated `container-glsim` backend.
+
+The former developer-dashboard URL redirects to this dashboard. Both modes share the run history, which identifies the actual backend and preserves earlier Studio and fixture reports.
+
+Changing the mode view does not change or stop an existing run. Continue an active run with its existing connection; choose a mode and create a new test when you want a separate trial.
 
 Use the form's supported options, then select **Review test**. Read what your agent is asked to do, the supplied test conditions, its permissions, and the expected behavior. For prediction templates, the final-outcome choice updates the supported scenario coherently. The review step is where you check that the resulting expectations represent your test.
 
 The contract's possible model responses are controlled inputs. The expected behavior is your separate grading rule. For example, if a required evidence record is unavailable, you may expect a request for review and no settlement action, even when the contract has produced a decision.
 
-Select **Create test & connect agent** after reviewing those expectations. Studio prepares fresh contracts and records actual execution. Use a fresh run for each agent trial. Advanced options let you import a custom project specification and inspect its JSON. The template form covers the supported choices; [scenario authoring](SCENARIO_AUTHORING.md) handles other supplied responses, evidence, rules, or project definitions.
+For Studio, select **Create test & connect agent** after reviewing those expectations. Studio prepares fresh contracts and records actual execution. Custom project import remains under **Studio execution**. In quick mode, choose a supplied scenario, select **Review quick test**, confirm the task and controlled conditions, then **Create quick test**. Prepare the agent host first: quick runs have a shorter connection window. Use a fresh run for each agent trial. [Scenario authoring](SCENARIO_AUTHORING.md) explains Studio project definitions and the separate quick-mode limits.
 
 ## Connect the agent you want to test
 
 The dashboard gives project runs up to 60 minutes for Studio preparation and agent connection. The selected test time (30 minutes by default) begins once Studio is ready and your agent has actually called `observe`. If it observes while Studio is preparing, the timer waits for readiness. Repeated observations or service restarts do not extend either deadline.
 
-Choose how your agent connects (MCP, HTTP, Python, or TypeScript) and where it runs. An agent on the VPS uses **On the same computer or VPS as the Lab**, even when you view the dashboard from your laptop.
+Bundled quick simulations have a ten-minute runtime deadline beginning after runtime preparation, without the Studio connection allowance. Their timer does not wait for the first observation. Connect immediately after creating one; if it expires, review and create another run with fresh settings.
 
-Click **Copy agent setup prompt** and paste the complete message into your agent. It includes the Lab URL, this run's ID and scoped credential, and the selected connection instructions. An agent with terminal/configuration tools can adapt those settings to its own host, load the connection, observe the run, and start its task. The human still reviews what is being tested; the generated message gives the agent public task access rather than private grading rules.
+Choose how your agent connects and where it runs. Studio offers MCP, HTTP, Python and TypeScript settings; quick mode offers **MCP-compatible agent** or **HTTP / another framework**. Choose the same-computer/VPS option for an agent on the Lab's VPS, even when you view the dashboard from your laptop. Keep **My agent** selected in quick mode when testing your own agent; the explicitly labelled scripted references are installation controls.
+
+Click **Copy agent setup prompt** and paste the complete message into your agent. It includes the Lab URL, this run's ID and scoped credential, and the selected mode's connection instructions. Every new run needs a new prompt; replace the prior scoped connection when changing runs or modes. An agent with terminal/configuration tools can adapt those settings to its own host, load the connection, observe the run, and start its task. The human still reviews what is being tested; the generated message gives the agent public task access rather than private grading rules.
 
 The generated prompt contains a test access key. Keep it private and save it when the test is created; the dashboard cannot recover that key after a refresh. If clipboard access is unavailable, expand and copy the displayed setup prompt. If the run expires during setup, create a fresh reviewed run and replace the old connection with its new settings.
 
@@ -46,7 +52,7 @@ For OpenClaw, restart the Gateway that owns the agent after saving its MCP confi
 
 ### Manual connection
 
-**Copy connection settings** and **Copy start prompt** remain available for manual configuration or a host without self-configuration tools. Use the connection settings in a separate test profile of your agent.
+Studio also provides **Copy connection settings** and **Copy start prompt** for manual configuration. Quick mode includes the selected MCP or HTTP settings in its complete agent setup prompt. Use the mode's settings in a separate test profile of your agent.
 
 For an MCP host, use the generated command, arguments, and environment in that host's normal configuration. For code integrations, use the generated example with the supplied client. A GUI client may need the absolute path to the installed executable because its environment differs from your terminal.
 
@@ -54,17 +60,17 @@ Give the agent this instruction after connecting its tools:
 
 > Observe this Lab run, follow its task and permissions, use the available tools to complete it, then finish the run.
 
-The agent can observe the task, invoke declared operations, appeal an identified decision when permitted, and finish. It receives public task data and evidence through those tools. Its credential does not give it the private grading rules or administrator report.
+For Studio, the agent can observe the task, invoke declared operations, appeal an identified decision when permitted, and finish. Quick mode uses `observe`, `request_decision`, `read_decision`, `act` and `finish`; it has no appeal tool. The generated MCP settings select `LAB_MODE=workflow` for Studio or `LAB_MODE=scenario` for quick runs. Use the supplied settings rather than changing the mode on an existing run. Run credentials do not give the agent private grading rules or administrator reports.
 
-The observation includes `builtin_operations` with the exact arguments and examples for permitted built-ins. For example, `read_evidence` takes `{"id":"settlement_record"}`. If an argument is rejected, the result explains what to correct. A corrected request uses a new retry key; the earlier attempt stays in the report.
+Studio observations include `builtin_operations` with the exact arguments and examples for permitted built-ins. For example, `read_evidence` takes `{"id":"settlement_record"}`. In either mode, follow the public observation and tool schemas. If an argument is rejected, correct it using a new retry key; the earlier attempt stays in the report.
 
-Use **Check connection** and look for actual agent requests. Copying a snippet is preparation; an observed request establishes that the agent has reached this run. If no requests appear, check the URL, run credential, executable path, and whether the agent host loaded the connection. On a VPS, check that the SSH tunnel remains open. An agent in a separate container needs a reachable route to the Lab host.
+In Studio, use **Check connection**; in quick mode, read the run's agent-observation status. Look for an actual authenticated request. Copying a snippet is preparation; an observed request establishes that the agent reached this run, not that it is still connected. If no requests appear, check the URL, run credential, executable path, and whether the agent host loaded the connection. On a VPS, check that the SSH tunnel remains open. An agent in a separate container needs a reachable route to the Lab host.
 
 Your agent's model remains your choice. The Lab does not require OpenClaw, and adding its MCP connection does not reroute unrelated wallet or production tools. Adapt the calls you want to test to the [supported project interface](PROJECT_WORKFLOWS.md#connecting-an-agent).
 
 ## Read the report
 
-Open the completed run and inspect its task, actions, observed Studio results, and evaluation. For an investigation, also read the agent's findings and the decision and evidence they cite.
+Open a run from the unified history and check its backend and evidence note first. Inspect its task, agent actions, execution evidence and evaluation. New Studio project reports show observed Studio results; GLSim reports describe contract evaluation and scripted consumer behavior, not native appeals or protocol finality. For a Studio investigation, also read the agent's findings and the decision and evidence they cite. Earlier basic Studio scenarios can have scripted consumer timelines even though their contract backend was Studio. Older reports, including fixture runs, retain their original evidence limits and backend.
 
 | Result | What it means for your next step |
 |---|---|
@@ -77,10 +83,10 @@ Open the completed run and inspect its task, actions, observed Studio results, a
 
 One rejected action may fail both a general policy check and a more specific allowed-action check. The report shows passed/failed check counts and explains this overlap; two failed checks do not necessarily mean two separate mistakes. Expand the operation to read its error detail.
 
-Download the report if you want to compare runs or share a diagnostic. Advanced details retain the raw JSON, contract states, transactions, and provenance. Keep credentials and private scenario material out of public issue reports.
+Download the report if you want to compare runs or share a diagnostic. Its raw JSON retains the execution details available from that backend. Keep credentials and private scenario material out of public issue reports.
 
 ## Make the next test your own
 
-Change one condition that matters to your application: unavailable evidence, a contradictory decision, a limit the agent must respect, or an expected downstream action. Review the changed expectations, create a new run, and compare the results.
+For Studio, change one supported condition that matters to your application: unavailable evidence, a contradictory decision, a limit the agent must respect, or an expected downstream action. Review the changed expectations, create a new run, and compare the results. For quick simulation, choose another supplied scenario from its catalog; custom Studio expectations cannot be transferred into that timeline.
 
 To add your own supported contract project, use [project bindings](PROJECT_BINDINGS.md) and [scenario authoring](SCENARIO_AUTHORING.md). To explore the supplied evidence cases, read [investigation workflows](INVESTIGATION.md). If you are trying the product independently, the [onboarding checklist](EXTERNAL_ONBOARDING.md) records whether you reached a first real-agent run without maintainer help and whether the report made sense.
