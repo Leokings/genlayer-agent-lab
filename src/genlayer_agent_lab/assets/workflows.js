@@ -74,6 +74,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   try { token ||= sessionStorage.getItem(key) || ""; } catch { /* Private browser sessions may disable storage. */ }
   let selected = null, report = null, templates = [], chosen = null, preview = null;
   let environment = null, refreshing = false, creating = false, revision = 0, detailRevision = 0;
+  let preparing = false, readingSpec = false, specReadSequence = 0;
   let environmentCheck = null;
   let connectionRun = null, connectionRevision = 0;
   let renderedReport = null;
@@ -88,14 +89,34 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     if (className) element.className = className;
     return element;
   }
-  function fail(error) {
+  function fail(error, target = "notice") {
     if (error?.message === "Workspace changed") return;
     let message = String(error?.message || error);
     for (const secret of [token, ...Array.from(credentials.values(), value => value.token)]) {
       if (secret) message = message.replaceAll(secret, "[redacted]");
     }
-    $("notice").textContent = message; $("notice").hidden = false;
-    $("notice").dataset.transient = String(error?.connectionFailure === true);
+    const inline = target === "import-error" && !$("workspace").hidden;
+    const alert = $(inline ? "import-error" : "notice");
+    if (inline && error instanceof SyntaxError) message = "This is not valid JSON. Check the file or ask your authoring agent to correct it. " + message;
+    alert.textContent = message; alert.hidden = false;
+    alert.dataset.transient = String(error?.connectionFailure === true);
+    if (inline) {
+      $("custom-project").open = true;
+      $("spec").setAttribute("aria-invalid", "true");
+      alert.focus({preventScroll:true});
+      alert.scrollIntoView({block:"nearest"});
+    }
+  }
+  function clearImportError() {
+    $("import-error").hidden = true; $("import-error").textContent = "";
+    $("spec").removeAttribute("aria-invalid");
+  }
+  function importSpec(value) {
+    if (!value.trim()) throw new Error("Choose a project scenario JSON file, or paste its complete contents.");
+    const spec = parseProjectJson(value);
+    if (!spec || typeof spec !== "object" || Array.isArray(spec)) throw new Error("Use the complete project scenario JSON object from your authoring agent.");
+    if (spec.integer_encoding === "lab-tagged-decimal-v1") delete spec.integer_encoding;
+    return spec;
   }
   function feedback(message) { $("feedback").textContent = message; $("feedback").hidden = false; }
   function clearNotice() { $("notice").hidden = true; $("feedback").hidden = true; }
@@ -127,11 +148,16 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     for (const item of ["choose", "review", "connect", "results"]) $("step-" + item).classList.toggle("current", item === name);
   }
   function invalidate() {
+    clearImportError();
     revision++; preview = null; $("review-confirmed").checked = false; $("review-panel").hidden = true;
     if (!creating) step("choose");
     updateCreate();
   }
   function updateCreate() { $("create").disabled = creating || !preview || !environment?.ready || !$("review-confirmed").checked; }
+  function updatePrepare() {
+    $("prepare-review").disabled = $("validate-import").disabled = creating || preparing || readingSpec;
+    $("validate-import").textContent = readingSpec ? "Reading file…" : preparing ? "Checking configuration…" : "Validate & review configuration";
+  }
   function renderEnvironment(pending = false, timedOut = false) {
     const ready = environment?.ready === true;
     $("environment-badge").textContent = ready ? "Environment ready" : pending ? "Checking environment…" : "Environment needs attention";
@@ -262,8 +288,8 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     $("review-panel").hidden = false; step("review"); updateCreate(); $("review-panel").scrollIntoView({behavior:"smooth", block:"start"});
   }
   async function prepare(kind) {
-    if (creating) return;
-    clearNotice(); const current = ++revision; preview = null; $("review-panel").hidden = true; $("review-confirmed").checked = false; updateCreate(); $("prepare-review").disabled = true;
+    if (creating || preparing || readingSpec) return;
+    clearNotice(); clearImportError(); const current = ++revision; preview = null; $("review-panel").hidden = true; $("review-confirmed").checked = false; updateCreate(); preparing = true; updatePrepare();
     try {
       let result;
       if (kind === "template") {
@@ -276,16 +302,20 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
         result = await request("/v1/onboarding/draft", "POST", {template_id:chosen.id, values});
       } else {
         if (new TextEncoder().encode($("spec").value).length > 2400000) throw new Error("The scenario exceeds the supported file size.");
-        const spec = parseProjectJson($("spec").value);
-        if (spec.integer_encoding === "lab-tagged-decimal-v1") delete spec.integer_encoding;
+        const spec = importSpec($("spec").value);
         result = await request("/v1/onboarding/preview", "POST", {spec});
       }
       if (current === revision) renderReview(result);
-    } finally { $("prepare-review").disabled = false; }
+    } catch (error) {
+      if (current === revision) fail(error, kind === "advanced" ? "import-error" : "notice");
+    } finally {
+      preparing = false; updatePrepare();
+    }
   }
   function editable(disabled) {
     for (const input of document.querySelectorAll("#builder input,#builder textarea,#builder select,#builder button,#edit-test,#new-test")) input.disabled = disabled;
     $("reviewer").disabled = disabled; $("review-confirmed").disabled = disabled;
+    updatePrepare();
   }
   async function createRun() {
     if (creating || !preview || !$("review-confirmed").checked) return;
@@ -693,13 +723,14 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
   $("advanced-form").addEventListener("submit", event => { event.preventDefault(); prepare("advanced").catch(fail); });
   $("spec").addEventListener("input", invalidate);
   $("load-spec").addEventListener("change", async event => {
-    const file = event.target.files[0]; if (!file) return; invalidate(); const current = revision;
+    const file = event.target.files[0]; if (!file) return; invalidate(); clearNotice(); $("spec").value = ""; const current = revision;
+    const readSequence = ++specReadSequence; readingSpec = true; updatePrepare();
     try {
       if (file.size > 2400000) throw new Error("Scenario file exceeds the supported size.");
-      const spec = parseProjectJson(await file.text());
-      if (spec.integer_encoding === "lab-tagged-decimal-v1") delete spec.integer_encoding;
+      const spec = importSpec(await file.text());
       if (current === revision) { $("spec").value = pretty(spec); feedback("Scenario loaded. Choose Validate & review configuration to review this exact file."); }
-    } catch (error) { fail(error); }
+    } catch (error) { if (current === revision) fail(error, "import-error"); }
+    finally { if (readSequence === specReadSequence) { readingSpec = false; updatePrepare(); } }
   });
   $("edit-test").addEventListener("click", () => { invalidate(); $("builder").hidden = false; $("builder").scrollIntoView({behavior:"smooth"}); });
   $("review-confirmed").addEventListener("change", updateCreate);
