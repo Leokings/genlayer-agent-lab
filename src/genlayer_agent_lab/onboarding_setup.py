@@ -67,14 +67,22 @@ def prerequisites():
     git_available = shutil.which("git") is not None
     if shutil.which("docker") is None:
         url = DOCKER_ENGINE_URL if platform.system() == "Linux" else DOCKER_DESKTOP_URL
-        checks.append({"ready": False, "message": "Docker is not installed or is absent from PATH. "
+        checks.append({"ready": False, "code": "docker_missing",
+                       "message": "Docker is not installed or is absent from PATH. "
                        f"Install Docker {'Engine' if platform.system() == 'Linux' else 'Desktop'}: {url}"})
         return {"ready": False, "checks": checks, "git_available": git_available}
     try:
         endpoint = container._endpoint(timeout=8)
-    except (RuntimeError, OSError, ValueError):
-        checks.append({"ready": False, "message": "Select a local Docker context with a Unix socket or "
+    except container.UnsupportedDockerEndpoint:
+        checks.append({"ready": False, "code": "docker_endpoint_unsupported",
+                       "message": "Select a local Docker context with a Unix socket or "
                        "Windows named pipe. Inspect it with `docker context ls`; remote daemons are unsupported."})
+        return {"ready": False, "checks": checks, "git_available": git_available}
+    except (RuntimeError, OSError, ValueError):
+        checks.append({"ready": False, "code": "docker_context_probe_failed",
+                       "message": "Docker context inspection did not complete successfully. "
+                       "Run `docker context inspect` in the same terminal, then retry setup "
+                       "after the command succeeds."})
         return {"ready": False, "checks": checks, "git_available": git_available}
     try:
         info = container._linux_info(endpoint)
@@ -84,18 +92,26 @@ def prerequisites():
                        "This pinned Studio runtime requires a Linux x86-64 Docker engine. "
                        "Use an x86-64 host; an ARM or Windows-container daemon is unsupported."})
     except (RuntimeError, OSError, ValueError):
-        checks.append({"ready": False, "message": "Docker's Linux engine is unavailable to this user. "
-                       "Start Docker, select Linux containers, and run `docker info`. On Linux, check "
-                       f"daemon access using the Docker Engine instructions: {DOCKER_ENGINE_URL}"})
+        checks.append({"ready": False, "code": "docker_engine_probe_failed",
+                       "message": "Docker's Linux engine check did not complete successfully. "
+                       "Run `docker info` in the same terminal, confirm a Linux x86-64 engine, "
+                       "then retry setup."})
     try:
         result = container._command(endpoint, ["compose", "version", "--short"], timeout=8)
         version = result.stdout.decode("utf-8", errors="replace").strip()
         match = re.match(r"v?(\d+)\.", version)
-        ready = result.returncode == 0 and match is not None and int(match[1]) >= 2
+        if result.returncode != 0 or match is None:
+            raise RuntimeError("Docker Compose version probe failed")
+        ready = int(match[1]) >= 2
     except (RuntimeError, OSError, ValueError):
-        ready = False
-    checks.append({"ready": ready, "message": "Docker Compose is available." if ready else
-                   "Install the Docker Compose plugin, then check `docker compose version`: " + COMPOSE_URL})
+        checks.append({"ready": False, "code": "docker_compose_probe_failed",
+                       "message": "Docker Compose could not be verified. Run `docker compose version` "
+                       "in the same terminal, then retry setup after the command succeeds."})
+    else:
+        checks.append({"ready": ready, "message": "Docker Compose is available." if ready else
+                       "Docker Compose version 2 or newer is required. Update the Compose plugin, "
+                       "then check `docker compose version`: " + COMPOSE_URL,
+                       **({"code": "docker_compose_version_unsupported"} if not ready else {})})
     return {"ready": all(item["ready"] for item in checks), "checks": checks,
             "git_available": git_available}
 

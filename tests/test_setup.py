@@ -181,7 +181,7 @@ def test_prerequisite_failures_have_actionable_messages_without_mutations(monkey
 
     def endpoint(**kwargs):
         if missing == "context":
-            raise RuntimeError("remote context")
+            raise setup.container.UnsupportedDockerEndpoint("remote context")
         return "unix:///var/run/docker.sock"
 
     def info(endpoint):
@@ -198,6 +198,77 @@ def test_prerequisite_failures_have_actionable_messages_without_mutations(monkey
     text = json.dumps(result)
     assert {"docker": "docs.docker.com/engine/install", "compose": "docker compose version",
             "daemon": "docker info", "architecture": "x86-64", "context": "docker context ls"}[missing] in text
+
+
+@pytest.fixture
+def available_prerequisites(monkeypatch):
+    monkeypatch.setattr(setup.shutil, "which", lambda name: "/bin/" + name)
+    monkeypatch.setattr(setup.container, "_endpoint", lambda **kw:
+                        "npipe:////./pipe/dockerDesktopLinuxEngine")
+    monkeypatch.setattr(setup.container, "_linux_info", lambda endpoint: {
+        "OSType": "linux", "Architecture": "x86_64"})
+
+    def command(endpoint, args, **kwargs):
+        assert endpoint == "npipe:////./pipe/dockerDesktopLinuxEngine"
+        assert args == ["compose", "version", "--short"]
+        assert kwargs == {"timeout": 8}
+        return types.SimpleNamespace(returncode=0, stdout=b"5.0.1\n")
+
+    monkeypatch.setattr(setup.container, "_command", command)
+
+
+@pytest.mark.parametrize("probe,code,action", [
+    ("_endpoint", "docker_context_probe_failed", "docker context inspect"),
+    ("_linux_info", "docker_engine_probe_failed", "docker info"),
+    ("_command", "docker_compose_probe_failed", "docker compose version"),
+])
+@pytest.mark.parametrize("error", [
+    RuntimeError("Docker command timed out; private-test-value"),
+    RuntimeError("Docker command left an unclosed child pipe; private-test-value"),
+    OSError("Cannot launch command; private-test-value"),
+    ValueError("Invalid metadata; private-test-value"),
+])
+def test_prerequisite_probe_failures_are_not_missing_or_unsupported(
+        monkeypatch, available_prerequisites, probe, code, action, error):
+    def fail(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(setup.container, probe, fail)
+    result = setup.prerequisites()
+    assert result["ready"] is False
+    failures = [item for item in result["checks"] if not item["ready"]]
+    assert len(failures) == 1 and failures[0]["code"] == code
+    assert action in failures[0]["message"]
+    text = json.dumps(result).lower()
+    assert all(value not in text for value in (
+        "private-test-value", "install", "unsupported", "start docker", "select a local"))
+
+
+@pytest.mark.parametrize("returncode,stdout", [(1, b"5.0.1"), (0, b""), (0, b"private-test-value")])
+def test_compose_failed_or_invalid_response_does_not_recommend_installation(
+        monkeypatch, available_prerequisites, returncode, stdout):
+    monkeypatch.setattr(setup.container, "_command", lambda *a, **kw: types.SimpleNamespace(
+        returncode=returncode, stdout=stdout))
+    result = setup.prerequisites()
+    assert result["ready"] is False
+    assert result["checks"][-1]["code"] == "docker_compose_probe_failed"
+    assert "install" not in json.dumps(result).lower()
+    assert "private-test-value" not in json.dumps(result)
+
+
+def test_supported_prerequisites_are_ready(available_prerequisites):
+    result = setup.prerequisites()
+    assert result["ready"] is True
+    assert all(item["ready"] for item in result["checks"])
+
+
+def test_confirmed_old_compose_version_recommends_upgrade(monkeypatch, available_prerequisites):
+    monkeypatch.setattr(setup.container, "_command", lambda *a, **kw: types.SimpleNamespace(
+        returncode=0, stdout=b"1.29.2"))
+    result = setup.prerequisites()
+    assert result["ready"] is False
+    assert result["checks"][-1]["code"] == "docker_compose_version_unsupported"
+    assert "Update the Compose plugin" in result["checks"][-1]["message"]
 
 
 @pytest.mark.parametrize("identity", ["correct", "foreign", "missing", "huge", "static", "replay",
