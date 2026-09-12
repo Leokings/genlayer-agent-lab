@@ -22,6 +22,15 @@ expectations, explains unsupported contract features, and preserves your source.
 The file includes the contract, connection description and test conditions;
 uploading Python source alone does not define a behavioral test.
 
+Your authoring agent should say **Upload this file first**, give the exact file
+and explain the situation it tests. Upload one complete scenario at a time;
+another case is a separate test. Keep source files, `project.yaml`, recipes,
+schemas, snapshots, validation reports, scripts and guides for reference. Even
+if a supporting file ends in `.json`, it is not the scenario to upload. Extract
+a downloaded ZIP first, then select the named scenario inside it. Small response
+examples such as `{"decision":"deny"}` are already part of the scenario and are
+not a complete import file.
+
 In the dashboard, expand **Use my own contract**,
 select **Project scenario file (.json)**, then **Validate & review configuration**.
 Review the conditions, permissions and expected behavior before creating a test.
