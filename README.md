@@ -1,6 +1,6 @@
 # GenLayer Agent Lab
 
-Test how your agent uses GenLayer decisions before relying on it in an application. Run a reviewed scenario in your own local Studio environment, connect your agent, and see which decisions and actions met your expectations.
+Test how your agent uses GenLayer decisions before relying on it in an application. Choose Studio execution or a quick GLSim simulation in one dashboard, review a supported scenario, connect your agent, and inspect its decisions and actions.
 
 [Open setup page](https://genlayer-agent-lab-setup.vercel.app) · [Get started](docs/GETTING_STARTED.md) · [Install](docs/INSTALL.md) · [Use a VPS](docs/VPS_QUICKSTART.md) · [Source](https://github.com/Leokings/genlayer-agent-lab)
 
@@ -20,11 +20,11 @@ Passwords and operating-system prompts stay on your device. If setup needs a log
 
 Already installed? Use **Open my dashboard** on the setup page. It guides VPS users through their existing Termius connection. Choose **Connect this browser** in the dashboard and paste its sign-in request into your setup agent; the browser opens after approval. No administrator key needs copying. Your setup agent gives you one required action at a time.
 
-Have your own contract? Choose [Prepare a test from my contract](https://genlayer-agent-lab-setup.vercel.app/#prepare-contract-test), or **Use my own contract** in the dashboard. Copy its prompt into your authoring agent and provide your code and test idea. The [test-preparation skill](skills/prepare-genlayer-lab-test/SKILL.md) guides it through supported contract bindings, a self-contained JSON draft and validation. You review the file before starting; use a separate test context that cannot access the authoring conversation, memories or private grading files.
+Have your own contract? Choose [Prepare a test from my contract](https://genlayer-agent-lab-setup.vercel.app/#prepare-contract-test), or **Use my own contract** under **Studio execution**. Copy its prompt into your authoring agent and provide your code and test idea. The [test-preparation skill](skills/prepare-genlayer-lab-test/SKILL.md) produces a supported project binding and self-contained project-v2 JSON draft for Studio. That file is not a GLSim scenario. You review it before starting; use a separate test context that cannot access the authoring conversation, memories or private grading files.
 
-After you review and create a test, the dashboard provides **Copy agent setup prompt**. Paste that message into the agent you want to test: it includes the connection settings and asks the agent to configure its tools and begin. This works with agents that can manage their tool configuration; a chat-only client may still need its owner's connection settings changed. Manual connection instructions remain available.
+After you review and create a test, the dashboard provides **Copy agent setup prompt**. Paste that message into the agent you want to test: it includes the mode's connection settings and asks the agent to configure its tools and begin. Every new run needs its own prompt and scoped credential, including when changing modes. This works with agents that can manage their tool configuration; a chat-only client may still need its owner's connection settings changed. Manual connection instructions remain available.
 
-Dashboard project runs allow up to 60 minutes for preparation and connection. The selected test time starts once Studio is ready and the agent has actually called `observe`. Saving connector settings alone does not start it.
+Studio project runs allow up to 60 minutes for preparation and connection. Their selected test time starts once Studio is ready and the agent has actually called `observe`. Bundled quick simulations instead have ten minutes after runtime preparation; prepare the agent host before creating one, then connect promptly.
 
 For an advanced terminal installation, the commands below assume Git, [uv](https://docs.astral.sh/uv/getting-started/installation/) and Docker with Compose are ready. The agent setup path above includes those prerequisites. Setup uses Python 3.12 and Linux x86-64 containers.
 
@@ -41,20 +41,27 @@ Already installed? Return to the same directory and run `uv run gl-agent-lab set
 
 ## Run your first test
 
-1. **Choose a test.** Select a supplied template, or import a custom project file under **Use my own contract**.
-2. **Review test.** Read its task, supplied conditions, permissions, and expected behavior.
-3. **Create test & connect agent.** Select the connection method and where your agent runs, then use **Copy agent setup prompt** and paste it into that agent. The message asks it to configure the supported connection and start the test. Manual MCP, HTTP, Python, and TypeScript settings remain available.
-4. **Check connection.** Confirm actual agent requests, then inspect its actions and the readable report. Detailed JSON is available under Advanced.
+1. **Choose a mode, then a test.** **Studio execution** is the default; select a template or import a custom project file. **Quick simulation · GLSim** offers its own supported scenarios.
+2. **Review the test.** Read its task, supplied conditions, permissions, and expected behavior.
+3. **Create and connect.** Use **Create test & connect agent** for Studio or **Create quick test** for GLSim. Select where your agent runs, then paste **Copy agent setup prompt** into that agent. The message contains this run's supported connection and start instructions.
+4. **Confirm agent activity.** Look for actual agent requests, then inspect its actions and the readable report. The unified history identifies each run's actual backend and retains earlier Studio and fixture reports.
 
 The [first-run walkthrough](docs/GETTING_STARTED.md) explains each step. A scripted example can check your installation without a paid model; testing your own agent uses that agent's model and tool integration. No OpenClaw installation is required.
 
 ## What you can test
 
+| Dashboard mode | Scope |
+|---|---|
+| **Studio execution** (default) | Supported project contracts, actual local execution, observed finality and permitted protocol appeals |
+| **Quick simulation · GLSim** | Supported contract evaluation with controlled inputs and a scripted consumer timeline; application effects are simulated |
+
+Quick mode offers normal, provisional, timeout, wrong-scope and duplicate-acknowledgement cases for escrow, treasury and generic consumers. Scripted statuses are not observed GenLayer finality. Quick mode has no appeal scenarios and does not simulate protocol appeals. Modes have different scenario formats and tool interfaces; project-v2 JSON remains Studio-only.
+
 [Project workflows](docs/PROJECT_WORKFLOWS.md) support declared typed operations and results, multi-file contracts, defined effects across contracts, actual local appeals, observed fee accounting, and recovery after a Lab interruption with Studio intact. The developer supplies possible contract model responses and separately reviewed grading rules.
 
 [Investigation scenarios](docs/INVESTIGATION.md) test missing, stale, conflicting, or misleading evidence. They record the agent's findings, its proposed response, the decision it investigated, and the actions it actually took. [Scenario authoring](docs/SCENARIO_AUTHORING.md) explains how to adapt a template or use your own authoring agent.
 
-The dashboard provides supported template forms and custom-specification import. The Lab tests agent behavior in the supported local environment; contract-model judgment quality and public-network settlement are outside scope. Your agent needs to use the Lab interface for the actions under test.
+The dashboard keeps mode selection, supported test choices, agent connection and history together. The former developer-dashboard URL redirects here. The Lab tests agent behavior in the selected supported environment; contract-model judgment quality and public-network settlement are outside scope. Your agent needs to use that run's Lab interface for the actions under test.
 
 ## How this relates to GenLayer Studio
 
@@ -77,7 +84,7 @@ If your agent supports installed local skills, add that skill through its normal
 - [Describe your project](docs/PROJECT_BINDINGS.md), [author scenarios](docs/SCENARIO_AUTHORING.md), or [test evidence use](docs/INVESTIGATION.md).
 - [Report an onboarding trial](docs/EXTERNAL_ONBOARDING.md) or [troubleshoot an error](docs/TROUBLESHOOTING.md).
 
-The original 18 GLSim scenarios, `service_release`, and isolated custom-contract worker remain available as advanced compatibility paths. Their commands and evidence boundaries are documented in [the examples](examples/README.md), [legacy Studio workflows](docs/STUDIO_WORKFLOWS.md), and [custom contracts](docs/CUSTOM_CONTRACTS.md). They are separate from the primary project Studio setup above.
+Legacy binding import, `service_release`, and earlier Studio commands remain advanced compatibility paths documented in [the examples](examples/README.md), [legacy Studio workflows](docs/STUDIO_WORKFLOWS.md), and [custom contracts](docs/CUSTOM_CONTRACTS.md). Quick mode can select already imported compatible legacy bindings for isolated `container-glsim` execution; it does not convert Studio project imports. Earlier reports retain their original backend and evidence limits.
 
 ## Development
 
@@ -87,6 +94,6 @@ uv run ruff check src tests
 uv build
 ```
 
-The project disables `genlayer-test`'s automatic pytest plugins because contract checks run through owned worker processes. Browser checks use `npm ci` and `npx playwright install chromium`. Use `npm run verify:onboarding -- --connection-fixture --report-fixture` to check connection timing, credential lifecycle and report behavior with synthetic browser responses and no running Lab. Use `npm run verify:onboarding` for guided authoring checks; add `-- --live` to create an actual local Studio run with a scripted reference. Set `LAB_DATA_DIR` and `LAB_URL` when using a nondefault installation. `-- --report=RUN_ID` checks a saved passing report without creating another run; add `--unsafe` for an expected failing report. `npm run verify:dashboard` checks the older compatibility dashboard.
+The project disables `genlayer-test`'s automatic pytest plugins because contract checks run through owned worker processes. Browser checks use `npm ci` and `npx playwright install chromium`. Use `npm run verify:onboarding -- --connection-fixture --report-fixture` to check connection timing, credential lifecycle and report behavior with synthetic browser responses and no running Lab. Use `npm run verify:onboarding` for guided authoring checks; add `-- --live` to create an actual local Studio run with a scripted reference. Set `LAB_DATA_DIR` and `LAB_URL` when using a nondefault installation. `-- --report=RUN_ID` checks a saved passing report without creating another run; add `--unsafe` for an expected failing report.
 
 [Architecture](docs/ARCHITECTURE.md) · [Verification](docs/VERIFICATION.md) · [Publish the setup page](docs/SETUP_PAGE.md) · [Third-party notices](THIRD_PARTY.md)

@@ -289,7 +289,7 @@ def probe(*, backend: str, require_kit: bool) -> dict:
     if metadata.version != genlayer_agent_lab.__version__:
         raise VerificationError("Package metadata and imported version disagree")
     package = importlib.resources.files("genlayer_agent_lab")
-    resource_names = ["assets/index.html", "assets/app.js", "assets/styles.css",
+    resource_names = ["assets/index.html", "assets/dashboard-redirect.js", "assets/quick-tests.js", "assets/styles.css",
                       "assets/workflows.html", "assets/workflows.js", "assets/onboarding.css",
                       "runtime/contracts/evidence_decision.py", "runtime/Dockerfile.worker",
                       "runtime/worker-requirements.txt", "runtime/studio_relay.py"]
@@ -401,7 +401,7 @@ def probe(*, backend: str, require_kit: bool) -> dict:
             with httpx.Client(timeout=5, trust_env=False, follow_redirects=False) as web:
                 if web.get(url + "/v1/scenarios").status_code != 401:
                     raise VerificationError("Installed HTTP API accepted a missing credential")
-                for asset in ("/", "/setup", "/assets/app.js", "/assets/styles.css",
+                for asset in ("/", "/setup", "/assets/index.html", "/assets/dashboard-redirect.js", "/assets/quick-tests.js", "/assets/styles.css",
                               "/assets/workflows.html", "/assets/workflows.js", "/assets/onboarding.css"):
                     response = web.get(url + asset)
                     if response.status_code != 200 or not response.content:
@@ -410,6 +410,11 @@ def probe(*, backend: str, require_kit: bool) -> dict:
                         raise VerificationError("Installed root did not serve the guided dashboard")
                 if web.get(url + "/v1/workflows").status_code != 401:
                     raise VerificationError("Installed workflow API accepted a missing credential")
+                if web.get(url + "/v1/quick-tests/catalog").status_code != 401:
+                    raise VerificationError("Installed quick-test API accepted a missing credential")
+                quick_catalog = web.get(url + "/v1/quick-tests/catalog", headers={"Authorization": f"Bearer {token}"})
+                if quick_catalog.status_code != 200 or len(quick_catalog.json().get("scenarios", [])) != 15:
+                    raise VerificationError("Installed quick-test catalog is unavailable")
                 if admin.workflow_list() != []:
                     raise VerificationError("Fresh installed workflow store is not empty")
                 onboarding = _onboarding_probe(web, url, token, installed.parent / "_kit/examples")
