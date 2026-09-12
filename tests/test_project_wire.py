@@ -164,14 +164,77 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source=fs.readFileSync('src/genlayer_agent_lab/assets/workflows.js','utf8');
-const helper=source.slice(source.indexOf('/** Lossless v2'),source.indexOf('  const $ ='));
-const scope=vm.createContext({});
-vm.runInContext(helper,scope);
-const big='1000000000000000000000000001';
-const parsed=scope.parseProjectJson('{"policy":{"max_fee":'+big+'}}');
-assert.equal(parsed.policy.max_fee,BigInt(big));
-assert.equal(JSON.parse(scope.stringifyProjectJson(parsed)).policy.max_fee.$lab_integer,big);
-assert(source.includes('parseProjectJson(await response.text())'));
-assert(source.includes('parseProjectJson(await file.text())'));
-assert.equal((source.match(/delete spec.integer_encoding/g)||[]).length,2);
+const html=fs.readFileSync('src/genlayer_agent_lab/assets/workflows.html','utf8');
+// Run the full production script with a minimal DOM, so this check follows its
+// registered upload and submit handlers without a browser dependency in pytest.
+class Element {
+  constructor() {
+    this.value=''; this.hidden=false; this.checked=false; this.disabled=false;
+    this.textContent=''; this.dataset={}; this.children=[];
+    this.events=new Map(); this.attributes=new Map();
+    this.classList={toggle(){},add(){},remove(){}};
+  }
+  addEventListener(type,handler) { this.events.set(type,handler); }
+  setAttribute(name,value) { this.attributes.set(name,value); }
+  removeAttribute(name) { this.attributes.delete(name); }
+  append(...children) { this.children.push(...children); }
+  replaceChildren(...children) { this.children=children; }
+  focus() {}
+  scrollIntoView() {}
+}
+const elements=new Map([...html.matchAll(/id="([^"]+)"/g)].map(match=>[match[1],new Element()]));
+const getElement=id=>{
+  assert(elements.has(id),'Unknown dashboard element: '+id);
+  return elements.get(id);
+};
+const big=((1n<<256n)-1n).toString(), total=((1n<<256n)-2n).toString();
+const raw=JSON.stringify({title:'Exact budget upload',task:'Read the public task',
+  timeout_seconds:600,project_snapshot:{definition:{contracts:{example:{}}}},
+  context:{memo:big},fixtures:{},expectations:{rules:[]},
+  policy:{max_fee:'RAW_MAX',max_total_fee:'RAW_TOTAL',allow_appeal:false,operations:{}}})
+  .replace('"RAW_MAX"',big).replace('"RAW_TOTAL"',total);
+const marked=JSON.stringify({integer_encoding:'lab-tagged-decimal-v1',
+  ...JSON.parse(raw),policy:{max_fee:{$lab_integer:big},max_total_fee:{$lab_integer:total},
+    allow_appeal:false,operations:{}}});
+const submissions=[];
+const scope=vm.createContext({URLSearchParams,TextEncoder,AbortSignal,
+  document:{getElementById:getElement,createElement:()=>new Element()},
+  location:{origin:'http://127.0.0.1:8765',hash:''},
+  sessionStorage:{getItem:()=>null},setInterval:()=>0,
+  window:{createQuickTests:()=>({})},
+  fetch:async (url,options)=>{
+    assert.equal(url,'/v1/onboarding/preview');
+    assert.equal(options.method,'POST');
+    submissions.push(JSON.parse(options.body));
+    // A raw numeric response also exercises the production HTTP parser before
+    // the reviewed configuration is serialized back into the dashboard.
+    return {ok:true,status:200,text:async()=>'{"spec":'+raw+',"digest":"fixture",'
+      +'"summary":[],"rules":[],"warnings":[]}'};
+  },
+});
+vm.runInContext(source,scope);
+for (const contents of [raw,marked]) {
+  const file={name:'scenario.json',size:Buffer.byteLength(contents),text:async()=>contents};
+  await getElement('load-spec').events.get('change')({target:{files:[file]}});
+  assert.equal(getElement('import-error').hidden,true);
+  const loaded=JSON.parse(getElement('spec').value);
+  assert.deepEqual(loaded.policy.max_fee,{$lab_integer:big});
+  assert.deepEqual(loaded.policy.max_total_fee,{$lab_integer:total});
+  assert.equal(loaded.context.memo,big);
+  assert(!Object.hasOwn(loaded,'integer_encoding'));
+  const previous=submissions.length;
+  getElement('advanced-form').events.get('submit')({preventDefault(){}});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(submissions.length,previous+1);
+  assert.deepEqual(submissions.at(-1).spec.policy.max_fee,{$lab_integer:big});
+  assert.deepEqual(submissions.at(-1).spec.policy.max_total_fee,{$lab_integer:total});
+  assert(!Object.hasOwn(submissions.at(-1).spec,'integer_encoding'));
+  assert.equal(getElement('review-panel').hidden,false);
+  assert.equal(getElement('review-confirmed').checked,false);
+  const reviewed=JSON.parse(getElement('review-spec').textContent).spec;
+  assert.deepEqual(reviewed.policy.max_fee,{$lab_integer:big});
+  assert.deepEqual(reviewed.policy.max_total_fee,{$lab_integer:total});
+  assert.equal(reviewed.context.memo,big);
+}
+assert.equal(submissions.length,2);
 """)
