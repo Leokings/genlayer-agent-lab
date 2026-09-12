@@ -40,6 +40,10 @@ class CommandResult:
     stderr: bytes
 
 
+class UnsupportedDockerEndpoint(RuntimeError):
+    """A successfully inspected endpoint is not a supported local transport."""
+
+
 def _windows_job(process):
     """Keep even orphaned CLI-plugin descendants inside an owned kill-on-close job."""
     import ctypes
@@ -94,7 +98,7 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
     try:
         process = subprocess.Popen(
             args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            env=env, **kwargs
+            env=env, bufsize=0 if os.name == "nt" else -1, **kwargs
         )
     except OSError as exc:
         raise RuntimeError(f"Cannot launch Docker command ({type(exc).__name__})") from exc
@@ -103,6 +107,8 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
     except RuntimeError:
         process.kill()
         process.wait(timeout=3)
+        for stream in (process.stdin, process.stdout, process.stderr):
+            stream.close()
         raise
 
     group_terminated = False
@@ -123,6 +129,11 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
             group_terminated = True
         if process.poll() is None:
             process.kill()
+    if os.name == "nt":
+        return _windows_pipe_process(
+            process, terminate_group, payload=payload, timeout=timeout,
+            output_limit=output_limit, cancel_event=cancel_event,
+        )
     output = [bytearray(), bytearray()]
     overflow = threading.Event()
     lock = threading.Lock()
@@ -196,6 +207,95 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
     return CommandResult(process.returncode, bytes(output[0]), bytes(output[1]))
 
 
+def _windows_pipe_process(process, terminate_group, *, payload, timeout,
+                          output_limit, cancel_event):
+    """Poll unbuffered pipes without waiting for inherited handles to reach EOF.
+
+    Python 3.12+ supports nonblocking Windows pipes. A Docker CLI/plugin can exit
+    successfully while another process still owns a pipe handle. Reader threads
+    would then remain blocked even after closing our job, reporting a false build
+    failure. Nonblocking I/O preserves backpressure and bounded memory without
+    background threads, output files, or an unbounded reader-lock/EOF wait.
+    """
+    output = [bytearray(), bytearray()]
+    total = 0
+    sent = 0
+    failure = None
+    nonblocking = False
+    streams = (process.stdout, process.stderr)
+
+    def drain(*, final=False):
+        nonlocal total
+        for index, stream in enumerate(streams):
+            # Limit each turn so noisy output cannot starve cancellation/stdin.
+            # Final drain also remains bounded by the combined output limit.
+            for _ in range(output_limit // 16_384 + 2 if final else 4):
+                try:
+                    chunk = os.read(stream.fileno(), 16_384)
+                except BlockingIOError:
+                    break
+                if not chunk:
+                    break
+                remaining = max(0, output_limit - total)
+                output[index].extend(chunk[:remaining])
+                total += len(chunk)
+                if total > output_limit:
+                    return
+
+    try:
+        for stream in (*streams, process.stdin):
+            os.set_blocking(stream.fileno(), False)
+        nonblocking = True
+        deadline = time.monotonic() + timeout
+        while True:
+            drain()
+            if total > output_limit:
+                failure = "Docker command exceeded its output limit"
+                break
+            if process.poll() is not None:
+                break
+            if cancel_event is not None and cancel_event.is_set():
+                failure = "Container evaluation cancelled"
+                break
+            if time.monotonic() >= deadline:
+                failure = "Docker command timed out"
+                break
+            if not process.stdin.closed:
+                try:
+                    if sent < len(payload):
+                        sent += os.write(process.stdin.fileno(), payload[sent:sent + 16_384])
+                    if sent == len(payload):
+                        process.stdin.close()
+                except BlockingIOError:
+                    pass
+                except BrokenPipeError:
+                    process.stdin.close()
+            time.sleep(0.025)
+    except OSError:
+        failure = "Docker command pipe I/O failed"
+    finally:
+        try:
+            # Kill only this command's descendants, then reap the leader and
+            # capture its remaining bytes. An open but empty pipe is not failure.
+            terminate_group()
+            process.wait(timeout=3)
+            if nonblocking:
+                try:
+                    drain(final=True)
+                except OSError:
+                    failure = failure or "Docker command pipe I/O failed"
+        finally:
+            for stream in (*streams, process.stdin):
+                stream.close()
+    if failure or total > output_limit:
+        error = RuntimeError(failure or "Docker command exceeded its output limit")
+        error.stdout = bytes(output[0])
+        error.stderr = bytes(output[1])
+        error.returncode = process.returncode
+        raise error
+    return CommandResult(process.returncode, bytes(output[0]), bytes(output[1]))
+
+
 def _command(endpoint, args, **kwargs):
     command = ["docker"]
     env = os.environ.copy()
@@ -226,9 +326,10 @@ def _endpoint(*, timeout=8):
                      timeout=timeout),
             "Docker context inspection",
         )
-    if (not isinstance(endpoint, str)
-            or not endpoint.startswith(("unix:///", "npipe:////./pipe/"))):
-        raise RuntimeError("Select a local Docker Unix socket or Windows named-pipe context")
+    if not isinstance(endpoint, str):
+        raise RuntimeError("Docker context inspection returned invalid metadata")
+    if not endpoint.startswith(("unix:///", "npipe:////./pipe/")):
+        raise UnsupportedDockerEndpoint("Select a local Docker Unix socket or Windows named-pipe context")
     return endpoint
 
 
