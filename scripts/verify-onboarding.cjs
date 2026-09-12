@@ -4,7 +4,8 @@
 // --connection-fixture checks connection UI in a browser with fully intercepted
 // local assets/API fixtures. It uses synthetic credentials and no running Lab.
 // --report-fixture checks report refresh, selection, explanations and exports
-// with synthetic evidence. Both fixture flags may be run together.
+// with synthetic evidence. --import-fixture checks import validation, feedback
+// and stale responses. Fixture flags may be run together; none contacts a Lab.
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -14,7 +15,8 @@ const {chromium} = require('playwright');
 
 const connectionFixture = process.argv.includes('--connection-fixture');
 const reportFixture = process.argv.includes('--report-fixture');
-const fixtureMode = connectionFixture || reportFixture;
+const importFixture = process.argv.includes('--import-fixture');
+const fixtureMode = connectionFixture || reportFixture || importFixture;
 const dataDir = path.resolve(process.env.LAB_DATA_DIR || path.join(os.homedir(), '.genlayer-agent-lab'));
 const baseURL = fixtureMode ? 'http://127.0.0.1:8999' : process.env.LAB_URL || 'http://127.0.0.1:8765';
 const adminToken = fixtureMode ? 'fixture-workspace-secret' : fs.readFileSync(path.join(dataDir, 'admin.token'), 'utf8').trim();
@@ -258,6 +260,175 @@ async function verifyConnectionFixture(browser, checks) {
   await page.close();
 }
 
+async function verifyImportFixture(browser, checks) {
+  const page = await browser.newPage({viewport:{width:1280,height:900}});
+  const errors = [], unexpected = [], mutations = [], previews = [];
+  const spec = {title:'Imported fixture',task:'Wait for the final decision.',timeout_seconds:600,
+    project_snapshot:{definition:{contracts:{example:{}}}},fixtures:{},context:{},evidence:[],
+    expectations:{rules:[],required_actions:[],forbidden_actions:[],require_finalized:true},
+    policy:{allow_appeal:false,operations:{},max_fee:null,max_total_fee:null}};
+  const rejectedDetail = 'Unsupported field <img src=x onerror="window.fixtureInjected=true"> ' + adminToken;
+  let previewMode = 'accept', heldPreview, previewStarted;
+  page.on('pageerror', error => errors.push(redact(error.message)));
+  await page.addInitScript(() => {
+    const originalText = Blob.prototype.text;
+    Object.defineProperty(File.prototype, 'text', {configurable:true, value:function () {
+      if (this.name === 'unreadable.json') return Promise.reject(new Error('Cannot read selected file.'));
+      if (this.name === 'slow.json') return new Promise(resolve => {
+        window.finishSlowFileRead = () => resolve(originalText.call(this));
+      });
+      return originalText.call(this);
+    }});
+  });
+  await page.route('**/*', async route => {
+    const request = route.request(), url = new URL(request.url());
+    assert(!url.href.includes(adminToken));
+    if (url.origin !== baseURL) { unexpected.push(request.method() + ' ' + url.origin); return route.abort(); }
+    const asset = {'/':'workflows.html','/assets/workflows.js':'workflows.js','/assets/styles.css':'styles.css','/assets/onboarding.css':'onboarding.css'}[url.pathname];
+    if (asset) return route.fulfill({path:path.resolve('src/genlayer_agent_lab/assets', asset),contentType:asset.endsWith('.js') ? 'text/javascript' : asset.endsWith('.css') ? 'text/css' : 'text/html'});
+    if (request.method() !== 'GET') mutations.push(request.method() + ' ' + url.pathname);
+    if (url.pathname === '/v1/onboarding/templates' && request.method() === 'GET') return route.fulfill({json:{templates:[]}});
+    if (url.pathname === '/v1/onboarding/status' && request.method() === 'GET') return route.fulfill({json:{ready:true,checks:[],server_url:baseURL,mcp_command:'/fixture/gl-agent-lab-mcp'}});
+    if (url.pathname === '/v1/workflows' && request.method() === 'GET') return route.fulfill({json:[]});
+    if (url.pathname === '/v1/onboarding/preview' && request.method() === 'POST') {
+      const submitted = request.postDataJSON().spec;
+      previews.push(submitted);
+      if (previewMode === 'hold') {
+        await new Promise(resolve => { heldPreview = {route,resolve}; previewStarted(); });
+        return;
+      }
+      if (previewMode === 'reject') return route.fulfill({status:400,json:{detail:rejectedDetail}});
+      if (previewMode === 'unauthorized') return route.fulfill({status:401,json:{detail:'Sign-in required'}});
+      return route.fulfill({json:{spec:submitted,digest:'fixture-import-digest',summary:[],rules:[],warnings:[]}});
+    }
+    unexpected.push(request.method() + ' ' + url.pathname);
+    return route.abort();
+  });
+  const upload = (name, text) => page.locator('#load-spec').setInputFiles({name,mimeType:'application/json',buffer:Buffer.from(text)});
+  async function inlineError() {
+    await page.locator('#import-error').waitFor({state:'visible'});
+    await page.waitForFunction(() => {
+      const error = document.querySelector('#import-error'), rect = error.getBoundingClientRect();
+      return document.activeElement === error && rect.top >= 0 && rect.bottom <= innerHeight;
+    });
+    assert.equal(await page.locator('#import-error').getAttribute('role'), 'alert');
+    assert.equal(await page.locator('#import-error').getAttribute('tabindex'), '-1');
+    assert.equal(await page.locator('#import-error').evaluate(el => el.closest('form')?.id), 'advanced-form');
+    assert((await page.locator('#spec').getAttribute('aria-describedby') || '').split(/\s+/).includes('import-error'));
+    assert.equal(await page.locator('#spec').getAttribute('aria-invalid'), 'true');
+    assert.equal(await page.locator('#notice').isVisible(), false);
+    assert.equal(await page.locator('#review-panel').isVisible(), false);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
+  async function editValid(value = spec) {
+    await page.locator('#spec').fill(JSON.stringify(value));
+    assert.equal(await page.locator('#import-error').isVisible(), false);
+    assert.notEqual(await page.locator('#spec').getAttribute('aria-invalid'), 'true');
+  }
+  try {
+    await page.goto(baseURL + '/#token=' + adminToken);
+    await page.locator('#workspace').waitFor({state:'visible'});
+    await page.locator('#open-contract-authoring').click();
+    await upload('valid.json', JSON.stringify(spec));
+    await page.waitForFunction(() => document.querySelector('#spec').value.includes('Imported fixture'));
+    await upload('slow.json', JSON.stringify({...spec,title:'Slow imported fixture'}));
+    await page.waitForFunction(() => typeof window.finishSlowFileRead === 'function');
+    assert.equal(await page.locator('#spec').inputValue(), '', 'Selecting a pending file must clear the previous file immediately');
+    assert.equal(await page.locator('#validate-import').isDisabled(), true);
+    assert.match(await page.locator('#validate-import').innerText(), /Reading file/);
+    await page.locator('#advanced-form').evaluate(form => form.dispatchEvent(new Event('submit', {bubbles:true,cancelable:true})));
+    assert.equal(previews.length, 0, 'A premature submit must not preview incomplete file data');
+    assert.equal(await page.locator('#import-error').isVisible(), false);
+    assert.equal(await page.locator('#validate-import').isDisabled(), true);
+    await page.evaluate(() => window.finishSlowFileRead());
+    await page.waitForFunction(() => document.querySelector('#spec').value.includes('Slow imported fixture') && !document.querySelector('#validate-import').disabled);
+    assert.equal(JSON.parse(await page.locator('#spec').inputValue()).title, 'Slow imported fixture');
+    assert.equal(await page.locator('#validate-import').innerText(), 'Validate & review configuration');
+    assert.equal(await page.locator('#import-error').isVisible(), false);
+    checks.import_slow_file_blocks_premature_submit_without_discarding_result = 'pass';
+    await upload('broken.json', '{"title":');
+    await inlineError();
+    assert.equal(await page.locator('#spec').inputValue(), '', 'A failed upload must not leave the previous valid file ready to submit');
+    assert.equal(previews.length, 0);
+    checks.import_bad_upload_clears_previous_file_and_focuses_inline_error = 'pass';
+
+    await page.locator('#spec').fill('{"title":');
+    assert.equal(await page.locator('#import-error').isVisible(), false);
+    await page.locator('#validate-import').click();
+    await inlineError();
+    assert.equal(previews.length, 0, 'Malformed pasted JSON must be rejected before preview');
+    checks.import_bad_paste_reports_beside_validate = 'pass';
+
+    await upload('valid-again.json', JSON.stringify(spec));
+    await page.waitForFunction(() => document.querySelector('#spec').value.includes('Imported fixture'));
+    await upload('unreadable.json', JSON.stringify(spec));
+    await inlineError();
+    assert.equal(await page.locator('#spec').inputValue(), '');
+    assert.match(await page.locator('#import-error').innerText(), /read/i);
+    checks.import_file_read_failure_is_inline_and_clears_old_content = 'pass';
+
+    previewMode = 'reject';
+    for (const viewport of [{width:1280,height:900},{width:390,height:844}]) {
+      await page.setViewportSize(viewport);
+      await editValid();
+      await page.locator('#validate-import').click();
+      await inlineError();
+      const detail = await page.locator('#import-error').innerText();
+      assert(detail.includes('Unsupported field') && detail.includes('<img src=x'));
+      assert(!detail.includes(adminToken) && detail.includes('[redacted]'));
+      assert.equal(await page.locator('#import-error img').count(), 0);
+      assert.equal(await page.evaluate(() => Boolean(window.fixtureInjected)), false);
+    }
+    checks.import_backend_rejection_visible_on_desktop_and_mobile_redacted_as_text = 'pass';
+
+    previewMode = 'accept';
+    await editValid();
+    await page.locator('#validate-import').click();
+    await page.locator('#review-panel').waitFor({state:'visible'});
+    assert.match(await page.locator('#review-summary').innerText(), /Imported fixture/);
+    assert.equal(await page.locator('#import-error').isVisible(), false);
+    assert.equal(await page.locator('#review-confirmed').isChecked(), false);
+    checks.import_edit_clears_error_and_valid_retry_opens_review = 'pass';
+
+    previewMode = 'hold';
+    await editValid({...spec,title:'Old pending import'});
+    const started = new Promise(resolve => { previewStarted = resolve; });
+    await page.locator('#validate-import').click();
+    await started;
+    await editValid({...spec,title:'Current edited import'});
+    const responseReceived = page.waitForResponse(response => response.url().endsWith('/v1/onboarding/preview') && response.status() === 400);
+    await heldPreview.route.fulfill({status:400,json:{detail:'Old pending import was rejected'}});
+    heldPreview.resolve(); heldPreview = null;
+    await (await responseReceived).finished();
+    // Let the response's fetch continuation and rendering finish without a timed sleep.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assert.equal(await page.locator('#import-error').isVisible(), false);
+    assert.equal(await page.locator('#notice').isVisible(), false);
+    assert.equal(await page.locator('#review-panel').isVisible(), false);
+    assert.equal(JSON.parse(await page.locator('#spec').inputValue()).title, 'Current edited import');
+    previewMode = 'accept';
+    await page.locator('#validate-import').click();
+    await page.locator('#review-panel').waitFor({state:'visible'});
+    assert.match(await page.locator('#review-summary').innerText(), /Current edited import/);
+    checks.import_stale_rejection_after_edit_does_not_replace_current_draft = 'pass';
+
+    previewMode = 'unauthorized';
+    await editValid();
+    await page.locator('#validate-import').click();
+    await page.locator('#workspace').waitFor({state:'hidden'});
+    await page.locator('#notice').waitFor({state:'visible'});
+    assert.match(await page.locator('#notice').innerText(), /sign in again/i);
+    checks.import_auth_expiry_uses_visible_signin_notice = 'pass';
+    assert.deepEqual(errors, []);
+    assert.deepEqual(unexpected, []);
+    assert(mutations.every(value => value === 'POST /v1/onboarding/preview'), 'Import validation must not create, approve or execute a run');
+    checks.import_no_run_creation_or_live_requests = 'pass';
+  } finally {
+    if (heldPreview) { await heldPreview.route.abort(); heldPreview.resolve(); }
+    await page.close();
+  }
+}
+
 async function verifyReportFixture(browser, checks) {
   const page = await browser.newPage({viewport:{width:1280,height:900}}), errors = [], unexpected = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -366,6 +537,7 @@ async function verifyReportFixture(browser, checks) {
     if (fixtureMode) {
       if (connectionFixture) await verifyConnectionFixture(browser, checks);
       if (reportFixture) await verifyReportFixture(browser, checks);
+      if (importFixture) await verifyImportFixture(browser, checks);
       console.log(JSON.stringify(checks));
       return;
     }
