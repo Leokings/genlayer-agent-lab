@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>GenLayer Agent Lab</title>
+  <title>Developer test console · GenLayer Agent Lab</title>
   <link rel="stylesheet" href="/assets/styles.css">
   <script src="/assets/app.js" defer></script>
 </head>
@@ -17,7 +17,12 @@
     <div class="sidebar-foot">DEVELOPER PREVIEW <span>0.1</span></div>
   </aside>
   <main>
-    <header><div><span class="eyebrow">TEST BEFORE YOU DELEGATE</span><h1>Agent testing workspace</h1><p>See how your agent handles decisions, uncertainty and consequences.</p></div><button id="disconnect" class="secondary" hidden>Disconnect</button></header>
+    <header><div><span class="eyebrow">ORIGINAL SCENARIO TOOLS</span><h1>Developer test console</h1><p>Original scenarios with manual controls for the agent and test runtime.</p></div><button id="disconnect" class="secondary" hidden>Disconnect</button></header>
+    <section class="panel" aria-labelledby="guided-tests-title">
+      <h2 id="guided-tests-title">Your main testing dashboard</h2>
+      <p><a href="/assets/workflows.html">Back to guided tests</a> to import a contract scenario, test project operations and appeals, or see your guided test history.</p>
+      <p>This separate console defaults to GLSim and also offers a basic Studio mode. It is not a higher test level. Opening this page does not start a test.</p>
+    </section>
     <div id="notice" role="status" aria-live="polite" hidden></div>
     <section id="auth" class="panel auth-panel">
       <div class="panel-icon">⌁</div><h2>Connect to your local lab</h2>
@@ -26,7 +31,6 @@
       <small>Use a run-scoped token in your tested agent. Keep this administrator token out of its tool configuration.</small>
     </section>
     <div id="workspace" hidden>
-      <p><a href="/assets/workflows.html">Open Studio workflows</a> to connect an agent to contract reads, writes and appeals.</p>
       <section class="stats" aria-label="Run summary">
         <div><span>Total runs</span><strong id="stat-total">0</strong><small>Recorded in this installation</small></div>
         <div><span>Completed</span><strong id="stat-completed">0</strong><small>Evidence ready to review</small></div>

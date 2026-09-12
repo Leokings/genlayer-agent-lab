@@ -22,6 +22,8 @@ The first build can take tens of minutes. If setup reports a missing dependency 
 
 In **Choose a test**, start with a supplied template. A prediction scenario exercises receiving a decision, waiting for finality, and recording the observed result. Investigation scenarios add supplied evidence and decisions such as accepting, appealing, or requesting review.
 
+**Developer tools** opens a separate console for the original scenarios, with manual agent and runtime settings. It defaults to GLSim and also offers the earlier basic Studio mode. Use the main guided dashboard for project scenario imports, operations, appeals and your guided test history. The developer console includes **Back to guided tests**; opening either page does not start a test.
+
 Use the form's supported options, then select **Review test**. Read what your agent is asked to do, the supplied test conditions, its permissions, and the expected behavior. For prediction templates, the final-outcome choice updates the supported scenario coherently. The review step is where you check that the resulting expectations represent your test.
 
 The contract's possible model responses are controlled inputs. The expected behavior is your separate grading rule. For example, if a required evidence record is unavailable, you may expect a request for review and no settlement action, even when the contract has produced a decision.
