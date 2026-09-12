@@ -24,7 +24,7 @@
     .brand svg { width: 38px; height: 42px; flex: none; }
     .site-nav { display: flex; gap: 27px; align-items: center; font-size: 13px; font-weight: 600; }
     .site-nav > a { text-decoration: none; }
-    .site-nav > a:hover, .site-nav > a[aria-current="page"] { text-decoration: underline; }
+    .site-nav > a:hover { text-decoration: underline; }
     .button { display: inline-flex; align-items: center; justify-content: center; gap: 26px; padding: 13px 22px; border: 1px solid var(--green); border-radius: 5px; background: var(--green); color: white; font-size: 14px; font-weight: 650; text-decoration: none; line-height: 1.5; transition: background .15s ease; }
     .button:hover { background: #104e37; text-decoration: none; }
     .site-nav .button { padding: 9px 18px; color: white; text-decoration: none; }
@@ -112,7 +112,6 @@
       <span>GenLayer<small>AGENT LAB</small></span>
     </a>
     <nav class="site-nav" aria-label="Main navigation">
-      <a href="./" aria-current="page">Home</a>
       <a class="nav-detail" href="#workflow">How it works</a>
       <a class="nav-detail" href="https://github.com/Leokings/genlayer-agent-lab">GitHub</a>
       <a class="button" href="./START.html">Start <span aria-hidden="true">↗</span></a>
