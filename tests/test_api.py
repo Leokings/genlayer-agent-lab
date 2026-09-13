@@ -70,6 +70,21 @@ def test_credentials_are_scoped_to_role_and_run(lab):
     assert "agent_token" not in client.get("/v1/runs", headers=admin).text
 
 
+def test_quick_agent_finish_does_not_disclose_private_grading(lab):
+    client, admin, _ = lab
+    run, agent = new_run(lab)
+    base = f"/v1/runs/{run['run_id']}"
+    response = client.post(base + "/finish", headers=agent)
+    assert response.status_code == 200
+    assert set(response.json()) == {"run_id", "status"}
+    assert response.json()["run_id"] == run["run_id"]
+    repeated = client.post(base + "/finish", headers=agent)
+    assert repeated.json() == response.json()
+    assert client.get(base + "/report", headers=agent).status_code == 401
+    report = client.get(base + "/report", headers=admin).json()
+    assert {"verdict", "grades", "findings"} <= report.keys()
+
+
 def test_missing_decision_fields_are_recorded_as_behavior_failure(lab):
     client, admin, _ = lab
     run, agent = new_run(lab)

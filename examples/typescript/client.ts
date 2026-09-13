@@ -87,6 +87,7 @@ export type Report = {
   grades: Record<string, {status: string; detail: string}>;
   [key: string]: unknown;
 };
+export type Completion = {run_id: string; status: string};
 export type Backend = "glsim" | "fixture" | "container-glsim" | "studio";
 export type ContractBinding = {
   id: string; title: string; method: string; source_sha256: string; binding_sha256: string;
@@ -151,7 +152,7 @@ export class LabClient {
   requestDecision(runId: string, key: string): Promise<Decision> { return this.request("POST", `${this.path(runId)}/decision`, {idempotency_key: key}); }
   readDecision(runId: string): Promise<Decision | null> { return this.request("GET", `${this.path(runId)}/decision`); }
   act(runId: string, action: Action): Promise<{status: string; [key: string]: unknown}> { return this.request("POST", `${this.path(runId)}/actions`, action); }
-  finish(runId: string): Promise<Report> { return this.request("POST", `${this.path(runId)}/finish`); }
+  finish(runId: string): Promise<Completion> { return this.request("POST", `${this.path(runId)}/finish`); }
 
   private workflowPath(runId: string): string {
     if (!runId || runId.includes("/") || [".", ".."].includes(runId)) throw new Error("Invalid workflow identifier");
@@ -177,7 +178,7 @@ export class LabClient {
       idempotency_key: idempotencyKey, expected_decision_id: expectedDecisionId,
     });
   }
-  workflowFinish(runId: string): Promise<{run_id: string; status: string}> { return this.request("POST", `${this.workflowPath(runId)}/finish`); }
+  workflowFinish(runId: string): Promise<Completion> { return this.request("POST", `${this.workflowPath(runId)}/finish`); }
   workflowCancel(runId: string): Promise<Record<string, unknown>> { return this.request("POST", `${this.workflowPath(runId)}/cancel`); }
   workflowReport(runId: string): Promise<Record<string, unknown>> { return this.request("GET", `${this.workflowPath(runId)}/report`); }
 }

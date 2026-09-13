@@ -89,6 +89,66 @@ def _windows_job(process):
     return lambda: kernel.CloseHandle(handle)
 
 
+def _resume_windows_process(process):
+    """Resume only the primary thread of our newly created suspended process.
+
+    Popen closes CreateProcess's primary-thread handle. Reopen that thread with
+    documented Toolhelp/OpenThread APIs after job assignment; never let user
+    code execute in the gap between CreateProcess and AssignProcessToJobObject.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    class ThreadEntry(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ThreadID", wintypes.DWORD), ("th32OwnerProcessID", wintypes.DWORD),
+                    ("tpBasePri", wintypes.LONG), ("tpDeltaPri", wintypes.LONG),
+                    ("dwFlags", wintypes.DWORD)]
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    kernel.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    for name in ("Thread32First", "Thread32Next"):
+        function = getattr(kernel, name)
+        function.argtypes = [wintypes.HANDLE, ctypes.POINTER(ThreadEntry)]
+        function.restype = wintypes.BOOL
+    kernel.OpenThread.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenThread.restype = wintypes.HANDLE
+    kernel.ResumeThread.argtypes = [wintypes.HANDLE]
+    kernel.ResumeThread.restype = wintypes.DWORD
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    snapshot = kernel.CreateToolhelp32Snapshot(0x00000004, 0)  # TH32CS_SNAPTHREAD
+    if snapshot == ctypes.c_void_p(-1).value:
+        raise RuntimeError("Could not inspect the owned suspended Windows process")
+    threads = []
+    deadline = time.monotonic() + 2
+    try:
+        entry = ThreadEntry()
+        entry.dwSize = ctypes.sizeof(entry)
+        present = kernel.Thread32First(snapshot, ctypes.byref(entry))
+        while present:
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Owned Windows thread inspection exceeded its time limit")
+            if entry.th32OwnerProcessID == process.pid:
+                threads.append(entry.th32ThreadID)
+            present = kernel.Thread32Next(snapshot, ctypes.byref(entry))
+        if ctypes.get_last_error() != 18:  # ERROR_NO_MORE_FILES, normal enumeration end.
+            raise RuntimeError("Could not inspect the owned suspended Windows process")
+    finally:
+        kernel.CloseHandle(snapshot)
+    if len(threads) != 1 or process.poll() is not None:
+        raise RuntimeError("The owned suspended Windows process has no unique primary thread")
+    thread = kernel.OpenThread(0x0002, False, threads[0])  # THREAD_SUSPEND_RESUME
+    if not thread:
+        raise RuntimeError("Could not open the owned suspended Windows thread")
+    try:
+        if kernel.ResumeThread(thread) != 1:
+            raise RuntimeError("Could not resume the owned suspended Windows thread")
+    finally:
+        kernel.CloseHandle(thread)
+
+
 def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
                      cancel_event=None, env=None, on_output=None):
     """Run with bounded capture; optional output observers must return promptly.
@@ -98,7 +158,9 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
     """
     if cancel_event is not None and cancel_event.is_set():
         raise RuntimeError("Container evaluation cancelled")
-    kwargs = ({"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt"
+    # CREATE_SUSPENDED closes the race where a fast CLI/plugin spawned a child
+    # before its parent was added to the kill-on-close job.
+    kwargs = ({"creationflags": subprocess.CREATE_NO_WINDOW | 0x00000004} if os.name == "nt"
               else {"start_new_session": True})
     try:
         process = subprocess.Popen(
@@ -107,9 +169,14 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
         )
     except OSError as exc:
         raise RuntimeError(f"Cannot launch Docker command ({type(exc).__name__})") from exc
+    close_job = None
     try:
         close_job = _windows_job(process) if os.name == "nt" else None
-    except RuntimeError:
+        if os.name == "nt":
+            _resume_windows_process(process)
+    except BaseException:
+        if close_job is not None:
+            close_job()
         process.kill()
         process.wait(timeout=3)
         for stream in (process.stdin, process.stdout, process.stderr):

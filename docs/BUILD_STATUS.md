@@ -3,8 +3,18 @@
 This checkout is the **alpha 12 usability development candidate**. It adds a
 guided setup command, eleven template forms, exact-content scenario review,
 run-scoped agent connection instructions and readable saved reports to the
-existing project workflow runtime. The [usability verification record](USABILITY_VERIFICATION.md)
-separates current source evidence from the historical release gates below.
+existing project workflow runtime.
+
+The **September 13 recorded owner test passed all 14 checks**, with restored
+cleanup. Its evaluation denied the request, and the agent did not release.
+The [post-demo audit](POST_DEMO_AUDIT_2026-09-13.md) records that run, the separate
+scripted installation control, subsequent corrections and final focused tests.
+Five final-candidate Studio/HTTP/MCP reference cases passed their expected
+outcomes and restored cleanup. Exact package/platform CI results are recorded
+on the change's pull request. The owner test does not close independent
+onboarding or published-artifact gates.
+
+## Historical alpha 12 checks — September 8–10
 
 The September 10 assisted owner VPS trial reached a completed real OpenClaw
 agent run: **11 checks passed, 2 failed**, with finalized local Studio
@@ -12,16 +22,19 @@ transactions and restored cleanup. The failed checks shared one malformed
 evidence request, exposing a missing public built-in argument schema. The
 resulting interface, setup, timing and report fixes are recorded in
 [the trial verification](USABILITY_VERIFICATION.md#assisted-owner-vps-trial--september-10-2026).
-The updated journey still needs its next real-agent trial. This does not close
-independent onboarding or published-artifact gates.
+At that point the updated journey still awaited another real-agent trial; the
+September 13 owner demo above supplies later evidence. These assisted owner
+trials do not close independent onboarding or published-artifact gates.
 
-Post-trial local regression passed **1,445 tests** with ten environment skips;
+The September 10 post-trial local regression passed **1,445 tests** with ten
+environment skips;
 twelve Chromium connection/report fixture checks, Ruff and the setup-skill
-validator passed. These establish the fixes locally, not another real-agent
-VPS run. The earlier candidate evidence below retains its original counts.
+validator passed. These established those fixes locally. The dated
+[usability verification record](USABILITY_VERIFICATION.md) retains that trial's
+scope; the earlier candidate evidence below retains its original counts.
 
-The local Python regression passed **1,398 tests**, with ten explicit environment
-skips. Browser authoring checks passed sign-in, templates, changed-review
+The September 8 local Python regression passed **1,398 tests**, with ten explicit
+environment skips. Browser authoring checks passed sign-in, templates, changed-review
 invalidation, exact integers, escaped untrusted text and responsive review.
 Focused setup/onboarding/wire checks passed **118 tests**, with a separate
 12-test installer boundary pass; these counts overlap the regression. The
@@ -32,8 +45,8 @@ eight connection layouts passed with mocked creation and no extra mutations.
 [The evidence](evidence/usability-2026-09-08.json) preserves that distinction.
 The [local wheel onboarding probe](evidence/usability-wheel-local-2026-09-08.json)
 passed outside the checkout with cached dependencies. Remote package CI and the
-published-artifact gate remain unrecorded. These September 8 checks preceded the
-September 10 owner trial above; they did not include a paid model or independent
+published-artifact gate were unrecorded at that checkpoint. These September 8
+checks preceded the September 10 owner trial above; they did not include a paid model or independent
 human onboarding.
 
 ## Historical alpha 11 evidence
@@ -49,15 +62,16 @@ passed their expected outcomes through HTTP/MCP, including both detected faulty
 agents. Desktop/mobile report checks passed, and
 [fresh package installations](evidence/alpha11-ci-2026-09-08.json) passed on Linux,
 Windows and macOS. The full audit had no unresolved finding within that candidate's
-documented scope; the user VPS/selected-agent pilot is the next validation step.
+documented scope; the user VPS/selected-agent pilot was then the next validation step.
 The earlier alpha 10 source/runtime checks passed: 1,194 Python tests, seven actual
 Studio reference cases with the expected results, MCP and TypeScript appeals,
 desktop/mobile report inspection, and forced Lab interruption during a pending
 three-contract workflow. [The evidence](evidence/project-workflows-2026-09-08.json)
 retains run identities, actual fees, child outcomes and recovery checks.
 
-Installed-wheel verification and the OS package matrix are passed artifact
-gates recorded with alpha 11. The user's short
+Installed-wheel verification and the OS package matrix passed for alpha 11;
+they do not establish those artifact gates for the current candidate. The user's
+short
 [VPS onboarding trial](VPS_QUICKSTART.md) now has the assisted September 10
 result above. Independent external developer validation remains unverified;
 source checks do not substitute for those trials.
@@ -89,15 +103,15 @@ tests built alongside it. Larger contract-project support can follow later.
 The [fresh Windows laptop pilot](PILOT_TESTING.md#pilot-a-windows-laptop) completed
 with a documented Studio build retry. The first profile's backend, integration,
 reporting and Windows installed-candidate engineering gates have passed.
-The Linux VPS pilot and independent human onboarding remain unverified. Both
-planned environments may be operated by the project owner; that would be two
-environments and one developer.
+At that alpha 9 checkpoint, the Linux VPS pilot and independent human onboarding
+were unverified. Both planned environments could be operated by the project
+owner; that would be two environments and one developer.
 The original scenario payment actions update the Lab's test ledger. The new
 Studio workflow calls the contract's release method and verifies its test-unit
 ledger through a finalized state read. Six live HTTP reference cases have passed
 their expected outcomes; [the evidence](VERIFICATION.md#agent-driven-studio-workflows--september-7)
 includes both appeal outcomes and a detected faulty-agent action.
-The alpha 9 candidate is installed as the laptop's user-login service. Its
+The alpha 9 candidate was installed as the laptop's user-login service. Its
 exported TypeScript and MCP examples have also passed actual Studio workflows.
 The final non-runtime/non-container regression run passed 1,006 tests; explicit
 runtime checks and live Studio evidence are recorded separately.
@@ -135,7 +149,10 @@ It retains alpha 7's `studio verify-recovery` command and external developer
 trial checklist. The published alpha 8 wheel passed an orderly Windows 11 guest
 reboot and real standard-user AutoLogon recovery trial on GitHub Actions.
 
-| Planned area | Implemented now | Remaining release work |
+The following table preserves the alpha 9 checkpoint, including work that later
+candidates addressed. It is not the current candidate's release checklist.
+
+| Planned area | Implemented at that checkpoint | Remaining work at that checkpoint |
 |---|---|---|
 | Standalone package and runtime | Pinned dependencies, verified GenVM artifact, clean wheel installations and native Windows/Linux/macOS CI passed | Broader Python/OS versions and external machines |
 | Complete escrow test | Actual bundled contract execution, independent grades, safe/unsafe/refusing reference agents | Real developer-agent onboarding |
@@ -149,7 +166,7 @@ reboot and real standard-user AutoLogon recovery trial on GitHub Actions.
 
 The Docker execution gate has passed: the pinned worker image builds, executes its readiness contract and runs the custom delivery contract through real client connections. The install/startup/recovery work from the September 13–16 stages is implemented. Native package CI passed on all three operating systems. Alpha 5 fixed a Linux startup defect; alpha 6 fixes exact macOS argument verification and asynchronous job unloading. The corrected native Linux and macOS service lifecycles passed on free standard CI runners. A separate Ubuntu guest OS reboot passed with administrator-configured lingering and an outside observer; the Lab recovered before its user logged in. Alpha 8 passed an [orderly Windows 11 guest reboot and real standard-user AutoLogon trial](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34048951171): the owned login task recovered the Lab without a manual start, preserved its data and completed a fresh four-grade GLSim run.
 
-Remaining validation includes the Linux VPS pilot, two independent human external installations, macOS reboot, separate desktop logout/login, Windows startup before login, automatic Studio startup and physical power-loss recovery. The native runtime remains restricted to bundled code. See the dated verification record for tested behavior and evidence limits.
+At that checkpoint, remaining validation included the Linux VPS pilot, two independent human external installations, macOS reboot, separate desktop logout/login, Windows startup before login, automatic Studio startup and physical power-loss recovery. The native runtime remains restricted to bundled code. See the dated verification record for later results and evidence limits.
 
 **macOS full reboot validation is deferred.** The latest
 [hosted Mac installer preflight](https://github.com/Leokings/genlayer-agent-lab/actions/runs/34083470338)
@@ -162,9 +179,9 @@ native macOS installation and service-lifecycle evidence remains valid; full
 macOS reboot recovery remains unverified. Developer-agent integration and the
 two external installation trials can proceed with the published alpha 8.
 
-## Position against the original schedule
+## Historical position against the original schedule
 
-| Original stage | Current position |
+| Original stage | Position recorded at the alpha 9 checkpoint |
 |---|---|
 | September 5–6: runtime/platform feasibility | Passed: native Windows, Ubuntu and macOS runtime/installation CI plus Linux Docker execution |
 | September 7–9: service, workers, trace storage, first escrow case | Implemented and verified end to end |
@@ -177,10 +194,10 @@ passed. Python/TypeScript/MCP replaced OpenClaw as the first-release integration
 requirement in response to the framework-independence decision. No browser,
 OpenClaw installation, shared cloud account or paid LLM provider is required.
 
-The optional Studio path pins stable Studio v0.121.6, GenVM v0.2.16 and SDK 0.16.3.
+The legacy Studio path pins stable Studio v0.121.6, GenVM v0.2.16 and SDK 0.16.3.
 Its startup verifies actual Docker isolation and endpoint compatibility. A
 GenVM deployment, approved and denied writes, and a completed local appeal have been observed successfully; consult
 the dated verification record for the completed live checks. Scenario timelines
 remain scripted even when Studio supplies the contract verdict. The separate
 `studio verify --appeal` workflow checks actual local appeal rounds. Public-chain
-finality and modern appeal bonds remain outside this release.
+finality and modern appeal bonds remain outside that legacy profile's verified scope.

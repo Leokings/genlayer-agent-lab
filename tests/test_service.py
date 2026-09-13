@@ -7,7 +7,6 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import httpx
 import pytest
 
 from genlayer_agent_lab import service
@@ -86,20 +85,15 @@ def test_windows_additional_privileges_are_not_owned(state):
     assert not service._task_matches(ET.tostring(root), state)
 
 
-@pytest.mark.parametrize("body", [b"[]", b"x" * 5000, b'{"service_id":"another-installation"}'],
+@pytest.mark.parametrize("body", [[], None, {"service_id": "another-installation"}],
                          ids=["json_shape", "oversize", "foreign"])
 def test_readiness_rejects_unrelated_or_unbounded_response(state, monkeypatch, body):
-    original = httpx.Client
-    transport = httpx.MockTransport(lambda request: httpx.Response(200, stream=httpx.ByteStream(body)))
-    monkeypatch.setattr(service.httpx, "Client", lambda **kwargs: original(transport=transport, **kwargs))
+    monkeypatch.setattr(service, "fetch_health", lambda port: body)
     assert service._health(state) is False
 
 
 def test_readiness_accepts_only_matching_wrapper_identity(state, monkeypatch):
-    original = httpx.Client
-    body = json.dumps({"service_id": state["owner"]}).encode()
-    transport = httpx.MockTransport(lambda request: httpx.Response(200, stream=httpx.ByteStream(body)))
-    monkeypatch.setattr(service.httpx, "Client", lambda **kwargs: original(transport=transport, **kwargs))
+    monkeypatch.setattr(service, "fetch_health", lambda port: {"service_id": state["owner"]})
     assert service._health(state) is True
 
 
@@ -225,6 +219,7 @@ def test_uninstall_preserves_database_token_and_logs_even_if_interpreter_was_rem
     (data / "lab.sqlite3").write_bytes(b"existing database")
     (root / "service.log").write_text("existing logs")
     monkeypatch.setattr(service, "_windows", lambda *args, **kw: {"exists": False})
+    monkeypatch.setattr(service, "_health", lambda _: False)
     result = service.uninstall(data)
     assert result["data_preserved"] and result["logs_preserved"]
     assert (data / "admin.token").read_text() == "private-token-must-not-change"
@@ -232,6 +227,57 @@ def test_uninstall_preserves_database_token_and_logs_even_if_interpreter_was_rem
     assert (root / "service.log").exists()
     assert not (root / service.MANIFEST_NAME).exists()
     assert not service._definition_path(state).exists()
+
+
+def test_uninstall_preserves_recovery_metadata_until_async_shutdown_finishes(state, monkeypatch):
+    root = service._root(state["data_dir"])
+    root.mkdir(parents=True)
+    service._save(root, state)
+    service._write_definition(state)
+    actions = []
+    # The task registration is gone but its Lab process is still answering.
+    monkeypatch.setattr(service, "_inspect", lambda _: {"exists": False, "running": False})
+    monkeypatch.setattr(service, "_manager_action", lambda *args: actions.append(args))
+    monkeypatch.setattr(service, "_health", lambda _: True)
+    ticks = iter([0, 15])
+    monkeypatch.setattr(service.time, "monotonic", lambda: next(ticks))
+    with pytest.raises(service.ServiceError) as caught:
+        service.uninstall(state["data_dir"])
+    assert caught.value.code == "shutdown_incomplete"
+    assert (root / service.MANIFEST_NAME).exists()
+    assert service._definition_path(state).exists()
+    assert not actions
+    # A retry can finish after the process exits; no registration is recreated.
+    monkeypatch.setattr(service.time, "monotonic", lambda: 16)
+    monkeypatch.setattr(service, "_health", lambda _: False)
+    assert service.uninstall(state["data_dir"])["uninstalled"] is True
+    assert not (root / service.MANIFEST_NAME).exists()
+    assert not actions
+
+
+def test_uninstall_waits_for_launchagent_unload_before_deleting_definition(state, monkeypatch):
+    root = service._root(state["data_dir"])
+    root.mkdir(parents=True)
+    service._save(root, state)
+    service._write_definition(state)
+    state = {**state, "platform": "darwin"}
+    path = root / "task.xml"  # Isolated test definition, never a real LaunchAgent.
+    monkeypatch.setattr(service, "_load", lambda _: state)
+    monkeypatch.setattr(service, "_definition_path", lambda _: path)
+    observed = iter([{"exists": True, "running": True},
+                     {"exists": True, "running": False}, {"exists": False}])
+    monkeypatch.setattr(service, "_inspect", lambda _: next(observed))
+    actions = []
+    monkeypatch.setattr(service, "_manager_action", lambda _, action, observed: actions.append(action))
+    monkeypatch.setattr(service, "_health", lambda _: False)
+
+    def wait(seconds):
+        assert path.exists() and (root / service.MANIFEST_NAME).exists()
+
+    monkeypatch.setattr(service.time, "sleep", wait)
+    assert service.uninstall(state["data_dir"])["uninstalled"] is True
+    assert actions == ["uninstall"]
+    assert not path.exists()
 
 
 def test_lifecycle_lock_and_poisoned_local_definition(state):

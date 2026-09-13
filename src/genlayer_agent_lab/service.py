@@ -28,10 +28,9 @@ from contextlib import contextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-import httpx
-
 from . import __version__
 from .runtime.container import _bounded_process
+from .runtime.loopback_health import fetch_health
 
 NS = "http://schemas.microsoft.com/windows/2004/02/mit/task"
 ET.register_namespace("", NS)
@@ -490,22 +489,8 @@ def install(data_dir, *, port=8765, executable=None, start_now=False) -> dict:
 
 
 def _health(state):
-    try:
-        deadline = time.monotonic() + 2
-        with httpx.Client(trust_env=False, follow_redirects=False, timeout=1) as client:
-            with client.stream("GET", f"http://127.0.0.1:{state['port']}/service/health",
-                               headers={"Accept-Encoding": "identity"}) as response:
-                if response.status_code != 200:
-                    return False
-                raw = bytearray()
-                for chunk in response.iter_raw():
-                    raw.extend(chunk)
-                    if len(raw) > 4096 or time.monotonic() >= deadline:
-                        return False
-        value = json.loads(raw)
-        return type(value) is dict and value.get("service_id") == state["owner"]
-    except (httpx.HTTPError, ValueError, TypeError):
-        return False
+    value = fetch_health(state["port"])
+    return type(value) is dict and value.get("service_id") == state["owner"]
 
 
 def status(data_dir) -> dict:
@@ -579,6 +564,20 @@ def uninstall(data_dir) -> dict:
         observed = _inspect(state)
         if observed.get("exists"):
             _manager_action(state, "uninstall", observed)
+        # Manager calls can return before a loaded job/process has disappeared.
+        # Keep its recovery metadata until shutdown is observed, even if the
+        # registration was already removed by an earlier interrupted uninstall.
+        deadline = time.monotonic() + 15
+        while True:
+            current = _inspect(state)
+            unloaded = (not current.get("exists") if state["platform"] != "linux"
+                        else not current.get("running") and not current.get("enabled"))
+            if unloaded and not _health(state):
+                break
+            if time.monotonic() >= deadline:
+                _fail("shutdown_incomplete", "Startup was unregistered, but service shutdown is not yet confirmed. "
+                      "Installation metadata and logs were preserved; retry service uninstall after it stops.")
+            time.sleep(.1)
         path = _definition_path(state)
         if path.exists():
             path.unlink()

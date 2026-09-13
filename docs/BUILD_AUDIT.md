@@ -1,6 +1,14 @@
-# Build audits before the VPS pilot
+# Build audit history
 
-## Alpha 12 local usability audit
+For the current candidate and later checks, start with [Build status](BUILD_STATUS.md)
+and [Verification](VERIFICATION.md). The dated audits below retain their original
+test counts and scope; they do not describe every later change to alpha 12.
+
+The [September 13 post-demo audit](POST_DEMO_AUDIT_2026-09-13.md) records the
+owner demo, subsequent corrections, final focused tests and five completed live
+Studio/HTTP/MCP reference cases, all with restored cleanup.
+
+## Alpha 12 local usability audit — September 8, 2026
 
 The **0.1.0a12 working-tree candidate** adds guided setup, eleven template forms,
 exact reviewed JSON import, run-scoped connection instructions, observed agent
@@ -21,9 +29,12 @@ actual mutations. [Sanitized evidence](evidence/usability-2026-09-08.json) retai
 the initial failures and the distinct final rechecks. A targeted
 [local wheel probe](evidence/usability-wheel-local-2026-09-08.json) also passed
 installed onboarding checks outside the checkout with cached dependencies;
-it did not start Studio. Alpha 12 package CI,
+it did not start Studio. At this September 8 audit, alpha 12 package CI,
 publication, a paid-model trial, the user VPS pilot and independent human
-onboarding have not been established.
+onboarding had not been established. The later [September 10 assisted owner
+VPS trial](USABILITY_VERIFICATION.md#assisted-owner-vps-trial--september-10-2026)
+records the actual OpenClaw run and its retained failed checks; it does not close
+the independent-onboarding or published-artifact gates.
 
 ## Historical alpha 11 audit
 
