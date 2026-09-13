@@ -1,5 +1,18 @@
 # Verification record
 
+## Managed setup lifetime — September 13
+
+Normal setup now starts the Lab through the existing user-service manager and
+returns after verifying service readiness and the installation's HTTP identity.
+Foreground operation requires an explicit `--foreground` option.
+
+On the Windows development host, an isolated service was installed and started
+from a bounded child process. After that launcher exited and its Windows process
+job closed, the service still reported installed, running, ready and enabled;
+the dashboard returned HTTP 200. The isolated service was then uninstalled.
+This verifies independence from the launcher's lifetime. It does not establish
+automatic Docker/Studio startup after reboot or a completed external-agent test.
+
 ## Alpha 12 guided usability candidate — September 8
 
 The [usability verification record](USABILITY_VERIFICATION.md) covers the current

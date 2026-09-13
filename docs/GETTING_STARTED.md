@@ -14,7 +14,7 @@ If you prefer the terminal, from your existing checkout:
 uv run gl-agent-lab setup
 ```
 
-Keep its terminal open while the foreground Lab runs. Setup opens the workflow dashboard on a desktop. For a remote machine, use `setup --no-open` and the [VPS tunnel guide](VPS_QUICKSTART.md).
+Setup confirms the Lab is ready, opens the workflow dashboard on a desktop, and returns. You can restart your agent; the Lab keeps running independently. On a desktop, the setup terminal can close while you stay logged in. On a VPS, keep the user session active unless your setup agent confirms the host already supports operation after logout. For a remote machine, use `setup --no-open` and the [VPS tunnel guide](VPS_QUICKSTART.md). Keep the SSH tunnel connected while using a remote dashboard.
 
 The first build can take tens of minutes. If setup reports a missing dependency or unavailable Studio service, follow that diagnostic before creating a run. `setup --check` lets you inspect readiness without changing the installation.
 
@@ -48,7 +48,7 @@ The generated prompt contains a test access key. Keep it private and save it whe
 
 This route is not exclusive to OpenClaw or an OpenAI model. It requires an agent host that lets the agent manage its tools. If that capability is unavailable, the agent should identify the specific remaining configuration step. Use the manual settings below for that host; a written claim of connection is not proof that the tools are available.
 
-For OpenClaw, restart the Gateway that owns the agent after saving its MCP configuration, then use a fresh turn in that agent. A CLI-only reload can leave the running agent without its new tools. The [OpenClaw guide](OPENCLAW_QUICKSTART.md) covers this step.
+For OpenClaw, your setup agent first confirms that the Lab is running independently, then you restart the Gateway that owns the agent after saving its MCP configuration and use a fresh turn in that agent. A CLI-only reload can leave the running agent without its new tools. The [OpenClaw guide](OPENCLAW_QUICKSTART.md) covers this step.
 
 ### Manual connection
 

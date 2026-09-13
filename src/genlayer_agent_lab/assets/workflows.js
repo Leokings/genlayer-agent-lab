@@ -130,7 +130,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
       response = await fetch(path, {method, redirect:"error", cache:"no-store", signal:AbortSignal.timeout(timeoutMs),
         headers:{Authorization:`Bearer ${authorization}`, ...(body === undefined ? {} : {"Content-Type":"application/json"})},
         body:body === undefined ? undefined : stringifyProjectJson(body)});
-    } catch { const error = new Error("The Lab did not respond. Check the setup terminal and your SSH tunnel, then try again."); error.uncertain = true; error.connectionFailure = true; throw error; }
+    } catch { const error = new Error("The Lab did not respond. Ask your setup agent to check the Lab and your SSH tunnel, then try again."); error.uncertain = true; error.connectionFailure = true; throw error; }
     if (authorization !== token) throw new Error("Workspace changed");
     let result;
     try { result = parseProjectJson(await response.text()); }
@@ -167,7 +167,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     $("environment-badge").className = "environment-badge " + (ready ? "ready" : pending ? "" : "attention");
     $("environment-summary").textContent = ready ? "The Lab and owned Studio are ready for your test."
       : pending ? "Checking the owned Studio runtime. You can prepare and review your test while this finishes."
-      : timedOut ? "The Studio check is taking longer than expected. Your draft is kept; use Check again or inspect the setup terminal."
+      : timedOut ? "The Studio check is taking longer than expected. Your draft is kept; use Check again or ask your setup agent to check Studio."
       : "You can prepare and review a test now. Check the environment details before creating it.";
     $("environment-checks").replaceChildren();
     for (const check of environment?.checks || []) {
@@ -200,7 +200,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
         }
       } catch (error) {
         environment = null; renderEnvironment();
-        $("environment-summary").textContent = "The environment check could not finish. Check the Lab connection or setup terminal, then try again.";
+        $("environment-summary").textContent = "The environment check could not finish. Ask your setup agent to check the Lab connection, then try again.";
         throw error;
       }
     })().finally(() => { environmentCheck = null; $("check-environment").disabled = false; updateCreate(); });
@@ -397,7 +397,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
         const command = remote ? $("mcp-path").value.trim() : environment?.mcp_command;
         if (!command || !/^(?:\/|[A-Za-z]:[\\/]|\\\\[^\\]+\\[^\\]+)/.test(command)) throw new Error("Enter the full installed MCP executable path on the computer where your agent runs.");
         content = JSON.stringify({mcpServers:{"genlayer-lab":{command, args:[], env:{LAB_URL:url, LAB_MODE:"workflow", LAB_ROLE:"agent", LAB_RUN_ID:run, LAB_TOKEN:secret}}}}, null, 2);
-        $("connection-instructions").textContent = "Add this connector in your agent host's MCP settings. For OpenClaw, restart the Gateway from the server terminal and open a fresh chat with the same agent, then use Copy start prompt. The connector runs beside your agent.";
+        $("connection-instructions").textContent = "Add this connector in your agent host's MCP settings. For OpenClaw, have your setup agent confirm the Lab is running independently before restarting the Gateway. Then open a fresh chat with the same agent and use Copy start prompt. The connector runs beside your agent.";
       } else if (client === "python") {
         content = `from genlayer_agent_lab.client import LabClient\n\nwith LabClient(${JSON.stringify(url)}, ${JSON.stringify(secret)}) as lab:\n    run_id = ${JSON.stringify(run)}\n    observation = lab.workflow_observe(run_id)\n    print(observation)\n    # Supply observation to your agent. Let its policy invoke declared\n    # operations, appeal when permitted, and finish when work is complete.\n    # lab.workflow_invoke(run_id, operation, arguments, idempotency_key, decision_id)\n    # lab.workflow_appeal(run_id, idempotency_key, decision_id)\n    # lab.workflow_finish(run_id)\n`;
         $("connection-instructions").textContent = "Use the installed Python client in your agent's environment. This connection example reads the task; add your agent's policy loop to complete it.";
@@ -418,7 +418,7 @@ function stringifyProjectJson(value     , spaceOrReplacer      , space         )
     if ($("copy-setup-prompt").disabled) throw new Error("Complete the connection settings for an active test first.");
     const client = $("agent-client").value;
     const configure = client === "mcp"
-      ? "Identify your installed agent host; inspect its CLI help and configuration schema. Adapt the generic mcpServers entry below to its native configuration (OpenClaw uses mcp.servers in current versions). Use the exact absolute executable path, arguments and environment below. This is a stdio MCP connector beside your agent; LAB_URL is the Lab API, not an HTTP MCP endpoint. Apply it in the actual running agent session or gateway. For OpenClaw, openclaw mcp reload affects only that CLI process; it does not reload the running Gateway or Codex session. After saving the connector, have the operator run openclaw gateway restart in the server terminal, verify openclaw gateway status, then open a fresh chat with this same named agent. Stop at that restart boundary and give those exact remaining steps; do not claim the current session was refreshed. In the fresh chat, use the runtime's native tool search to discover this server and call the connector's actual observe tool for this run using the returned name and schema. Tool names and namespaces depend on the host; do not require a hardcoded genlayer-lab__observe name. If discovery still fails, inspect the saved server, any codex.agents scope and Gateway diagnostics once, then report the missing connection. Do not repeatedly spawn child agents or use MCP Apps/view APIs to discover ordinary MCP tools. A saved configuration, CLI probe, reload, tool listing or separate HTTP request does not prove this session can use MCP."
+      ? "Identify your installed agent host; inspect its CLI help and configuration schema. Adapt the generic mcpServers entry below to its native configuration (OpenClaw uses mcp.servers in current versions). Use the exact absolute executable path, arguments and environment below. This is a stdio MCP connector beside your agent; LAB_URL is the Lab API, not an HTTP MCP endpoint. Apply it in the actual running agent session or gateway. For OpenClaw, openclaw mcp reload affects only that CLI process; it does not reload the running Gateway or Codex session. Before recommending a Gateway restart, confirm the Lab is independent of this agent: on the Lab host, check the known installation with gl-agent-lab --data-dir PATH service status (using its actual data directory) and require installed, running, ready and enabled with the expected endpoint. This read-only check needs no owner key; an open port alone is insufficient. If the installation or host is unavailable, get confirmation from the setup agent or owner first. If the Lab is foreground-owned, let the setup agent resolve its lifetime without interrupting an active test. Do not read owner credentials or private grading. Once confirmed and the connector is saved, have the operator run openclaw gateway restart in the OpenClaw host terminal, verify openclaw gateway status and that the Lab still responds, then open a fresh chat with this same named agent and resume this existing run. Stop at that restart boundary and give those exact remaining steps; do not claim the current session was refreshed. In the fresh chat, use the runtime's native tool search to discover this server and call the connector's actual observe tool for this run using the returned name and schema. Tool names and namespaces depend on the host; do not require a hardcoded genlayer-lab__observe name. If discovery still fails, inspect the saved server, any codex.agents scope and Gateway diagnostics once, then report the missing connection. Do not repeatedly spawn child agents or use MCP Apps/view APIs to discover ordinary MCP tools. A saved configuration, CLI probe, reload, tool listing or separate HTTP request does not prove this session can use MCP."
       : client === "python"
         ? "Use the installed Python LabClient in your actual agent runtime with the exact URL, run ID and test key below. Connect its workflow methods to your agent's policy loop and call workflow_observe for this run. The example alone does not complete the task."
         : client === "typescript"

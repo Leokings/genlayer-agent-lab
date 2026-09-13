@@ -54,11 +54,11 @@ minutes. A successful command must report readiness; review its diagnostics if
 it does not. It does not reuse or erase a legacy Studio database. On subsequent
 starts, use `project studio-up` instead of rebuilding.
 
-Keep the Lab service running in another terminal, or install the existing user
-startup service according to the setup instructions:
+Start the Lab with normal setup, which reuses the prepared Studio environment
+and verifies its managed user service before returning:
 
 ```sh
-uv run gl-agent-lab serve --port 8765
+uv run gl-agent-lab setup --no-open --port 8765
 ```
 
 All commands must refer to the same installation data directory. If you chose a

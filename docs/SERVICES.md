@@ -1,6 +1,8 @@
-# Start the lab automatically at user login
+# Manage the Lab's background service
 
-The service integration runs the lab in your user session with an explicit data directory and a loopback address. Windows uses a Scheduled Task, Linux uses `systemd --user`, and macOS uses a LaunchAgent. It installs no system daemon and requests no administrator privileges.
+Normal `gl-agent-lab setup` prepares Studio, installs or starts the Lab's managed user service, verifies readiness, and returns. The setup process can end and your setup agent, including OpenClaw's Gateway, can restart without stopping the Lab. On a desktop you can close its terminal while staying logged in; on Linux, closing the last SSH login can stop the user manager unless it already has lingering or equivalent session persistence configured. Running `setup` again reuses the same installation. These details are for troubleshooting or advanced service controls; ordinary setup needs no separate service commands.
+
+The service integration runs the Lab in your user session with an explicit data directory and a loopback address. Windows uses a Scheduled Task, Linux uses `systemd --user`, and macOS uses a LaunchAgent. It installs no system daemon and requests no administrator privileges. Login-session requirements below still apply; independence from an agent restart does not establish startup before login or after a whole-machine reboot.
 
 Install the package into a persistent virtual environment first. Keep that environment and its project/package installation in place: startup records an absolute Python executable path. Moving or deleting the environment requires uninstalling the startup definition and reinstalling it with the new interpreter. A Unix virtual environment's Python symlink is preserved as a lexical path, so startup retains that environment's packages. Temporary `uvx`/build environments are rejected; a persistent `uv tool` or pipx installation must also remain installed at the recorded path.
 
@@ -14,7 +16,7 @@ gl-agent-lab --data-dir /absolute/path/to/lab service uninstall
 
 Use `service install --start` to register startup and start immediately. Without `--start`, registration and starting are separate on Windows and Linux; macOS may start the LaunchAgent when it is loaded because `RunAtLoad` is enabled. All commands use the same data directory. Existing foreground servers should be stopped through their own terminal before starting the service; a port conflict never causes this integration to kill an unrelated process.
 
-`install` and `start` return exit status 2 if installation/readiness was not established. `stop` returns 2 if stopping was not established. `status` returns 0 for an installed service even when stopped; inspect `running` and `ready` to distinguish those states. Infrastructure, permission and ownership errors return 2. The readiness check reaches the wrapper's `/service/health` endpoint on `127.0.0.1` and verifies the installation identity rather than accepting an unrelated server on the same port.
+`install` and `start` return exit status 2 if installation/readiness was not established. `stop` returns 2 if stopping was not established. `status` returns 0 for an installed service even when stopped; inspect `installed`, `running`, `ready`, `enabled` and the expected endpoint before treating it as ready for an agent/Gateway restart. Infrastructure, permission and ownership errors return 2. The readiness check reaches the wrapper's `/service/health` endpoint on `127.0.0.1` and verifies the installation identity rather than accepting an unrelated server on the same port. Normal `setup` also requires a fresh same-installation health proof before opening the dashboard.
 
 ## What is installed
 
@@ -28,7 +30,7 @@ The service name includes a deterministic identity derived from the canonical da
 
 Windows account names exported by Task Scheduler are resolved back to SIDs before ownership comparison. Scheduler XML defaults are normalized; a changed executable, arguments, account or privilege policy is rejected. Linux checks the actual loaded fragment, pending reload state and drop-in paths. macOS checks the loaded job's source, executable and argument list. Foreign or edited definitions are never overwritten or stopped. To intentionally customize a definition, first uninstall this managed startup integration and manage the replacement yourself.
 
-The wrapper binds only `127.0.0.1`; supported service ports are 1024–65535. It clears ambient `LAB_URL`, `LAB_TOKEN` and `LAB_DATA_DIR` so they cannot redirect this explicitly configured installation. It preserves the normal user-session environment needed by Python and local tools. Service setup does not start Docker Desktop or the optional Studio stack: those dependencies must be available separately for tests that require them.
+The wrapper binds only `127.0.0.1`; supported service ports are 1024–65535. It clears ambient `LAB_URL`, `LAB_TOKEN` and `LAB_DATA_DIR` so they cannot redirect this explicitly configured installation. It preserves the normal user-session environment needed by Python and local tools. The service wrapper does not start Docker Desktop or the Studio stack. Normal `setup` checks Docker and prepares Studio before starting the Lab, but login-triggered service startup does not repeat that preparation. After a reboot, start Docker if needed and rerun `setup` to restore and check the same environment.
 
 ## Logs, stops and upgrades
 
@@ -57,7 +59,7 @@ The published alpha 8 wheel passed an [orderly Windows 11 guest reboot trial](ht
 
 macOS reboot, separate desktop logout/login, Windows startup before login, automatic Studio startup and physical power-loss recovery remain unverified. See [VERIFICATION.md](VERIFICATION.md) for the dated CI evidence.
 
-Some organizations prohibit current-user Scheduled Task registration. If Windows returns access denied, the command reports that restriction and does not escalate privileges. Linux without a user session manager and macOS without a GUI login session similarly report an unsupported current session; use the foreground `serve` command in those environments.
+Some organizations prohibit current-user Scheduled Task registration. If Windows returns access denied, the command reports that restriction and does not escalate privileges. Linux without a user session manager and macOS without a GUI login session similarly report an unsupported current session. Normal `setup` reports failure without silently starting a temporary Lab inside the agent. If you choose a manual session, use `setup --foreground` (or the lower-level `serve` command) and keep its terminal open. That process may stop when its owning agent restarts; do not use it as evidence of a managed Lab ready for a Gateway restart.
 
 Implementation references: Microsoft's [Task Scheduler schema](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-schema) and [registration API](https://learn.microsoft.com/en-us/windows/win32/taskschd/taskfolder-registertask); systemd's [service specification](https://github.com/systemd/systemd/blob/main/man/systemd.service.xml) and [unit syntax](https://github.com/systemd/systemd/blob/main/man/systemd.syntax.xml); Apple's [LaunchAgent configuration](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html) and [launchctl guidance](https://support.apple.com/guide/terminal/script-management-with-launchd-apdc6c1077b-5d5d-4d35-9c19-60f2397b2369/mac).
 

@@ -22,10 +22,12 @@ def spec(**changes):
             "expectations": {"final_state": {"decision": "partial", "authorized_amount": 40,
                                                 "released_amount": 40, "remaining_amount": 60},
                              "required_actions": ["evaluate", "get_state", "release"]},
-            "timeout_seconds": 5, **changes}
+            # Durable SQLite preparation can exceed five seconds on Windows CI.
+            # Keep the fake run and polling budgets aligned; predicates finish early.
+            "timeout_seconds": 30, **changes}
 
 
-def wait(function, predicate=lambda value: bool(value), timeout=5):
+def wait(function, predicate=lambda value: bool(value), timeout=30):
     deadline = time.monotonic() + timeout
     value = None
     while time.monotonic() < deadline:
