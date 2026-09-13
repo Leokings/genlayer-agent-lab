@@ -1,5 +1,9 @@
 # Verification record
 
+The [September 13 post-demo audit](POST_DEMO_AUDIT_2026-09-13.md) records the
+owner demo, subsequent regression evidence and five completed live Studio/HTTP/MCP
+reference cases, all with restored cleanup.
+
 ## Managed setup lifetime — September 13
 
 Normal setup now starts the Lab through the existing user-service manager and
@@ -15,8 +19,8 @@ automatic Docker/Studio startup after reboot or a completed external-agent test.
 
 ## Alpha 12 guided usability candidate — September 8
 
-The [usability verification record](USABILITY_VERIFICATION.md) covers the current
-**0.1.0a12 working tree**, including guided setup, fresh HMAC listener proof,
+The [usability verification record](USABILITY_VERIFICATION.md) covers the
+**0.1.0a12 working tree tested on September 8**, including guided setup, fresh HMAC listener proof,
 eleven reviewed template flows, exact custom imports, run-scoped connection
 instructions, observed agent requests and readable saved reports.
 
@@ -54,10 +58,13 @@ passed in a fresh virtual environment outside the checkout using cached
 dependencies. It verified installed template authoring/review, setup help and
 dashboard asset hashes without starting Studio. This is a targeted package check.
 
-**Pending:** remote package CI and artifact publication. No paid-model or independent human/VPS onboarding trial is
-claimed. The alpha 11 artifact and actual Studio records below remain
-historical evidence for their exact tested candidate; their passed gates are
-not automatically transferred to this working tree.
+At this September 8 check, remote package CI and artifact publication were
+pending, and no paid-model or human/VPS onboarding trial was claimed. The later
+[September 10 assisted owner VPS trial](USABILITY_VERIFICATION.md#assisted-owner-vps-trial--september-10-2026)
+records a real OpenClaw agent run with 11 passing and 2 failing checks. Independent
+human onboarding remains unverified. The alpha 11 artifact and actual Studio
+records below remain historical evidence for their exact tested candidate;
+their passed gates do not automatically transfer to later alpha 12 source.
 
 ## Investigation suite and full build audit — September 8
 

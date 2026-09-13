@@ -359,6 +359,16 @@ class ProjectWorkflowManager:
             self._event(run, "controlled_inputs_applied", phase=phase)
             self._save(run)
 
+    def _new_submission_allowed(self, run):
+        """Called under the journal lock after potentially slow preparation."""
+        if self._stop.is_set() or run["cancel_requested"] or run["finish_requested"]:
+            return False
+        connecting = run.get("wait_for_agent") and run.get("test_started_at") is None
+        deadline = run["setup_deadline_at"] if connecting else run["deadline_at"]
+        if time.time() >= deadline:
+            raise StudioError("connection_setup_deadline_exceeded" if connecting else "deadline_exceeded")
+        return True
+
     def _journal_submission(self, run, intent, prepared, *, setup=False):
         if type(prepared) is not dict or not HEX64.fullmatch(prepared.get("tx_id", "")):
             raise StudioError("invalid_prepared_transaction")
@@ -366,6 +376,10 @@ class ProjectWorkflowManager:
         if type(fee) is not int or fee < 0:
             raise StudioError("invalid_prepared_fee")
         with self._lock:
+            # Once committed, this signed identity must remain reconcilable even
+            # after cancellation. Check before reserving it, using cancel's lock.
+            if not self._new_submission_allowed(run):
+                return False
             intent.update(prepared=ProjectVault(self.data_dir).seal(prepared),
                           status="prepared", tx_id=prepared["tx_id"], fee=fee,
                           target_tx_id=prepared.get("target_tx_id"))
@@ -373,6 +387,7 @@ class ProjectWorkflowManager:
             self._event(run, "submission_prepared", operation=intent["operation"],
                         tx_id=intent["tx_id"], fee_reserved=fee)
             self._save(run)  # Commit signed identity BEFORE any submission.
+            return True
 
     def _send(self, run, intent, client):
         prepared = ProjectVault(self.data_dir).open(intent["prepared"])
@@ -468,11 +483,14 @@ class ProjectWorkflowManager:
                        "result_code": raw.get("result_code")}
             receipt["decision_id"] = _hash({"tx_id": tx_id, "result": result, "rounds": rounds,
                                              "execution_success": receipt["execution_success"]})
-            if operation.startswith("$deploy:") and receipt["status"] == "FINALIZED":
+            deployment_failed = False
+            if operation.startswith("$deploy:") and receipt["status"] in TX_TERMINAL:
                 address = receipt["contract_address"]
-                if not receipt["execution_success"] or type(address) is not str or not HEX40.fullmatch(address):
-                    raise StudioError("deployment_not_successfully_finalized")
-                run["contracts"][operation.split(":", 1)[1]] = address
+                deployment_failed = (receipt["status"] != "FINALIZED"
+                                     or receipt["execution_success"] is not True
+                                     or type(address) is not str or not HEX40.fullmatch(address))
+                if not deployment_failed:
+                    run["contracts"][operation.split(":", 1)[1]] = address
             run["transactions"][tx_id] = receipt
             for intent in run["intents"].values():
                 if intent["tx_id"] != tx_id:
@@ -480,7 +498,11 @@ class ProjectWorkflowManager:
                 intent.update(result=copy.deepcopy(result), decision_id=receipt["decision_id"],
                               execution_success=receipt["execution_success"],
                               transaction_status=receipt["status"], receipt=copy.deepcopy(receipt))
-                if receipt["status"] in TX_TERMINAL:
+                if receipt["status"] == "CANCELED":
+                    # A canceled receipt may retain a successful provisional
+                    # execution; it did not establish the requested final effect.
+                    intent.update(status="failed", error_code="transaction_canceled")
+                elif receipt["status"] == "FINALIZED":
                     intent["status"] = "completed" if receipt["execution_success"] else "failed"
                     if operation == "appeal" and receipt["execution_success"]:
                         intent["status"] = "submitted"
@@ -489,6 +511,8 @@ class ProjectWorkflowManager:
                         intent["error_code"] = "contract_execution_failed"
                 else:
                     intent["status"] = "submitted"
+                if deployment_failed:
+                    intent.update(status="failed", error_code="deployment_not_successfully_finalized")
             children = raw.get("child_transactions", [])
             if type(children) is not list or len(children) > 128:
                 raise StudioError("malformed_child_transactions")
@@ -502,6 +526,10 @@ class ProjectWorkflowManager:
                             status=receipt["status"], execution_success=receipt["execution_success"],
                             round_count=len(rounds))
             self._save(run)
+            if deployment_failed:
+                # Cleanup must see the settled receipt instead of repolling an
+                # unrecorded failure and leaving the controlled inputs leased.
+                raise StudioError("deployment_not_successfully_finalized")
 
     def _poll(self, run, client):
         for tx_id, receipt in list(run["transactions"].items()):
@@ -523,7 +551,7 @@ class ProjectWorkflowManager:
                 if completed and request.get("execution_success") is not False:
                     intent.update(status="completed", execution_success=True, error_code=None,
                                   result={"appeal_rounds": completed, "target": copy.deepcopy(target)})
-                elif target["status"] == "FINALIZED" and request["status"] in TX_TERMINAL:
+                elif target["status"] in TX_TERMINAL and request["status"] in TX_TERMINAL:
                     intent.update(status="failed", execution_success=False,
                                   error_code="appeal_round_not_observed")
             self._save(run)
@@ -647,6 +675,9 @@ class ProjectWorkflowManager:
             if self._policy(run, intent, prepared["fee_value"]):
                 self._reject(run, intent, "fee_policy_violated")
                 return
+            with self._lock:
+                if not self._new_submission_allowed(run):
+                    return
             self._set_fixture(run, cohort, "after_appeal")
             intent["baseline_rounds"] = decision["round_count"]
         else:
@@ -674,8 +705,8 @@ class ProjectWorkflowManager:
             if self._policy(run, intent, prepared["fee_value"]):
                 self._reject(run, intent, "fee_policy_violated")
                 return
-        self._journal_submission(run, intent, prepared)
-        self._send(run, intent, client)
+        if self._journal_submission(run, intent, prepared):
+            self._send(run, intent, client)
 
     def _complete_read(self, run, intent, result):
         with self._lock:
@@ -693,6 +724,11 @@ class ProjectWorkflowManager:
             key = "$deploy:" + alias
             intent = run["intents"].get(key)
             if intent and intent["status"] != "queued":
+                receipt = run["transactions"].get(intent["tx_id"])
+                if receipt and receipt["status"] in TX_TERMINAL:
+                    # A restart can land after the terminal receipt commit but
+                    # before its failure reached the worker's cleanup path.
+                    raise StudioError("deployment_not_successfully_finalized")
                 return False
             if intent is None:
                 intent = {"operation": key, "arguments": {}, "idempotency_key": key,
@@ -704,8 +740,8 @@ class ProjectWorkflowManager:
                     self._save(run)
             args = resolve_constructor(snapshot, alias, run["contracts"], run["spec"]["context"])
             prepared = client.prepare_deploy(project_code(snapshot, alias), args)
-            self._journal_submission(run, intent, prepared, setup=True)
-            self._send(run, intent, client)
+            if self._journal_submission(run, intent, prepared, setup=True):
+                self._send(run, intent, client)
             return False
         return True
 

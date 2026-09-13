@@ -100,6 +100,26 @@ def test_check_is_read_only_and_never_initializes_or_launches(tmp_path, services
     assert "Prerequisites passed" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize("field,value", [
+    ("runtime_verified", False), ("fixture_ready", False), ("network_internal", False),
+    ("validator_count", 0), ("validator_count", True), ("validator_count", -1),
+])
+def test_check_does_not_confuse_rpc_with_complete_studio_readiness(
+        tmp_path, services, monkeypatch, capsys, field, value):
+    monkeypatch.setattr(setup.studio_profiles, "modern_profile_status", lambda _: {**READY, field: value})
+    target = tmp_path / "new-installation"
+    assert setup.run_setup(target, check=True) == 0
+    assert not target.exists() and not services
+    assert "Project Studio: ready" not in capsys.readouterr().out
+
+
+def test_setup_rechecks_incomplete_fixtures_despite_responding_rpc(tmp_path, services, monkeypatch):
+    monkeypatch.setattr(setup.studio_profiles, "modern_profile_status",
+                        lambda _: {**READY, "fixture_ready": False})
+    assert setup.run_setup(tmp_path, no_open=True) == 0
+    assert [item[0] for item in services] == ["start", "managed"]
+
+
 def test_ready_studio_is_reused_and_token_never_printed(tmp_path, services, capsys):
     initialize_data_dir(tmp_path)
     token = read_admin_token(tmp_path)
@@ -532,7 +552,7 @@ def test_confirmed_old_compose_version_recommends_upgrade(monkeypatch, available
     assert "Update the Compose plugin" in result["checks"][-1]["message"]
 
 
-@pytest.mark.parametrize("identity", ["correct", "foreign", "missing", "huge", "static", "replay",
+@pytest.mark.parametrize("identity", ["correct", "foreign", "missing", "static", "replay",
                                     "wrong_secret", "malformed_proof"])
 def test_port_recognition_uses_public_identity_and_never_sends_bearer(tmp_path, monkeypatch, identity):
     initialize_data_dir(tmp_path)
@@ -553,12 +573,9 @@ def test_port_recognition_uses_public_identity_and_never_sends_bearer(tmp_path, 
             return 0
 
     monkeypatch.setattr(setup.socket, "socket", lambda *a: Probe())
-    original = httpx.Client
-
-    def handler(request):
-        requests.append(request)
+    def fetch(port, *, nonce):
+        requests.append((port, nonce))
         body = {"status": "ok", "version": __version__}
-        nonce = request.url.params["setup_nonce"]
         assert len(nonce) == 64
         if identity in {"correct", "static", "replay", "wrong_secret", "malformed_proof"}:
             body["installation_id"] = setup.installation_identity(tmp_path, token)
@@ -573,18 +590,15 @@ def test_port_recognition_uses_public_identity_and_never_sends_bearer(tmp_path, 
                 body["setup_proof"] = "non-ascii-proof-\u00e9"
         elif identity == "foreign":
             body["installation_id"] = "foreign-installation"
-        elif identity == "huge":
-            body["padding"] = "a" * 5000
-        return httpx.Response(200, json=body)
+        return body
 
-    monkeypatch.setattr(setup.httpx, "Client", lambda **kw: original(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(setup, "fetch_health", fetch)
     assert setup._port_state(tmp_path, 8765) == ("same_installation" if identity == "correct" else "occupied")
-    assert len(requests) == 1 and requests[0].url.path == "/health"
-    assert "authorization" not in requests[0].headers
-    assert token not in str(requests[0].url) + str(requests[0].headers)
+    assert len(requests) == 1 and requests[0][0] == 8765
+    assert token not in str(requests)
     if identity == "correct":
         assert setup._port_state(tmp_path, 8765) == "same_installation"
-        assert requests[0].url.params["setup_nonce"] != requests[1].url.params["setup_nonce"]
+        assert requests[0][1] != requests[1][1]
 
 
 def test_installation_fingerprint_changes_with_directory_or_token(tmp_path):

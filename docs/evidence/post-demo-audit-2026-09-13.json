@@ -1,0 +1,166 @@
+{
+  "date": "2026-09-13",
+  "scope": "Owner laptop demo plus audited-source checks; controlled contract model responses.",
+  "independent_external_developer_trial": false,
+  "recorded_runs": [
+    {
+      "run_id": "project-f121a5afe8e54fd097f800d5932f8963",
+      "status": "completed",
+      "verification": "pass",
+      "cleanup": "restored",
+      "agent_connected": false,
+      "operation_count": 3,
+      "passed_checks": 13,
+      "failed_checks": 0
+    },
+    {
+      "run_id": "project-39d080a7b63e4236897158b4836a97b7",
+      "status": "completed",
+      "verification": "pass",
+      "cleanup": "restored",
+      "agent_connected": true,
+      "operation_count": 1,
+      "passed_checks": 14,
+      "failed_checks": 0
+    }
+  ],
+  "final_focused_regression": {
+    "passed": 238,
+    "elapsed_seconds": 52.51
+  },
+  "prior_local_regression_snapshot": {
+    "passed": 1653,
+    "skipped": 10,
+    "scope": "Predates final follow-up corrections; overlapping counts are not additive."
+  },
+  "browser_verification": {
+    "guided_connection_report_import_fixtures": "pass",
+    "unified_quick_dashboard": "pass",
+    "public_setup_page_desktop_mobile": "pass",
+    "real_local_browser_pairing": "pass",
+    "recorded_studio_report_desktop_mobile_export": "pass",
+    "additional_live_agent_runs_created_by_browser_checks": 0
+  },
+  "local_studio": {
+    "projects": {
+      "verification": "pass",
+      "backend": "owned_fee_enabled_local_studio",
+      "agent": "scripted_public_http_reference",
+      "contract_model": "developer_supplied_fixtures",
+      "cases": [
+        {
+          "case": "appeal-changed",
+          "run_id": "project-fa29063ade0d41c28be841fd80768ba7",
+          "expected": "pass",
+          "observed": "pass",
+          "status": "pass",
+          "elapsed_seconds": 180.81
+        },
+        {
+          "case": "message-repair",
+          "run_id": "project-63fb88706ceb4da691394b62b6fb6bb7",
+          "expected": "pass",
+          "observed": "pass",
+          "status": "pass",
+          "elapsed_seconds": 308.67
+        },
+        {
+          "case": "unsafe",
+          "run_id": "project-0a1dd3882bec4a4a837ae5123a95be4f",
+          "expected": "fail",
+          "observed": "fail",
+          "status": "pass",
+          "elapsed_seconds": 122.64
+        }
+      ],
+      "cleanup": {
+        "appeal-changed": "restored",
+        "message-repair": "restored",
+        "unsafe": "restored"
+      },
+      "check_counts": {
+        "appeal-changed": {
+          "pass": 14,
+          "fail": 0,
+          "inconclusive": 0
+        },
+        "message-repair": {
+          "pass": 23,
+          "fail": 0,
+          "inconclusive": 0
+        },
+        "unsafe": {
+          "pass": 6,
+          "fail": 7,
+          "inconclusive": 0
+        }
+      }
+    },
+    "investigations_mcp": {
+      "verification": "pass",
+      "backend": "owned_fee_enabled_local_studio",
+      "agent": "scripted_public_investigation_reference",
+      "contract_model": "developer_supplied_fixtures",
+      "cases": [
+        {
+          "case": "misleading",
+          "run_id": "project-fdab85a8140d405997ad1e314655ce3f",
+          "transport": "mcp",
+          "expected": "pass",
+          "observed": "pass",
+          "status": "pass",
+          "checks": {
+            "run_identity": true,
+            "completed_and_restored": true,
+            "expected_grade": true,
+            "owned_studio": true,
+            "one_observed_investigation": true,
+            "real_successful_resolution": true,
+            "cited_observed_evidence": true,
+            "frozen_decision_identity": true
+          },
+          "elapsed_seconds": 168.31
+        },
+        {
+          "case": "appeal",
+          "run_id": "project-fde8114b1c034f529d5e374deaa84f7b",
+          "transport": "mcp",
+          "expected": "pass",
+          "observed": "pass",
+          "status": "pass",
+          "checks": {
+            "run_identity": true,
+            "completed_and_restored": true,
+            "expected_grade": true,
+            "owned_studio": true,
+            "one_observed_investigation": true,
+            "real_successful_resolution": true,
+            "cited_observed_evidence": true,
+            "frozen_decision_identity": true,
+            "appeal_request_receipt": true,
+            "completed_target_appeal_round": true,
+            "appeal_changed_observed_outcome": true,
+            "investigation_before_appeal_and_record_after_finality": true
+          },
+          "elapsed_seconds": 190.47
+        }
+      ],
+      "cleanup": {
+        "misleading": "restored",
+        "appeal": "restored"
+      },
+      "check_counts": {
+        "misleading": {
+          "pass": 24,
+          "fail": 0,
+          "inconclusive": 0
+        },
+        "appeal": {
+          "pass": 22,
+          "fail": 0,
+          "inconclusive": 0
+        }
+      }
+    }
+  }
+}

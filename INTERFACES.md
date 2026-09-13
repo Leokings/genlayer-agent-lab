@@ -38,6 +38,8 @@ Loopback server, admin Bearer token loaded from `<data_dir>/admin.token`. No una
 - POST /v1/runs/{id}/observe; POST .../decision {idempotency_key}; GET .../decision; POST .../actions; POST .../finish (agent token only).
 - GET /v1/runs/{id}/report?format=json|html|junit supports local export; compare may be client side.
 
+Agent `finish` responses contain only `run_id` and lifecycle `status`, including retries. Grades, verdicts and findings remain in the administrator report. This HTTP boundary also applies through the Python, TypeScript and MCP clients; internal `Engine.finish` still calculates the report.
+
 POST /v1/runs body {scenario_id, agent='external', backend='glsim'}. API never accepts a filesystem path or arbitrary executable.
 
 ## Client/MCP

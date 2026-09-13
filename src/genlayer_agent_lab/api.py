@@ -355,7 +355,9 @@ def create_app(data_dir: Path | str | None = None, *, engine: Any = None) -> Fas
     @app.post("/v1/runs/{run_id}/finish", dependencies=[Depends(agent_access)])
     def finish(run_id: str, request: Request) -> dict:
         result = request.app.state.engine.finish(run_id)
-        return {key: result.get(key) for key in ("run_id", "status", "verdict", "grades", "findings")}
+        # As with workflow runs, private grading belongs to the owner report.
+        # Agents receive completion status, including on an idempotent retry.
+        return {key: result.get(key) for key in ("run_id", "status")}
 
     assets = Path(__file__).parent / "assets"
     if assets.is_dir():

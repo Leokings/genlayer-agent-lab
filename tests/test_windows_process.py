@@ -61,6 +61,62 @@ def test_success_still_terminates_owned_descendants(tmp_path):
     assert not marker.exists()
 
 
+def test_job_is_assigned_before_child_can_create_descendants(tmp_path, monkeypatch):
+    # Deterministically widen the gap seen during loaded-host setup. A child
+    # created before job assignment is not retroactively added to the job.
+    marker = tmp_path / "escaped-descendant.txt"
+    job = container._windows_job
+
+    def delayed_assignment(process):
+        time.sleep(.5)
+        return job(process)
+
+    monkeypatch.setattr(container, "_windows_job", delayed_assignment)
+    child = ("import time; from pathlib import Path; time.sleep(1); "
+             f"Path({str(marker)!r}).write_text('escaped')")
+    parent = ("import subprocess,sys,time; "
+              f"subprocess.Popen([sys.executable,'-c',{child!r}]); "
+              "time.sleep(.7); print('done',flush=True)")
+    result = container._bounded_process([sys.executable, "-c", parent], timeout=5)
+    assert result.returncode == 0
+    time.sleep(1.1)
+    assert not marker.exists(), "Descendant executed before Windows job ownership was established"
+
+
+def test_resume_failure_cleans_up_suspended_process_and_job(tmp_path, monkeypatch):
+    marker = tmp_path / "must-not-execute.txt"
+    processes, closed = [], []
+    popen, job = container.subprocess.Popen, container._windows_job
+
+    def track(*args, **kwargs):
+        process = popen(*args, **kwargs)
+        processes.append(process)
+        return process
+
+    def track_job(process):
+        close = job(process)
+
+        def close_owned():
+            closed.append(True)
+            close()
+
+        return close_owned
+
+    def fail_resume(process):
+        raise RuntimeError("Synthetic resume failure")
+
+    monkeypatch.setattr(container.subprocess, "Popen", track)
+    monkeypatch.setattr(container, "_windows_job", track_job)
+    monkeypatch.setattr(container, "_resume_windows_process", fail_resume)
+    command = f"from pathlib import Path; Path({str(marker)!r}).write_text('executed')"
+    with pytest.raises(RuntimeError, match="resume failure"):
+        container._bounded_process([sys.executable, "-c", command])
+    assert not marker.exists() and closed == [True]
+    assert processes[0].poll() is not None
+    assert all(stream.closed for stream in
+               (processes[0].stdin, processes[0].stdout, processes[0].stderr))
+
+
 def test_large_stdin_partial_writes_and_eof_preserve_bytes():
     payload = bytes(range(256)) * 1024
     command = (

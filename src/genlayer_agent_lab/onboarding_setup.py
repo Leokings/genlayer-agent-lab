@@ -27,6 +27,7 @@ import httpx
 
 from . import __version__, service
 from .runtime import container, studio_profiles
+from .runtime.loopback_health import fetch_health
 
 DOCKER_ENGINE_URL = "https://docs.docker.com/engine/install/"
 DOCKER_DESKTOP_URL = "https://docs.docker.com/desktop/setup/install/"
@@ -138,25 +139,13 @@ def _port_state(data_dir, port):
     expected = installation_identity(data_dir, token)
     nonce = secrets.token_hex(32)
     expected_proof = installation_proof(token, nonce)
-    try:
-        with httpx.Client(timeout=2, follow_redirects=False, trust_env=False) as client:
-            with client.stream("GET", f"http://127.0.0.1:{port}/health", params={"setup_nonce": nonce}) as response:
-                if response.status_code != 200:
-                    return "occupied"
-                chunks = bytearray()
-                for chunk in response.iter_bytes():
-                    chunks.extend(chunk)
-                    if len(chunks) > 4096:
-                        return "occupied"
-                body = json.loads(chunks)
-        proof = body.get("setup_proof") if type(body) is dict else None
-        if (type(body) is dict and body.get("status") == "ok" and body.get("version") == __version__
-                and body.get("installation_id") == expected and type(proof) is str
-                and re.fullmatch(r"[0-9a-f]{64}", proof) is not None
-                and hmac.compare_digest(proof, expected_proof)):
-            return "same_installation"
-    except (httpx.HTTPError, ValueError):
-        pass
+    body = fetch_health(port, nonce=nonce)
+    proof = body.get("setup_proof") if type(body) is dict else None
+    if (type(body) is dict and body.get("status") == "ok" and body.get("version") == __version__
+            and body.get("installation_id") == expected and type(proof) is str
+            and re.fullmatch(r"[0-9a-f]{64}", proof) is not None
+            and hmac.compare_digest(proof, expected_proof)):
+        return "same_installation"
     return "occupied"
 
 
@@ -349,6 +338,13 @@ def _managed_lab(data_dir, port, running):
         _say("You can close this setup terminal or restart your agent without stopping the Lab.")
 
 
+def _studio_ready(state):
+    cohort = state.get("validator_count")
+    return (all(state.get(key) is True for key in
+                ("ready", "runtime_verified", "network_internal", "fixture_ready"))
+            and type(cohort) is int and cohort > 0)
+
+
 def run_setup(data_dir, *, port=8765, no_open=False, check=False, foreground=False):
     """Prepare project Studio and start a managed Lab, with explicit foreground opt-in."""
     from .api import initialize_data_dir
@@ -384,7 +380,7 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False, foreground=Fal
             _prerequisite_handoff()
             return 2
         if check:
-            _say("Project Studio: " + ("ready" if state.get("ready") else "installed; startup needed"
+            _say("Project Studio: " + ("ready" if _studio_ready(state) else "installed; startup or readiness checks needed"
                                        if state.get("installed") else "first build needed"))
             _say("Lab: " + ("already running for this installation" if running == "same_installation"
                             else f"port {port} is available"))
@@ -396,13 +392,13 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False, foreground=Fal
         headless = (no_open or bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
                     or platform.system() == "Linux" and not any(
                         os.environ.get(key) for key in ("DISPLAY", "WAYLAND_DISPLAY")))
-        if not state.get("ready"):
+        if not _studio_ready(state):
             _say("Studio preparation runs in this terminal. To return later, resume with:")
             _say("  " + _resume_command(data_dir, port, headless, foreground))
             if headless and platform.system() == "Linux":
                 _say("For unattended SSH setup, start it inside tmux. Detach with Ctrl+B, then D; "
                      "reconnect with `tmux attach`. Closing a plain SSH terminal can interrupt setup.")
-        if state.get("ready") is True and state.get("runtime_verified") is True:
+        if _studio_ready(state):
             _say("Project Studio is already ready; continuing with this owned stack.")
         elif needs_build:
             _say("Building this installation's project Studio. The first build can take tens of minutes;")
@@ -414,7 +410,7 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False, foreground=Fal
         if any(state.get(key) is not True for key in ("ready", "runtime_verified", "network_internal", "fixture_ready")):
             raise RuntimeError("Project Studio has not passed its readiness checks. "
                                "Run `gl-agent-lab project studio-status` with this data directory for diagnostics.")
-        if state.get("validator_count", 0) == 0:
+        if type(state.get("validator_count")) is not int or state["validator_count"] <= 0:
             raise RuntimeError("Project Studio has no configured validator cohort. "
                                "Inspect `project studio-status`, then resume setup after startup completes.")
         running = _port_state(data_dir, port)
