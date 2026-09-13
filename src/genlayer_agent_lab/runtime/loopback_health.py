@@ -12,14 +12,16 @@ from .container import _bounded_process
 # Only stdlib imports run in the isolated child. HTTPConnection ignores proxy
 # environment variables and never follows redirects. The parent runner bounds
 # trickling headers as well as bodies, without leaving a watchdog thread behind.
+# Keep HTTP/1.1 alive through the body and close from this client in finally.
+# Asking the service to close first can leave its port in TIME_WAIT and prevent
+# the managed service's strict plain-bind check from permitting a quick restart.
 _PROBE = """
 import http.client
 import sys
 
 connection = http.client.HTTPConnection('127.0.0.1', int(sys.argv[1]), timeout=1)
 try:
-    connection.request('GET', sys.argv[2], headers={
-        'Accept-Encoding': 'identity', 'Connection': 'close'})
+    connection.request('GET', sys.argv[2], headers={'Accept-Encoding': 'identity'})
     response = connection.getresponse()
     if response.status != 200 or response.getheader('Content-Encoding', 'identity').lower() not in ('', 'identity'):
         raise ValueError('unrecognized health response')

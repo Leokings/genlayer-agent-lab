@@ -1,6 +1,7 @@
 """Public health probes against isolated local sockets, never a real Lab."""
 
 import json
+import socket
 import socketserver
 import threading
 import time
@@ -14,7 +15,8 @@ from genlayer_agent_lab.runtime.container import CommandResult
 
 
 @contextmanager
-def endpoint(body=b'{"status":"ok"}', *, status=200, encoding=None, trickle=None):
+def endpoint(body=b'{"status":"ok"}', *, status=200, encoding=None, trickle=None,
+             client_closed=None):
     requests = []
 
     class Handler(socketserver.BaseRequestHandler):
@@ -28,7 +30,9 @@ def endpoint(body=b'{"status":"ok"}', *, status=200, encoding=None, trickle=None
                         return
                     request += chunk
                 requests.append(request)
-                head = f"HTTP/1.1 {status} Response\r\nConnection: close\r\n".encode()
+                head = f"HTTP/1.1 {status} Response\r\n".encode()
+                if client_closed is None:
+                    head += b"Connection: close\r\n"
                 if encoding:
                     head += b"Content-Encoding: " + encoding.encode() + b"\r\n"
                 if trickle == "headers":
@@ -37,6 +41,9 @@ def endpoint(body=b'{"status":"ok"}', *, status=200, encoding=None, trickle=None
                     self.request.sendall(head + b"Content-Length: 1024\r\n\r\n")
                 else:
                     self.request.sendall(head + f"Content-Length: {len(body)}\r\n\r\n".encode() + body)
+                    if client_closed is not None and b"\r\nconnection: close\r\n" not in request.lower():
+                        if self.request.recv(1) == b"":
+                            client_closed.set()
                     return
                 # Every byte beats the socket idle timeout; only the parent
                 # command deadline can terminate this response promptly.
@@ -71,6 +78,20 @@ def test_public_setup_probe_has_no_credentials_and_ignores_proxy_environment(mon
     assert b"Accept-Encoding: identity" in requests[0]
     assert b"authorization" not in requests[0].lower()
     assert b"must-not-send-this-token" not in requests[0]
+
+
+def test_keepalive_probe_closes_client_first_so_stopped_service_port_can_rebind():
+    client_closed = threading.Event()
+    with endpoint(client_closed=client_closed) as (port, requests):
+        assert health.fetch_health(port) == {"status": "ok"}
+        # A close request makes an HTTP/1.1 server actively close, which can
+        # leave its listening port in TIME_WAIT after stop on Linux/macOS.
+        # The client must finish the bounded body and close without server EOF.
+        assert client_closed.wait(1), "Health probe asked the service to close first"
+    assert b"\r\nconnection: close\r\n" not in requests[0].lower()
+    with socket.socket() as probe:
+        # Match service.start: do not relax the ownership check with REUSEADDR.
+        probe.bind(("127.0.0.1", port))
 
 
 @pytest.mark.parametrize("trickle", ["headers", "body"])

@@ -25,6 +25,9 @@ the owner's task.
 - Setup checks complete Studio readiness, including isolation and a valid
   validator cohort. Credential-free health probes bound response headers and
   bodies, so a trickling listener cannot hold setup or service checks indefinitely.
+  A native CI restart check caught the probe requesting a server-side close;
+  the probe now lets the client close first so a stopped service port can be
+  reused immediately. Port ownership checks remain unchanged.
 - Service removal waits for observed unloading and loss of the owned health
   response before discarding its recovery metadata.
 - Quick-mode agent `finish` returns only the run identifier and lifecycle status,
@@ -48,6 +51,9 @@ original evidence limits rather than appearing to describe every later change.
   of the final source.
 - **Final focused regression:** 238 passed in 52.51 seconds. These checks cover
   the corrected boundaries and overlap the broader suite; counts are not additive.
+  The subsequent health-probe restart correction passed 141 focused checks,
+  including an HTTP/1.1 client-close and immediate-rebind regression that failed
+  before the correction. Native CI checks that final change on Linux and macOS.
 - **Live Studio/MCP audit: passed.** Actual local Studio changed an appealed
   decision (14 passing report checks), repaired a multi-contract workflow (23),
   and correctly failed the deliberately unsafe control (7 failed report checks).
