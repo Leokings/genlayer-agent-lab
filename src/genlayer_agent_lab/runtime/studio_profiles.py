@@ -32,6 +32,8 @@ CHAIN_ID = 61127
 FIXTURE_SUPPORT = "upstream-validator-config-v0123"
 JSON_FIXTURE_WIRE = "genvm-v03-json-text-v1"
 DEFAULT_PORT = 8796
+BUILD_TIMEOUT_SECONDS = 1800
+BUILD_TIMEOUT_ENV = "LAB_STUDIO_BUILD_TIMEOUT_SECONDS"
 STARTUP_TIMEOUT_SECONDS = 1800
 STARTUP_TIMEOUT_ENV = "LAB_STUDIO_STARTUP_TIMEOUT_SECONDS"
 SOURCE_PATHS = ["backend", "asgi.py", "uvicorn_config.py", "LICENSE", "docker",
@@ -160,6 +162,7 @@ def _json_fixture_patch(source: str) -> str:
 
 
 def build_profile(data_dir: Path, *, port=DEFAULT_PORT, checkout=None, progress=None):
+    wait_seconds = build_timeout()
     with _lock(data_dir):
         state = _initialize(data_dir, port)
         root = profile_root(data_dir)
@@ -192,19 +195,32 @@ def build_profile(data_dir: Path, *, port=DEFAULT_PORT, checkout=None, progress=
                 handle.write("COPY lab-llm.lua /app/backend/node/llm.lua\n")
             if progress:
                 progress("Building fee-enabled Studio and downloading the pinned GenVM release...")
-            legacy._run_stage(root, "build_image", lambda: legacy._command(endpoint,
-                ["build", "--target", "prod", "--label",
+            build_args = ["build", "--progress", "plain", "--target", "prod", "--label",
                 f"{legacy.COMMIT_LABEL}={STUDIO_COMMIT}", "--label",
                 f"{legacy.PATCH_LABEL}={FIXTURE_SUPPORT}", "--label",
                 f"{legacy.OWNER_LABEL}={state['owner']}", "--tag", tag,
-                "--file", str(context / "docker/Dockerfile.backend"), str(context)],
-                timeout=1800, output_limit=8_388_608), timeout=1800, progress=progress,
-                description="build image and download pinned GenVM")
+                "--file", str(context / "docker/Dockerfile.backend"), str(context)]
+            for attempt in range(2):
+                try:
+                    legacy._run_stage(root, "build_image", lambda on_output: legacy._command(
+                        endpoint, build_args, timeout=wait_seconds, output_limit=8_388_608,
+                        on_output=on_output), timeout=wait_seconds, progress=progress,
+                        description="build image and download pinned GenVM", live_output=True)
+                    break
+                except legacy.StudioOperationFailure as exc:
+                    if attempt or exc.diagnostic.get("category") != "timeout":
+                        raise
+                    if progress:
+                        progress(f"The Studio image build reached its {wait_seconds}s time limit. "
+                                 "Automatically retrying once with the same pinned source, build "
+                                 f"context, image tag and Docker cache (another {wait_seconds}s limit).")
         image = _json_output(legacy._command(endpoint,
             ["image", "inspect", tag, "--format", "{{json .}}"]), "modern image inspection")
         labels = image.get("Config", {}).get("Labels", {})
-        if labels.get(legacy.COMMIT_LABEL) != STUDIO_COMMIT:
-            raise RuntimeError("Modern Studio image source mismatch")
+        if any(labels.get(key) != value for key, value in {
+                legacy.COMMIT_LABEL: STUDIO_COMMIT, legacy.PATCH_LABEL: FIXTURE_SUPPORT,
+                legacy.OWNER_LABEL: state["owner"]}.items()):
+            raise RuntimeError("Modern Studio image source, patch or ownership mismatch")
         state["image_id"] = image["Id"]
         state["json_fixture_wire"] = JSON_FIXTURE_WIRE
         _save(root, state)
@@ -223,18 +239,26 @@ def _compose(data_dir, args, *, timeout=30, progress=None):
     stage = "compose_up" if args[0] == "up" else "compose_down"
     description = ("prepare runtime cache and start services" if stage == "compose_up"
                    else "stop owned services")
-    return legacy._run_stage(root, stage, lambda: legacy._command(_endpoint(),
+    return legacy._run_stage(root, stage, lambda on_output: legacy._command(_endpoint(),
         ["compose", "--env-file", str(empty),
         "--project-directory", str(root), "--project-name", "gl-agent-lab-" + state["owner"],
-        "--file", str(path), *args], timeout=timeout, output_limit=8_388_608),
-        timeout=timeout, progress=progress, description=description)
+        "--file", str(path), *args], timeout=timeout, output_limit=8_388_608, on_output=on_output),
+        timeout=timeout, progress=progress, description=description, live_output=True)
+
+
+def _timeout(env_name, default):
+    value = os.environ.get(env_name, str(default))
+    if not re.fullmatch(r"[0-9]{1,4}", value) or not 60 <= int(value) <= 3600:
+        raise ValueError(f"{env_name} must be a whole number from 60 to 3600 seconds.")
+    return int(value)
+
+
+def build_timeout():
+    return _timeout(BUILD_TIMEOUT_ENV, BUILD_TIMEOUT_SECONDS)
 
 
 def startup_timeout():
-    value = os.environ.get(STARTUP_TIMEOUT_ENV, str(STARTUP_TIMEOUT_SECONDS))
-    if not re.fullmatch(r"[0-9]{1,4}", value) or not 60 <= int(value) <= 3600:
-        raise ValueError(f"{STARTUP_TIMEOUT_ENV} must be a whole number from 60 to 3600 seconds.")
-    return int(value)
+    return _timeout(STARTUP_TIMEOUT_ENV, STARTUP_TIMEOUT_SECONDS)
 
 
 def start_profile(data_dir, *, progress=None):
@@ -308,7 +332,9 @@ def modern_profile_status(data_dir):
 
 
 def setup_modern_profile(data_dir, *, port=DEFAULT_PORT, progress=None, checkout=None):
-    startup_timeout()  # Reject an invalid wait budget before downloading or building.
+    # Reject either invalid budget before downloading, building or creating metadata.
+    build_timeout()
+    startup_timeout()
     build_profile(data_dir, port=port, progress=progress, checkout=checkout)
     result = start_profile(data_dir, progress=progress)
     if result.get("ready"):

@@ -1,5 +1,11 @@
 # Runtime troubleshooting
 
+## Slow project Studio preparation
+
+First-time package and GenVM downloads can dominate setup time. Read the current stage's latest redacted command output and its age in `studio-modern/operation-logs/`; an elapsed-time heartbeat alone does not prove progress or health. The project image build retries once at most after an actual timeout, reusing the same Docker cache. Build and Compose have separate time budgets described in [Install](INSTALL.md#advanced-install-from-source). After the bounded retry fails, inspect its diagnostic before starting more work.
+
+Check evidence for the actual bottleneck: a stalled package download, a Docker error, exhausted disk space, or host/WSL memory pressure need different responses. A slow download alone does not justify moving the Lab or buying a larger server. Do not change global WSL memory settings or drop host caches automatically. Preserve images and runtime caches during ordinary retries and demo resets; wiping Docker makes the next preparation cold again. Use [recovery guidance](RECOVERY.md#resume-setup-or-start-another-test) to keep cleanup within the owner's requested scope.
+
 ## Local Studio startup
 
 Use `gl-agent-lab --data-dir YOUR_LAB studio status`. A healthy Docker container

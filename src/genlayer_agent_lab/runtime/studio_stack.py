@@ -15,6 +15,7 @@ import tempfile
 import threading
 import time
 import uuid
+from collections import deque
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -49,6 +50,7 @@ SOURCE_PATHS = ["backend", "asgi.py", "uvicorn_config.py", "LICENSE",
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_SOURCE_BYTES = 256 * 1024 * 1024
 OPERATION_OUTPUT_BYTES = 16_384
+OPERATION_HEARTBEAT_SECONDS = 30
 
 
 class StudioOperationFailure(RuntimeError):
@@ -59,7 +61,7 @@ class StudioOperationFailure(RuntimeError):
         self.log_path = log_path
         code = diagnostic["exit_code"]
         result = diagnostic["category"]
-        if code is not None:
+        if code is not None and result not in {"timeout", "cancelled", "interrupted"}:
             result += f", exit {code}"
         saved = f" Diagnostics: {log_path}." if log_path else " Diagnostics could not be saved."
         super().__init__(f"Studio {diagnostic['stage']} failed ({result}; "
@@ -78,6 +80,10 @@ def _redact_operation_output(value, root):
             values.append(token.read_text(encoding="utf-8").strip())
     except (OSError, UnicodeError):
         pass
+    # A bounded live tail can evict an earlier line of a multiline credential
+    # (for example a private key). Redact its individual nonempty lines too,
+    # otherwise a retained suffix would no longer match the complete value.
+    values.extend(line for secret in tuple(values) for line in secret.splitlines() if line)
     for secret in sorted(set(filter(None, values)), key=len, reverse=True):
         text = text.replace(secret, "[redacted]")
     text = re.sub(r"(?i)(bearer\s+)[^\s\"']+", r"\1[redacted]", text)
@@ -114,14 +120,79 @@ def _save_operation_log(root, diagnostic, path=None):
         return None
 
 
-def _run_stage(root, stage, operation, *, timeout, progress=None, description=None):
+class _StageOutput:
+    """Bounded, thread-safe line assembly; partial output lines are not published."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.lines = deque()
+        self.size = 0
+        self.pending = {"stdout": b"", "stderr": b""}
+        self.discarding = {"stdout": False, "stderr": False}
+        self.truncated = False
+        self.last_output = None
+        self.last_output_at = None
+
+    def __call__(self, chunk, channel):
+        if not chunk:
+            return
+        with self.lock:
+            self.last_output = time.monotonic()
+            self.last_output_at = datetime.now(UTC).isoformat()
+            # Docker progress can use carriage returns instead of newlines.
+            parts = chunk.replace(b"\r", b"\n").split(b"\n")
+            for index, part in enumerate(parts):
+                complete = index < len(parts) - 1
+                if not self.discarding[channel]:
+                    if len(self.pending[channel]) + len(part) > OPERATION_OUTPUT_BYTES:
+                        self.pending[channel] = b""
+                        self.discarding[channel] = self.truncated = True
+                    else:
+                        self.pending[channel] += part
+                if complete:
+                    line = (b"[overlong output line omitted]" if self.discarding[channel]
+                            else self.pending[channel]) + b"\n"
+                    while self.lines and self.size + len(line) > OPERATION_OUTPUT_BYTES:
+                        self.size -= len(self.lines.popleft())
+                        self.truncated = True
+                    if len(line) <= OPERATION_OUTPUT_BYTES:
+                        self.lines.append(line)
+                        self.size += len(line)
+                    else:
+                        self.truncated = True
+                    self.pending[channel] = b""
+                    self.discarding[channel] = False
+
+    def snapshot(self, root):
+        with self.lock:
+            raw = b"".join(self.lines)
+            last = self.last_output
+            at = self.last_output_at
+            truncated = self.truncated
+        # Redact complete lines together, including secrets split across read
+        # chunks. Never retain raw fragments in the JSON log or terminal.
+        tail = _redact_operation_output(raw, root)
+        lines = [line.strip() for line in tail.splitlines() if line.strip()]
+        line = lines[-1] if lines else None
+        return {"output_tail": tail, "output_tail_truncated": truncated,
+                "last_output_at": at,
+                "seconds_since_output": (round(max(0, time.monotonic() - last), 2)
+                                         if last is not None else None),
+                "last_output_line": (line[:240] + ("..." if len(line) > 240 else "")
+                                     if line else None)}
+
+
+def _run_stage(root, stage, operation, *, timeout, progress=None, description=None,
+               live_output=False):
     """Run once with a bounded command, stage progress, and a redacted output tail."""
     description = description or stage.replace("_", " ")
     diagnostic = {"schema_version": 1, "stage": stage, "status": "running",
                   "started_at": datetime.now(UTC).isoformat(), "timeout_seconds": timeout,
                   "elapsed_seconds": 0, "exit_code": None, "category": None,
                   "hint": "", "output_tail": "", "output_tail_truncated": False,
-                  "output_policy": "Known credentials redacted; final 16384 UTF-8 bytes only."}
+                  "last_output_at": None, "seconds_since_output": None,
+                  "last_output_line": None,
+                  "output_policy": "Known credentials redacted; at most 16384 UTF-8 bytes. Live output includes complete lines only."}
     log_path = _save_operation_log(root, diagnostic)
     if progress:
         progress(f"Studio stage: {description} (limit {timeout:g}s).")
@@ -129,23 +200,42 @@ def _run_stage(root, stage, operation, *, timeout, progress=None, description=No
             progress(f"Stage diagnostic: {log_path}")
     started = time.monotonic()
     stopped = threading.Event()
+    output = _StageOutput()
+    diagnostic_lock = threading.Lock()
 
     def heartbeat():
-        while not stopped.wait(30):
+        while not stopped.wait(OPERATION_HEARTBEAT_SECONDS):
+            snapshot = output.snapshot(root)
+            elapsed = max(0, time.monotonic() - started)
+            with diagnostic_lock:
+                if stopped.is_set():
+                    return
+                diagnostic.update(snapshot)
+                diagnostic["elapsed_seconds"] = round(elapsed, 2)
+                if log_path:
+                    _save_operation_log(root, diagnostic, log_path)
             if progress:
+                detail = (f"Last command output {snapshot['seconds_since_output']:.0f}s ago."
+                          if snapshot["seconds_since_output"] is not None
+                          else "No command output received yet.") if live_output else ""
+                if snapshot["last_output_line"]:
+                    detail += f" Last step: {snapshot['last_output_line']}"
                 progress(f"Studio stage still running: {description}; "
-                         f"{time.monotonic() - started:.0f}s elapsed of {timeout:g}s.")
+                         f"{elapsed:.0f}s elapsed of {timeout:g}s. {detail}".rstrip())
 
     reporter = threading.Thread(target=heartbeat, daemon=True, name="studio-stage-progress")
     reporter.start()
     result = error = None
     try:
-        result = operation()
+        result = operation(output) if live_output else operation()
     except (RuntimeError, OSError, ValueError, KeyboardInterrupt) as exc:
         error = exc
     finally:
         stopped.set()
         reporter.join(timeout=1)
+    # Wait for any in-flight bounded log write before final status replaces it.
+    with diagnostic_lock:
+        diagnostic.update(output.snapshot(root))
     diagnostic["elapsed_seconds"] = round(max(0, time.monotonic() - started), 2)
     diagnostic["exit_code"] = getattr(error or result, "returncode", None)
     raw = (getattr(error or result, "stdout", b"") + b"\n"
@@ -158,11 +248,18 @@ def _run_stage(root, stage, operation, *, timeout, progress=None, description=No
     interrupted = isinstance(error, KeyboardInterrupt)
     diagnostic["status"] = "interrupted" if interrupted else "failed" if failed else "completed"
     if failed:
+        kind = getattr(error, "failure_kind", None)
         diagnostic["category"] = ("interrupted" if interrupted
-                                  else "timeout" if error and "timed out" in str(error).lower()
-                                  else "output_limit" if error and "output limit" in str(error).lower()
+                                  else kind if kind in {"timeout", "cancelled", "output_limit"}
+                                  else "timeout" if error and str(error) == "Docker command timed out"
+                                  else "output_limit" if error and str(error) == "Docker command exceeded its output limit"
                                   else "command_failed")
         diagnostic["hint"] = "Inspect this stage's output, then run setup again with the same data directory."
+        if diagnostic["category"] in {"timeout", "cancelled", "interrupted"}:
+            diagnostic["exit_code_note"] = ("Exit code was observed during cleanup after the operation stopped; "
+                                           "it does not establish successful completion.")
+            diagnostic["hint"] = ("The operation was stopped before completion was verified. "
+                                  + diagnostic["hint"])
         if stage == "compose_up":
             diagnostic["hint"] += (" Cold runtime preparation can take tens of minutes. "
                 "A failed wait does not establish why startup failed; containers may still be preparing. "

@@ -46,7 +46,7 @@ uv run gl-agent-lab setup --no-open
 
 If you already have the checkout, enter that directory and run `setup --no-open`. Use the source or supplied artifact version intended for your trial; these commands do not install a candidate from a package registry.
 
-Setup checks prerequisites, prepares or starts the owned project Studio stack, and starts the Lab as a managed user service. It confirms readiness and returns; restarting the setup agent or its Gateway does not stop the Lab. Keep your user session active: closing the last SSH login can stop a Linux user service unless the host already keeps its user manager running after logout. The first preparation can take tens of minutes; setup prints its stage and elapsed time every 30 seconds. For a read-only diagnostic, use `uv run gl-agent-lab setup --check`.
+Setup checks prerequisites, prepares or starts the owned project Studio stack, and starts the Lab as a managed user service. It confirms readiness and returns; restarting the setup agent or its Gateway does not stop the Lab. Keep your user session active: closing the last SSH login can stop a Linux user service unless the host already keeps its user manager running after logout. First-time downloads can be slow; setup reports the stage and elapsed time every 30 seconds. Image builds and Compose also report the latest redacted command output and its age. These updates do not establish readiness by themselves. For a read-only diagnostic, use `uv run gl-agent-lab setup --check`.
 
 ## Leave setup running and return later
 
@@ -64,15 +64,17 @@ tmux attach -t genlayer-lab
 
 Inspect the existing session before starting another setup process. Closing a plain SSH terminal can interrupt preparation; detaching tmux keeps that stage running. Once setup confirms that the managed Lab is ready, its command ends. The Lab then runs independently of tmux and the setup agent. The [user-service requirements](SERVICES.md) still apply to logout or reboot; setup does not enable Linux lingering or create a system service.
 
-If setup ended with an error, open the specific stage log it printed. Logs live in `~/.genlayer-agent-lab/studio-modern/operation-logs/` by default and include elapsed time, timeout, exit status, and redacted output. A Compose failure has its own log, separate from an earlier successful image build.
+If setup ended with an error, open the specific stage log it printed. Logs live in `~/.genlayer-agent-lab/studio-modern/operation-logs/` by default and include elapsed time, timeout, category, observed exit status and redacted output; build/Compose logs also track live output and its age. A Compose failure has its own log, separate from an earlier successful image build. After a timeout or interruption, a zero exit status observed during cleanup is not success.
 
-Ordinary `uv run gl-agent-lab setup --no-open` resumes the owned installation and reuses completed image/precompile work. Keep the same `--data-dir` if you selected one. A failed wait may leave containers still preparing; it does not establish why startup failed. Cold startup waits up to 1800 seconds by default. If the stage diagnostic warrants more time, request a bounded longer wait:
+Ordinary `uv run gl-agent-lab setup --no-open` resumes the owned installation and reuses completed image/precompile work. Keep the same `--data-dir` if you selected one. An image-build timeout gets at most one automatic retry using the same context and cache; other failures and Compose timeouts stop with their diagnostic. A failed Compose wait may leave containers still preparing and does not establish why startup failed.
+
+Build attempts and Compose readiness each default to 1800 seconds. If the failed stage's diagnostic warrants more time, choose its corresponding setting:
 
 ```sh
-LAB_STUDIO_STARTUP_TIMEOUT_SECONDS=3600 uv run gl-agent-lab setup --no-open
+LAB_STUDIO_BUILD_TIMEOUT_SECONDS=3600 uv run gl-agent-lab setup --no-open
 ```
 
-The accepted range is 60–3600 seconds, with 30 additional seconds for the Docker command to exit. Repeated image builds or deleting the data directory are unnecessary for an ordinary startup retry.
+For a Compose readiness timeout, use `LAB_STUDIO_STARTUP_TIMEOUT_SECONDS` instead. Both accept whole numbers from 60 to 3600; Compose gets 30 additional seconds for its Docker command to exit. Each automatic build attempt has the configured build budget. Preserve Docker images and runtime caches when retrying or preparing another demo: wiping them repeats the expensive work. Slow downloads alone do not establish that you need a larger VPS; use the actual stage and resource diagnostics.
 
 ## Open the dashboard from your computer
 

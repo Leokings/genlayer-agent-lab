@@ -1,7 +1,9 @@
 """Guided setup with explicit Docker/service doubles; no host reconfiguration."""
 
 import copy
+import io
 import json
+import sys
 import types
 
 import httpx
@@ -17,6 +19,33 @@ READY = {"installed": True, "image_id": "sha256:test", "ready": True,
          "validator_count": 12, "port": 8796}
 MANAGED = {"installed": True, "running": True, "ready": True, "enabled": True,
            "endpoint": "http://127.0.0.1:8765"}
+
+
+def test_legacy_windows_console_does_not_hide_setup_diagnostics(tmp_path, monkeypatch):
+    from genlayer_agent_lab.runtime.studio_stack import StudioOperationFailure
+
+    diagnostic = {"stage": "build_image", "category": "timeout", "exit_code": 0,
+                  "elapsed_seconds": 1800, "hint": "Resume with the same data directory.",
+                  "output_tail": "Downloading dependency \u2501\u2501\u2578 4.7 MB"}
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="cp1252", errors="strict")
+    with monkeypatch.context() as context:
+        context.setattr(sys, "stdout", stream)
+        setup._failure(StudioOperationFailure(diagnostic, None), tmp_path)
+    output = raw.getvalue().decode("cp1252")
+    assert "build_image" in output and "timeout" in output
+    assert "Downloading dependency" in output and "4.7 MB" in output
+    assert "setup --data-dir" in output
+    assert "UnicodeEncodeError" not in output
+
+
+def test_invalid_build_budget_does_not_initialize_installation(tmp_path, services, monkeypatch, capsys):
+    target = tmp_path / "fresh-installation"
+    monkeypatch.setenv("LAB_STUDIO_BUILD_TIMEOUT_SECONDS", "unbounded")
+    assert setup.run_setup(target) == 2
+    assert not target.exists()
+    assert not services
+    assert "LAB_STUDIO_BUILD_TIMEOUT_SECONDS" in capsys.readouterr().out
 ENVIRONMENT_READY = {"ready": True, "checks": [
     {"id": "service", "status": "pass"}, {"id": "studio", "status": "pass"}]}
 VERIFY_MANAGED_ENVIRONMENT = setup._managed_environment
