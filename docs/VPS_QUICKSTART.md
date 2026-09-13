@@ -46,7 +46,7 @@ uv run gl-agent-lab setup --no-open
 
 If you already have the checkout, enter that directory and run `setup --no-open`. Use the source or supplied artifact version intended for your trial; these commands do not install a candidate from a package registry.
 
-Setup checks prerequisites, prepares or starts the owned project Studio stack, and starts the Lab. Keep this terminal open while its foreground Lab is running. The first preparation can take tens of minutes; setup prints its stage and elapsed time every 30 seconds. For a read-only diagnostic, use `uv run gl-agent-lab setup --check`.
+Setup checks prerequisites, prepares or starts the owned project Studio stack, and starts the Lab as a managed user service. It confirms readiness and returns; restarting the setup agent or its Gateway does not stop the Lab. Keep your user session active: closing the last SSH login can stop a Linux user service unless the host already keeps its user manager running after logout. The first preparation can take tens of minutes; setup prints its stage and elapsed time every 30 seconds. For a read-only diagnostic, use `uv run gl-agent-lab setup --check`.
 
 ## Leave setup running and return later
 
@@ -62,7 +62,7 @@ Inside that session, enter the checkout and run `uv run gl-agent-lab setup --no-
 tmux attach -t genlayer-lab
 ```
 
-Inspect the existing session before starting another setup process. Closing a plain SSH terminal can interrupt foreground setup; detaching tmux keeps it running. Once the Lab is serving, that same tmux session keeps its foreground process alive.
+Inspect the existing session before starting another setup process. Closing a plain SSH terminal can interrupt preparation; detaching tmux keeps that stage running. Once setup confirms that the managed Lab is ready, its command ends. The Lab then runs independently of tmux and the setup agent. The [user-service requirements](SERVICES.md) still apply to logout or reboot; setup does not enable Linux lingering or create a system service.
 
 If setup ended with an error, open the specific stage log it printed. Logs live in `~/.genlayer-agent-lab/studio-modern/operation-logs/` by default and include elapsed time, timeout, exit status, and redacted output. A Compose failure has its own log, separate from an earlier successful image build.
 
@@ -122,7 +122,7 @@ If the page does not open, check the VPS side first, in its terminal:
 curl --fail --max-time 5 http://127.0.0.1:8765/health
 ```
 
-If that cannot connect, inspect the setup/tmux session: the Lab is not yet reachable on the VPS. If it succeeds, check the forwarded side on your own computer. In Windows PowerShell:
+If that cannot connect, ask your setup agent to check the existing installation, or rerun `uv run gl-agent-lab setup --no-open` from its checkout. During a first build, inspect the existing setup/tmux session before starting another. If it succeeds, check the forwarded side on your own computer. In Windows PowerShell:
 
 ```powershell
 curl.exe --fail --max-time 5 http://127.0.0.1:8875/health
@@ -152,8 +152,10 @@ This check establishes the scripted local workflow. Complete a separate run with
 
 ## Return later or stop
 
-Return to the checkout and run `setup --no-open` again to start the same installation. Optional [user startup services](SERVICES.md) have separate host requirements; they do not arrange Docker or Studio startup automatically. `project studio-down` stops the owned Studio stack while preserving its volumes. Follow [backup and recovery instructions](RECOVERY.md) before upgrades.
+Return to the checkout and run `setup --no-open` again to start or check the same installation. The managed Lab service keeps it independent of your agent, but it does not arrange Docker or Studio startup after reboot. Setup checks those dependencies and resumes the owned Studio stack. Follow [backup and recovery instructions](RECOVERY.md) before upgrades.
 
 Creating a fresh reviewed test gives it fresh contracts, a run ID, and a test key; it reuses the Lab installation. An expired test stays expired. Restarting the Lab or rebooting the VPS does not renew a run's deadline, and neither requires erasing the installation. After a reboot, reconnect and use the same setup command; automatic startup has the separate requirements in [Services](SERVICES.md).
 
-Closing the foreground Lab terminal stops that Lab process. On Vultr, powering off the VPS still incurs instance charges; destroying it stops those instance charges and permanently deletes its data. Back up what you need before choosing deletion in the provider console. [Vultr billing for stopped instances](https://docs.vultr.com/support/platform/billing/are-stopped-instances-still-billed-on-vultr).
+To stop the Lab intentionally, finish active tests and use `uv run gl-agent-lab service stop` with the same data directory. `project studio-down` separately stops the owned Studio stack while preserving its volumes. The setup process does not own a managed Lab, but the Linux user-session requirements still apply when disconnecting from SSH. An explicit `setup --foreground` session instead lasts only while its owning terminal or agent keeps it running.
+
+On Vultr, powering off the VPS still incurs instance charges; destroying it stops those instance charges and permanently deletes its data. Back up what you need before choosing deletion in the provider console. [Vultr billing for stopped instances](https://docs.vultr.com/support/platform/billing/are-stopped-instances-still-billed-on-vultr).

@@ -6,7 +6,7 @@ An automated demonstration or scripted reference run is separate evidence. A dev
 
 ## What success looks like
 
-The developer starts with an existing terminal-capable agent and pastes the installation prompt once. The agent prepares missing software, opens a usable Lab, and resumes across necessary local user actions without undocumented maintainer intervention. The developer then completes a reviewed run with the agent they want to test and can explain its actual connection and result.
+The developer starts with an existing terminal-capable agent and pastes the installation prompt once. The agent prepares missing software, leaves the Lab running independently of its terminal, opens a usable dashboard, and resumes across necessary local user actions without undocumented maintainer intervention. The developer then completes a reviewed run with the agent they want to test and can explain its actual connection and result.
 
 A failed agent evaluation can be a successful onboarding outcome if the connection worked and the report clearly explains the failure. A green scripted demo alone does not establish that the developer's own agent connected. An inconclusive runtime failure does not establish completed installation.
 
@@ -22,7 +22,9 @@ These are trial requirements, not results already established by the documentati
 
 | Starting state | What the trial must establish |
 |---|---|
-| Fresh supported host without Docker | Paste the installation prompt; agent detects the host and installs missing dependencies, then verifies Docker service access, Compose, Studio readiness, Lab health and dashboard access. A package-install exit code alone is insufficient. |
+| Fresh supported host without Docker | Paste the installation prompt; agent detects the host and installs missing dependencies, then verifies Docker service access, Compose, Studio readiness, the managed Lab's installed/running/ready/enabled status and expected endpoint, and dashboard access. A package-install exit code or open port alone is insufficient. |
+| Agent or OpenClaw Gateway restart | Confirm the managed Lab is ready before restarting its agent/Gateway, then confirm the same Lab remains reachable and the existing reviewed run can receive its authenticated observation. Record the restart and retained report/history separately from a Lab restart or OS reboot. |
+| Managed service unavailable or older foreground Lab running | Setup reports the actual service restriction or foreground owner without silently falling back to an agent child process, killing a listener or claiming managed success. Any manual foreground choice has an explicit terminal lifetime. |
 | Partially installed host | Agent reuses existing Git/uv/Docker, checkout, selected Docker context, data and completed build stages; installs only missing pieces and preserves unrelated software/model settings. |
 | Password or Docker-group login handoff | Agent states the exact local action, saves the absolute helper path and progress without secrets, and resumes after the user completes it. Its actual running process has refreshed groups; no password enters chat and no restart begins installation again. |
 | Desktop dialog or reboot required | Agent saves the stage, leaves reboot/dialog control to the user, and resumes with the same agent after return; record the actual platform rather than extending one platform's result to another. |
@@ -35,7 +37,7 @@ These are trial requirements, not results already established by the documentati
 3. **Connect the developer's own agent.** Paste the dashboard's generated **agent setup prompt** into a tested-agent context without private grading. Record framework, model, configuration changes, any runtime-restart handoff, and the first observed request. Confirm the developer can distinguish this run-specific message from the earlier installation prompt.
 4. **Complete and explain the run.** Have the agent observe its task, use the permitted tools, and finish. Record the run ID and result. Ask the developer to point to the action or check that explains the outcome, using the readable report before opening Advanced JSON.
 5. **Run one variation.** Change a supported template option or choose another relevant template. Review the new expectations and run the same agent again. Record whether the developer understood what changed and could compare the outcomes.
-6. **Return to the installation.** After runs have finished, stop and start the Lab process. Confirm that the earlier report remains available and the developer knows how to create a new test. Optional startup, logout, or whole-machine reboot checks should be recorded separately.
+6. **Return to the installation.** After runs have finished, let the setup process end and confirm the managed Lab remains available while its user session is active. Check closing the terminal separately from logging out of the last Linux user session. Stop and start the managed Lab deliberately and confirm that the earlier report remains available and the developer knows how to create a new test. Login-triggered startup, logout, or whole-machine reboot checks should be recorded separately; the Lab service does not start Docker or Studio itself.
 
 If a prerequisite or connection blocks progress, retain the exact safe error code and report what the developer tried. Do not silently switch to a different runtime and call the original path successful. For diagnosis, a separate `project verify --case prediction` run can distinguish a scripted installation check from the developer-agent trial.
 
@@ -67,6 +69,7 @@ Starting dependencies present / missing, including Docker:
 Single installation prompt / extra prompts needed:
 Password, OS dialog, login or reboot handoffs / same-agent resume:
 Docker service + Compose / Studio readiness / Lab health evidence:
+Managed Lab status / setup process ended / user session retained / agent or Gateway restart evidence:
 Prerequisite, download, and active setup time:
 Time to dashboard / blockers:
 First template / expectation understood before creation:

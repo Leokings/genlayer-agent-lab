@@ -15,6 +15,11 @@ from genlayer_agent_lab.cli import main
 READY = {"installed": True, "image_id": "sha256:test", "ready": True,
          "runtime_verified": True, "network_internal": True, "fixture_ready": True,
          "validator_count": 12, "port": 8796}
+MANAGED = {"installed": True, "running": True, "ready": True, "enabled": True,
+           "endpoint": "http://127.0.0.1:8765"}
+ENVIRONMENT_READY = {"ready": True, "checks": [
+    {"id": "service", "status": "pass"}, {"id": "studio", "status": "pass"}]}
+VERIFY_MANAGED_ENVIRONMENT = setup._managed_environment
 
 
 @pytest.fixture
@@ -32,8 +37,19 @@ def services(monkeypatch):
         calls.append(("build", a, kw)), copy.deepcopy(READY))[1])
     monkeypatch.setattr(setup.studio_profiles, "start_profile", lambda *a, **kw: (
         calls.append(("start", a)), copy.deepcopy(READY))[1])
-    monkeypatch.setattr(setup, "_port_state", lambda *a: "free")
+    managed = {"installed": False, "running": False, "ready": False}
+    monkeypatch.setattr(setup, "_port_state", lambda *a:
+                        "same_installation" if managed["ready"] else "free")
     monkeypatch.setattr(setup.webbrowser, "open", lambda *a, **kw: (calls.append(("browser", a, kw)), True)[1])
+
+    def install(data_dir, *, port, start_now):
+        calls.append(("managed", data_dir, port, start_now))
+        managed.update(MANAGED, endpoint=f"http://127.0.0.1:{port}")
+        return copy.deepcopy(managed)
+
+    monkeypatch.setattr(setup.service, "install", install)
+    monkeypatch.setattr(setup.service, "status", lambda data_dir: copy.deepcopy(managed))
+    monkeypatch.setattr(setup, "_managed_environment", lambda data_dir, port: None)
 
     def serve(data_dir, port, ready):
         calls.append(("serve", data_dir, port))
@@ -44,7 +60,11 @@ def services(monkeypatch):
     return calls
 
 
-def test_check_is_read_only_and_never_initializes_or_launches(tmp_path, services, capsys):
+def test_check_is_read_only_and_never_initializes_or_launches(tmp_path, services, monkeypatch, capsys):
+    def forbidden_status(*args, **kwargs):
+        raise AssertionError("Read-only setup must not create service metadata")
+
+    monkeypatch.setattr(setup.service, "status", forbidden_status)
     target = tmp_path / "new-installation"
     assert main(["setup", "--data-dir", str(target), "--check"]) == 0
     assert not target.exists() and not services
@@ -55,20 +75,232 @@ def test_ready_studio_is_reused_and_token_never_printed(tmp_path, services, caps
     initialize_data_dir(tmp_path)
     token = read_admin_token(tmp_path)
     assert main(["setup", "--data-dir", str(tmp_path)]) == 0
-    assert [item[0] for item in services] == ["serve", "browser"]
+    assert [item[0] for item in services] == ["managed", "browser"]
+    assert services[0] == ("managed", tmp_path.resolve(), 8765, True)
     assert read_admin_token(tmp_path) == token
     url = services[1][1][0]
     assert url.startswith("http://127.0.0.1:8765/assets/workflows.html#token=")
     assert token in url and "?" not in url
     output = capsys.readouterr()
     assert token not in output.out + output.err and "#token=" not in output.out + output.err
+    assert "independently of this terminal" in output.out
+    assert "Keep this terminal open" not in output.out
 
 
-def test_existing_same_installation_server_is_opened_without_duplicate_serve(tmp_path, services, monkeypatch):
+def test_existing_managed_installation_is_opened_without_duplicate_launch(tmp_path, services, monkeypatch):
     initialize_data_dir(tmp_path)
     monkeypatch.setattr(setup, "_port_state", lambda *a: "same_installation")
+    monkeypatch.setattr(setup.service, "status", lambda *a: copy.deepcopy(MANAGED))
     assert setup.run_setup(tmp_path) == 0
     assert [item[0] for item in services] == ["browser"]
+
+
+def test_existing_foreground_server_is_not_mistaken_for_managed_setup(
+        tmp_path, services, monkeypatch, capsys):
+    initialize_data_dir(tmp_path)
+    token = read_admin_token(tmp_path)
+    monkeypatch.setattr(setup, "_port_state", lambda *a: "same_installation")
+    assert setup.run_setup(tmp_path) == 2
+    assert not services
+    assert read_admin_token(tmp_path) == token
+    output = capsys.readouterr().out
+    assert "Finish any active tests" in output and "No existing process was stopped" in output
+    assert "--foreground" in output and "independently of this terminal" not in output
+
+
+def test_foreground_mode_is_explicit_and_keeps_manual_terminal_behavior(tmp_path, services, capsys):
+    assert main(["setup", "--data-dir", str(tmp_path), "--foreground"]) == 0
+    assert [item[0] for item in services] == ["serve", "browser"]
+    output = capsys.readouterr().out
+    assert "Keep this terminal open" in output
+    assert "independently of this terminal" not in output
+
+
+def test_linux_managed_setup_explains_user_session_lifetime(tmp_path, services, monkeypatch, capsys):
+    monkeypatch.setattr(setup.platform, "system", lambda: "Linux")
+    assert setup.run_setup(tmp_path, no_open=True) == 0
+    output = capsys.readouterr().out
+    assert "restart your agent without stopping the Lab" in output
+    assert "service depends on your user session" in output
+    assert "last VPS login" in output and "user services running after sign-out" in output
+    assert "close this setup terminal" not in output
+
+
+def test_foreground_mode_can_reuse_existing_server_without_registering_startup(
+        tmp_path, services, monkeypatch):
+    initialize_data_dir(tmp_path)
+    monkeypatch.setattr(setup, "_port_state", lambda *a: "same_installation")
+
+    def forbidden_status(*args, **kwargs):
+        raise AssertionError("Explicit foreground reuse needs no service-manager operation")
+
+    monkeypatch.setattr(setup.service, "status", forbidden_status)
+    assert setup.run_setup(tmp_path, foreground=True) == 0
+    assert [item[0] for item in services] == ["browser"]
+
+
+@pytest.mark.parametrize("failure", [
+    {"ready": False}, {"installed": False}, {"running": False}, {"enabled": False},
+    {"endpoint": "http://127.0.0.1:9999"},
+])
+def test_unverified_managed_service_never_falls_back_to_agent_terminal(
+        tmp_path, services, monkeypatch, capsys, failure):
+    monkeypatch.setattr(setup.service, "install", lambda *a, **kw: {**MANAGED, **failure})
+    assert setup.run_setup(tmp_path) == 2
+    assert not services
+    output = capsys.readouterr().out
+    assert "managed service is not ready" in output
+    assert "service status" in output and "service/service.log" in output
+    assert "independently of this terminal" not in output
+
+
+@pytest.mark.parametrize("code,message", [
+    ("access_denied", "Windows Task Scheduler denied current-user registration or control"),
+    ("manager_unavailable", "The systemd user manager is unavailable; use a logged-in user session"),
+])
+def test_service_manager_restriction_preserves_actionable_failure_without_fallback(
+        tmp_path, services, monkeypatch, capsys, code, message):
+    def blocked(*args, **kwargs):
+        raise setup.service.ServiceError(code, message)
+
+    monkeypatch.setattr(setup.service, "install", blocked)
+    assert setup.run_setup(tmp_path, no_open=True) == 2
+    assert not services
+    output = capsys.readouterr().out
+    assert message in output
+    assert "setup --data-dir" in output and "--no-open" in output
+    assert "independently of this terminal" not in output
+
+
+def test_service_readiness_does_not_replace_actual_installation_health_proof(
+        tmp_path, services, monkeypatch):
+    states = iter(["free", "free", "occupied"])
+    monkeypatch.setattr(setup, "_port_state", lambda *a: next(states))
+    assert setup.run_setup(tmp_path) == 2
+    assert [item[0] for item in services] == ["managed"]
+
+
+@pytest.fixture
+def managed_environment_http(monkeypatch, services):
+    original_client = httpx.Client
+    monkeypatch.setattr(setup, "_managed_environment", VERIFY_MANAGED_ENVIRONMENT)
+
+    def install(handler):
+        def streaming_handler(request):
+            response = handler(request)
+            return httpx.Response(response.status_code, headers=response.headers,
+                                  stream=httpx.ByteStream(response.content))
+
+        def client(**kwargs):
+            assert kwargs["follow_redirects"] is False and kwargs["trust_env"] is False
+            return original_client(transport=httpx.MockTransport(streaming_handler), **kwargs)
+
+        monkeypatch.setattr(setup.httpx, "Client", client)
+
+    return install
+
+
+def test_managed_setup_checks_studio_inside_service_and_waits_for_pending_probe(
+        tmp_path, services, managed_environment_http, monkeypatch):
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        assert request.url == "http://127.0.0.1:8765/v1/onboarding/status"
+        assert request.headers["Authorization"] == "Bearer " + read_admin_token(tmp_path)
+        assert request.headers["Accept-Encoding"] == "identity"
+        result = (ENVIRONMENT_READY if len(requests) > 1 else {
+            "ready": False, "checks": [
+                {"id": "service", "status": "pass"}, {"id": "studio", "status": "pending"}]})
+        return httpx.Response(200, json=result)
+
+    managed_environment_http(handler)
+    monkeypatch.setattr(setup.time, "sleep", lambda _: None)
+    assert setup.run_setup(tmp_path, no_open=True) == 0
+    assert len(requests) == 2
+    assert [item[0] for item in services] == ["managed"]
+
+
+@pytest.mark.parametrize("response", [
+    {"ready": False, "checks": [
+        {"id": "service", "status": "pass"}, {"id": "studio", "status": "fail"}]},
+    {"ready": True, "checks": [{"id": "service", "status": "pass"}]},
+    {"ready": True, "checks": "invalid"},
+])
+def test_terminal_readiness_cannot_hide_service_environment_failure(
+        tmp_path, services, managed_environment_http, capsys, response):
+    managed_environment_http(lambda request: httpx.Response(200, json=response))
+    assert setup.run_setup(tmp_path) == 2
+    assert [item[0] for item in services] == ["managed"]
+    output = capsys.readouterr().out
+    assert "Docker context in the service may differ from this setup terminal" in output
+    assert "independently of this terminal" not in output
+    assert read_admin_token(tmp_path) not in output
+
+
+def test_environment_credentials_are_not_sent_when_installation_proof_fails(
+        tmp_path, services, managed_environment_http, monkeypatch):
+    requests = []
+    managed_environment_http(lambda request: requests.append(request) or httpx.Response(200, json=ENVIRONMENT_READY))
+    states = iter(["free", "free", "occupied"])
+    monkeypatch.setattr(setup, "_port_state", lambda *a: next(states))
+    assert setup.run_setup(tmp_path) == 2
+    assert not requests
+
+
+@pytest.mark.parametrize("failure", ["redirect", "large", "malformed", "timeout", "unauthorized"])
+def test_managed_environment_http_errors_are_bounded_private_and_not_redirected(
+        tmp_path, services, managed_environment_http, capsys, failure):
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        assert len(requests) == 1, "A failed environment request must not follow a redirect or retry"
+        if failure == "redirect":
+            return httpx.Response(302, headers={"Location": "http://unrelated.invalid/collect"})
+        if failure == "large":
+            return httpx.Response(200, content=b" " * 16_385)
+        if failure == "malformed":
+            return httpx.Response(200, content=b"private-service-detail")
+        if failure == "unauthorized":
+            return httpx.Response(401, content=b"private-service-detail")
+        raise httpx.ReadTimeout("private-service-detail " + request.headers["Authorization"], request=request)
+
+    managed_environment_http(handler)
+    assert setup.run_setup(tmp_path) == 2
+    assert len(requests) == 1
+    assert [item[0] for item in services] == ["managed"]
+    output = capsys.readouterr().out
+    assert "private-service-detail" not in output and read_admin_token(tmp_path) not in output
+
+
+def test_managed_environment_pending_has_overall_deadline(
+        tmp_path, services, managed_environment_http, monkeypatch, capsys):
+    requests = []
+    clock = [0.0]
+    monkeypatch.setattr(setup.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(setup.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
+    monkeypatch.setattr(setup, "MANAGED_ENVIRONMENT_TIMEOUT_SECONDS", 1)
+
+    def handler(request):
+        requests.append(request)
+        assert len(requests) <= 2, "A pending service probe must stop at the overall deadline"
+        return httpx.Response(200, json={"ready": False, "checks": [
+            {"id": "service", "status": "pass"}, {"id": "studio", "status": "pending"}]})
+
+    managed_environment_http(handler)
+    assert setup.run_setup(tmp_path) == 2
+    assert len(requests) == 2 and clock[0] == 1
+    assert "environment check timed out" in capsys.readouterr().out
+    assert [item[0] for item in services] == ["managed"]
+
+
+def test_foreground_failure_keeps_explicit_lifetime_in_resume_command(
+        tmp_path, services, monkeypatch, capsys):
+    monkeypatch.setattr(setup, "_serve", lambda *args: False)
+    assert setup.run_setup(tmp_path, foreground=True, no_open=True, port=8888) == 2
+    assert not services
+    assert "--port 8888 --no-open --foreground" in capsys.readouterr().out
 
 
 def test_unrecognized_port_blocks_before_initializing_or_starting_studio(tmp_path, services, monkeypatch, capsys):
@@ -84,7 +316,7 @@ def test_only_missing_builds_are_built_and_stopped_profiles_are_started(tmp_path
     state = {**READY, "ready": False, "runtime_verified": False} if built else {"installed": False}
     monkeypatch.setattr(setup.studio_profiles, "modern_profile_status", lambda _: state)
     assert setup.run_setup(tmp_path, no_open=True) == 0
-    assert [item[0] for item in services] == [expected, "serve"]
+    assert [item[0] for item in services] == [expected, "managed"]
 
 
 def test_failed_studio_readiness_prevents_lab_and_browser_launch(tmp_path, services, monkeypatch, capsys):
@@ -100,7 +332,7 @@ def test_headless_setup_prints_guided_opening_without_credentials_or_placeholder
     if ssh:
         monkeypatch.setenv("SSH_CONNECTION", "203.0.113.2 10000 203.0.113.5 22")
     assert setup.run_setup(tmp_path, port=8888, no_open=explicit) == 0
-    assert [item[0] for item in services] == ["serve"]
+    assert [item[0] for item in services] == ["managed"]
     output = capsys.readouterr().out
     assert "?location=vps&lab_port=8888#open-dashboard" in output
     assert "Connect this browser" in output
@@ -354,7 +586,7 @@ def test_headless_linux_without_display_never_launches_text_browser(tmp_path, se
     monkeypatch.delenv("DISPLAY", raising=False)
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     assert setup.run_setup(tmp_path) == 0
-    assert [item[0] for item in services] == ["serve"]
+    assert [item[0] for item in services] == ["managed"]
 
 
 def test_port_claimed_during_studio_start_never_opens_or_starts_another_service(tmp_path, services, monkeypatch):
@@ -365,7 +597,7 @@ def test_port_claimed_during_studio_start_never_opens_or_starts_another_service(
 
 
 def test_failed_service_start_does_not_open_browser(tmp_path, services, monkeypatch):
-    monkeypatch.setattr(setup, "_serve", lambda *a: False)
+    monkeypatch.setattr(setup.service, "install", lambda *a, **kw: {**MANAGED, "ready": False})
     assert setup.run_setup(tmp_path) == 2
     assert not services
 

@@ -59,6 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--port", type=int, default=DEFAULT_PORT, help="Loopback Lab port (default 8765)")
     setup.add_argument("--no-open", action="store_true", help="Show connection instructions without opening a browser")
     setup.add_argument("--check", action="store_true", help="Read-only prerequisite and installation status checks")
+    setup.add_argument("--foreground", action="store_true",
+                       help="Keep the Lab in this terminal instead of installing its user startup service")
     dashboard = command("dashboard", "Approve your browser's sign-in request")
     dashboard.add_argument("dashboard_operation", choices=["approve"])
     dashboard.add_argument("code", help="The sign-in code shown in your own browser")
@@ -429,7 +431,8 @@ def main(argv: list[str] | None = None, *, engine_factory: Any = None) -> int:
                 raise ValueError("Setup manages this local installation. Omit --url and LAB_URL.")
             from .onboarding_setup import run_setup
 
-            return run_setup(args.data_dir, port=args.port, no_open=args.no_open, check=args.check)
+            return run_setup(args.data_dir, port=args.port, no_open=args.no_open, check=args.check,
+                             foreground=args.foreground)
         if args.command == "dashboard":
             if args.url:
                 raise ValueError("Approve on the machine running this Lab. Omit --url and LAB_URL.")

@@ -25,7 +25,7 @@ from urllib.parse import quote
 
 import httpx
 
-from . import __version__
+from . import __version__, service
 from .runtime import container, studio_profiles
 
 DOCKER_ENGINE_URL = "https://docs.docker.com/engine/install/"
@@ -34,6 +34,7 @@ COMPOSE_URL = "https://docs.docker.com/compose/install/linux/"
 GIT_URL = "https://git-scm.com/downloads"
 SETUP_SKILL_URL = "https://github.com/Leokings/genlayer-agent-lab/blob/main/skills/setup-genlayer-agent-lab/SKILL.md"
 SETUP_PAGE_URL = "https://genlayer-agent-lab-setup.vercel.app/"
+MANAGED_ENVIRONMENT_TIMEOUT_SECONDS = 60
 
 
 def installation_identity(data_dir, token):
@@ -207,12 +208,13 @@ def _redact(text, token=None):
     return text
 
 
-def _resume_command(data_dir, port, no_open):
+def _resume_command(data_dir, port, no_open, foreground=False):
     return (f"{_cli()} setup --data-dir {_shell_word(data_dir)} --port {port}"
-            + (" --no-open" if no_open else ""))
+            + (" --no-open" if no_open else "")
+            + (" --foreground" if foreground else ""))
 
 
-def _failure(exc, data_dir, *, port=8765, no_open=False):
+def _failure(exc, data_dir, *, port=8765, no_open=False, foreground=False):
     from .api import read_admin_token
 
     try:
@@ -229,7 +231,7 @@ def _failure(exc, data_dir, *, port=8765, no_open=False):
         if tail:
             _say("Recent output from the failed stage:\n" + _redact(tail, token))
     _say("Inspect the reported stage, then resume this installation; saved data and runtime cache are preserved:")
-    _say("  " + _resume_command(data_dir, port, no_open))
+    _say("  " + _resume_command(data_dir, port, no_open, foreground))
 
 
 def _serve(data_dir, port, on_ready):
@@ -264,8 +266,84 @@ def _serve(data_dir, port, on_ready):
     return server.started
 
 
-def run_setup(data_dir, *, port=8765, no_open=False, check=False):
-    """Check, initialize, reuse/start project Studio, and launch the foreground Lab."""
+def _managed_environment(data_dir, port):
+    """Check Studio from the identity-verified Lab process, not this terminal."""
+    from .api import read_admin_token
+
+    token = read_admin_token(data_dir)
+    deadline = time.monotonic() + MANAGED_ENVIRONMENT_TIMEOUT_SECONDS
+    url = f"http://127.0.0.1:{port}/v1/onboarding/status"
+    unavailable = (
+        "The Lab's user service is responding, but it could not verify its Studio runtime. "
+        "Docker access or the Docker context in the service may differ from this setup terminal. "
+        "Inspect this installation's environment status and service/service.log, then retry setup.")
+    _say("Checking that the running Lab service can use its Studio environment...")
+    try:
+        with httpx.Client(timeout=3, follow_redirects=False, trust_env=False) as client:
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RuntimeError(unavailable + " The service's environment check timed out.")
+                with client.stream("GET", url, timeout=min(3, remaining), headers={
+                        "Authorization": "Bearer " + token, "Accept-Encoding": "identity"}) as response:
+                    if response.status_code != 200:
+                        raise RuntimeError(unavailable)
+                    body = bytearray()
+                    for chunk in response.iter_raw():
+                        body.extend(chunk)
+                        if len(body) > 16_384 or time.monotonic() >= deadline:
+                            raise RuntimeError(unavailable)
+                result = json.loads(body)
+                if type(result) is not dict or type(result.get("checks")) is not list:
+                    raise RuntimeError(unavailable)
+                checks = {item.get("id"): item.get("status") for item in result["checks"]
+                          if type(item) is dict and type(item.get("id")) is str}
+                if (result.get("ready") is True and checks.get("service") == "pass"
+                        and checks.get("studio") == "pass"):
+                    return
+                if checks.get("service") != "pass" or checks.get("studio") != "pending":
+                    raise RuntimeError(unavailable)
+                time.sleep(min(.5, max(0, deadline - time.monotonic())))
+    except (httpx.HTTPError, httpx.StreamError, ValueError, OSError):
+        # The status body and exception can contain private paths/headers. Keep
+        # service-context guidance fixed instead of printing the HTTP response.
+        raise RuntimeError(unavailable) from None
+
+
+def _managed_lab(data_dir, port, running):
+    """Verify a Lab owned by the user service manager, not the setup terminal."""
+    if running == "same_installation":
+        managed = service.status(data_dir)
+        if not managed.get("installed") or not managed.get("running"):
+            raise RuntimeError(
+                "This Lab is running in a foreground terminal, without a ready managed service. "
+                "Finish any active tests, stop it through that terminal, then rerun setup to keep "
+                "the Lab running independently of your agent. To keep using that terminal "
+                "deliberately, run setup with --foreground. No existing process was stopped.")
+    else:
+        _say("Starting the Lab as your user service, independently of this setup terminal...")
+        managed = service.install(data_dir, port=port, start_now=True)
+    if (any(managed.get(key) is not True for key in ("installed", "running", "ready", "enabled"))
+            or managed.get("endpoint") != f"http://127.0.0.1:{port}"):
+        raise RuntimeError(
+            "The Lab's managed service is not ready at the selected port. "
+            "Inspect `service status` with this data directory and its service/service.log, "
+            "then retry setup. The Lab was not started in a temporary agent terminal.")
+    if _port_state(data_dir, port) != "same_installation":
+        raise RuntimeError(
+            "The managed Lab did not pass this installation's health check. "
+            "Inspect `service status` with this data directory, then retry setup.")
+    _managed_environment(data_dir, port)
+    _say("The Lab is running independently of this terminal and your setup agent.")
+    if platform.system() == "Linux":
+        _say("You can restart your agent without stopping the Lab. On Linux, the service depends on your user session.")
+        _say("Before disconnecting the last VPS login, confirm the host keeps user services running after sign-out.")
+    else:
+        _say("You can close this setup terminal or restart your agent without stopping the Lab.")
+
+
+def run_setup(data_dir, *, port=8765, no_open=False, check=False, foreground=False):
+    """Prepare project Studio and start a managed Lab, with explicit foreground opt-in."""
     from .api import initialize_data_dir
 
     data_dir = Path(data_dir).expanduser().resolve()
@@ -311,8 +389,8 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False):
                     or platform.system() == "Linux" and not any(
                         os.environ.get(key) for key in ("DISPLAY", "WAYLAND_DISPLAY")))
         if not state.get("ready"):
-            _say("Setup runs in this foreground terminal. To return later, resume with:")
-            _say("  " + _resume_command(data_dir, port, headless))
+            _say("Studio preparation runs in this terminal. To return later, resume with:")
+            _say("  " + _resume_command(data_dir, port, headless, foreground))
             if headless and platform.system() == "Linux":
                 _say("For unattended SSH setup, start it inside tmux. Detach with Ctrl+B, then D; "
                      "reconnect with `tmux attach`. Closing a plain SSH terminal can interrupt setup.")
@@ -332,12 +410,16 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False):
             raise RuntimeError("Project Studio has no configured validator cohort. "
                                "Inspect `project studio-status`, then resume setup after startup completes.")
         running = _port_state(data_dir, port)
+        if running == "occupied":
+            raise RuntimeError(f"Port {port} became occupied while Studio started. Run setup with another --port.")
+        if not foreground:
+            _managed_lab(data_dir, port, running)
+            _open_dashboard(data_dir, port, headless=headless)
+            return 0
         if running == "same_installation":
             _say("The Lab is already running for this installation.")
             _open_dashboard(data_dir, port, headless=headless)
             return 0
-        if running == "occupied":
-            raise RuntimeError(f"Port {port} became occupied while Studio started. Run setup with another --port.")
         _say(f"Starting the Lab at http://127.0.0.1:{port}. Keep this terminal open; Ctrl+C stops the Lab.")
         started = _serve(data_dir, port, lambda: _open_dashboard(data_dir, port, headless=headless))
         if not started:
@@ -345,5 +427,5 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False):
         _say("The foreground Lab has stopped. Use `project studio-down` when you also want to stop Studio.")
         return 0
     except (OSError, RuntimeError, ValueError) as exc:
-        _failure(exc, data_dir, port=port, no_open=no_open)
+        _failure(exc, data_dir, port=port, no_open=no_open, foreground=foreground)
         return 2

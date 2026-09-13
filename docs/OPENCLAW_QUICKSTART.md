@@ -1,6 +1,6 @@
 # Connect an existing OpenClaw agent
 
-Use this after [Lab setup and dashboard access](VPS_QUICKSTART.md) work and your chosen OpenClaw agent can already answer a normal message. Keep its existing model and provider settings. This guide connects the Lab's tools; OpenClaw is optional.
+Use this after [Lab setup and dashboard access](VPS_QUICKSTART.md) work and your chosen OpenClaw agent can already answer a normal message. Normal setup runs the Lab independently, so restarting OpenClaw does not stop it. Keep its existing model and provider settings. This guide connects the Lab's tools; OpenClaw is optional.
 
 ## Prepare the agent
 
@@ -31,14 +31,16 @@ Dashboard project tests allow 60 minutes for connection and runtime preparation.
 
 ## Apply the connection to the running agent
 
-The generated prompt stops at the OpenClaw restart boundary. After the agent saves its connector, run these in the **OpenClaw host's terminal**, using the account/profile that owns its Gateway:
+Before the Gateway restart, the setup agent must confirm that the Lab's managed service is installed, running, ready and enabled at the expected address. On the Lab host, it uses the known installation's `gl-agent-lab --data-dir PATH service status`; this read-only check needs no workspace key. A working dashboard or open port alone does not establish independence from OpenClaw. If the Lab still runs inside an older agent terminal, finish active tests and let the setup agent switch that installation to normal `setup` before creating a fresh reviewed test. Keep the tested agent away from owner credentials and private grading.
+
+The generated prompt stops at the OpenClaw restart boundary. Once the independent Lab is confirmed and the agent has saved its connector, run these in the **OpenClaw host's terminal**, using the account/profile that owns its Gateway:
 
 ```sh
 openclaw gateway restart
 openclaw gateway status
 ```
 
-Then open a fresh chat with the **same named agent**. Give it the Lab's **Copy start prompt** and ask it to discover the configured Lab tools through its native tool search. It must call that connector's actual `observe` tool before carrying out the public task and finishing. Tool names can differ between hosts; use the names and schemas returned by discovery.
+Then confirm the Lab still responds and open a fresh chat with the **same named agent**. Give it the Lab's **Copy start prompt** and ask it to discover the configured Lab tools through its native tool search. It must call that connector's actual `observe` tool before carrying out the public task and finishing. Use the same reviewed run after the Gateway restart; the Lab was not restarted. Tool names can differ between hosts; use the names and schemas returned by discovery.
 
 `openclaw mcp reload` affects only that CLI process. A successful configuration save or CLI probe does not prove the running Gateway session has loaded the tools. Repeated child-agent attempts and MCP Apps/view APIs do not repair this connection. If tools are still missing after the owning Gateway restarts, inspect the saved server, its agent scope, and Gateway diagnostics, then report the precise blocker.
 
