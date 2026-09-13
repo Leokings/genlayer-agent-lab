@@ -12,7 +12,7 @@ For an interrupted download or Studio startup, first inspect the existing setup 
 uv run gl-agent-lab setup --no-open
 ```
 
-Include the original `--data-dir PATH` if customized. Setup reuses the owned image, database, and completed precompile cache. Its current-stage diagnostic is under `studio-modern/operation-logs/`; inspect that stage's elapsed time, exit status, and redacted output. A Compose timeout can leave containers still preparing and is not evidence that the image build failed. Cold startup waits 1800 seconds by default; `LAB_STUDIO_STARTUP_TIMEOUT_SECONDS` accepts 60–3600 seconds, with a further 30-second Docker command allowance. See [unattended VPS setup](VPS_QUICKSTART.md#leave-setup-running-and-return-later).
+Include the original `--data-dir PATH` if customized. Setup reuses the owned image, database, and completed precompile cache. Its current-stage diagnostic is under `studio-modern/operation-logs/`; inspect that stage's elapsed time, exit status, latest redacted output and time since output. An image-build timeout gets at most one automatic retry with the same build context and cache. Each attempt uses `LAB_STUDIO_BUILD_TIMEOUT_SECONDS` (default 1800). Compose separately uses `LAB_STUDIO_STARTUP_TIMEOUT_SECONDS` (default 1800, plus 30 seconds for the Docker command to exit), without an automatic retry. Both settings accept whole numbers from 60 to 3600. A Compose timeout can leave containers still preparing and is not evidence that the image build failed. See [unattended VPS setup](VPS_QUICKSTART.md#leave-setup-running-and-return-later).
 
 | What you need | Action |
 |---|---|
@@ -22,6 +22,8 @@ Include the original `--data-dir PATH` if customized. Setup reuses the owned ima
 | Move or roll back saved history | Use the offline backup/restore procedure below and account separately for Studio volumes. |
 
 An expired run remains expired. Dashboard project tests allow 60 minutes for preparation and connection, then start the full selected test duration once Studio is ready and an authenticated agent observation has occurred. Restarts do not reset either deadline. CLI/API runs retain immediate deadlines unless HTTP creation requests `wait_for_agent: true`. A fresh test uses the existing installation; deleting it also discards the history and cache you are trying to reuse.
+
+For a requested demo reset, normally limit removal to the Lab test state and history the owner authorized, preserving Docker images and reusable runtime caches. A request to retry setup or start another test does not authorize deleting saved data. If a full cold-install trial is explicitly requested, retain anything the owner wants to keep and account for rebuilding all removed images and caches. Do not treat Docker factory reset, system prune or broad directory deletion as routine Lab cleanup.
 
 ## What the archive preserves
 

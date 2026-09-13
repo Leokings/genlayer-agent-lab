@@ -90,7 +90,12 @@ def _windows_job(process):
 
 
 def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
-                     cancel_event=None, env=None):
+                     cancel_event=None, env=None, on_output=None):
+    """Run with bounded capture; optional output observers must return promptly.
+
+    Observers receive (captured bytes, "stdout"/"stderr"), before redaction, and
+    must not publish them directly. Observer errors cannot change the outcome.
+    """
     if cancel_event is not None and cancel_event.is_set():
         raise RuntimeError("Container evaluation cancelled")
     kwargs = ({"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt"
@@ -132,7 +137,7 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
     if os.name == "nt":
         return _windows_pipe_process(
             process, terminate_group, payload=payload, timeout=timeout,
-            output_limit=output_limit, cancel_event=cancel_event,
+            output_limit=output_limit, cancel_event=cancel_event, on_output=on_output,
         )
     output = [bytearray(), bytearray()]
     overflow = threading.Event()
@@ -142,12 +147,16 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
     def drain(stream, index):
         nonlocal total
         try:
-            while chunk := stream.read(16_384):
+            # read() can wait for a full buffer despite a flushed progress line.
+            # Only live observers need the immediate buffered read1 behavior.
+            read = stream.read1 if on_output is not None else stream.read
+            while chunk := read(16_384):
                 with lock:
                     total += len(chunk)
                     remaining = output_limit - sum(map(len, output))
                     if remaining > 0:
                         output[index].extend(chunk[:remaining])
+                        _notify_output(on_output, chunk[:remaining], index)
                     if total > output_limit:
                         overflow.set()
                         break
@@ -203,12 +212,30 @@ def _bounded_process(args, *, payload=b"", timeout=8, output_limit=OUTPUT_LIMIT,
         error.stdout = bytes(output[0])
         error.stderr = bytes(output[1])
         error.returncode = process.returncode
+        error.failure_kind = _process_failure_kind(failure, overflow.is_set())
         raise error
     return CommandResult(process.returncode, bytes(output[0]), bytes(output[1]))
 
 
+def _notify_output(callback, chunk, index):
+    if callback is not None and chunk:
+        try:
+            callback(chunk, "stdout" if index == 0 else "stderr")
+        except Exception:
+            # Observability is optional; do not leak callback errors/credentials
+            # or stop draining a child's bounded pipes when a reporter fails.
+            pass
+
+
+def _process_failure_kind(failure, overflow=False):
+    return {"Docker command timed out": "timeout",
+            "Container evaluation cancelled": "cancelled",
+            "Docker command exceeded its output limit": "output_limit"}.get(
+                failure, "output_limit" if overflow else "command_failed")
+
+
 def _windows_pipe_process(process, terminate_group, *, payload, timeout,
-                          output_limit, cancel_event):
+                          output_limit, cancel_event, on_output=None):
     """Poll unbuffered pipes without waiting for inherited handles to reach EOF.
 
     Python 3.12+ supports nonblocking Windows pipes. A Docker CLI/plugin can exit
@@ -238,6 +265,7 @@ def _windows_pipe_process(process, terminate_group, *, payload, timeout,
                     break
                 remaining = max(0, output_limit - total)
                 output[index].extend(chunk[:remaining])
+                _notify_output(on_output, chunk[:remaining], index)
                 total += len(chunk)
                 if total > output_limit:
                     return
@@ -292,6 +320,7 @@ def _windows_pipe_process(process, terminate_group, *, payload, timeout,
         error.stdout = bytes(output[0])
         error.stderr = bytes(output[1])
         error.returncode = process.returncode
+        error.failure_kind = _process_failure_kind(failure, total > output_limit)
         raise error
     return CommandResult(process.returncode, bytes(output[0]), bytes(output[1]))
 

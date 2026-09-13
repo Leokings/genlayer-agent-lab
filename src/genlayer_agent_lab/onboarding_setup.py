@@ -52,7 +52,14 @@ def installation_proof(token, nonce):
 
 
 def _say(message):
-    print(message, flush=True)
+    try:
+        print(message, flush=True)
+    except UnicodeEncodeError:
+        # Windows agent terminals can still use a legacy encoding. A download
+        # progress glyph must not hide the real failure or prevent its retry.
+        encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+        safe = str(message).encode(encoding, errors="backslashreplace").decode(encoding)
+        print(safe, flush=True)
 
 
 def _prerequisite_handoff():
@@ -383,6 +390,7 @@ def run_setup(data_dir, *, port=8765, no_open=False, check=False, foreground=Fal
                             else f"port {port} is available"))
             _say("Prerequisites passed. Run setup without --check to open the Lab.")
             return 0
+        studio_profiles.build_timeout()
         studio_profiles.startup_timeout()
         initialize_data_dir(data_dir)
         headless = (no_open or bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
